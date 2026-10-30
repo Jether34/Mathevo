@@ -1,0 +1,66 @@
+name: mathverse-cloud
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: mathverse
+      POSTGRES_USER: mathverse_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in backend/.env}
+    volumes:
+      - mathverse_db:/var/lib/postgresql/data
+      - ./migrations:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mathverse_app -d mathverse"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks: [private]
+    security_opt: ["no-new-privileges:true"]
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://mathverse_app:${POSTGRES_PASSWORD}@db:5432/mathverse
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in backend/.env}
+      JWT_ISSUER: mathverse-api
+      ACCESS_TOKEN_MINUTES: 20
+      REFRESH_TOKEN_DAYS: 30
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [private]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,noexec,nosuid
+    security_opt: ["no-new-privileges:true"]
+    cap_drop: [ALL]
+
+  gateway:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      # Dedicated HTTPS port; leaves existing ports 80/443 untouched.
+      - "0.0.0.0:18443:8443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/run/certs:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [api]
+    networks: [private, edge]
+    read_only: true
+    tmpfs:
+      - /tmp:size=16M,noexec,nosuid
+
+networks:
+  private:
+    internal: true
+  edge:
+    driver: bridge
+
+volumes:
+  mathverse_db:
+  caddy_data:
+  caddy_config:

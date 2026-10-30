@@ -1,0 +1,8 @@
+:8443 {
+	tls /run/certs/server.crt /run/certs/server.key
+	reverse_proxy api:8080
+	log {
+		output stdout
+		format json
+	}
+}

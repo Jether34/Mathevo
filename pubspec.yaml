@@ -1,0 +1,32 @@
+name: mathevo
+description: An offline-first mathematics studio and scientific calculator.
+publish_to: none
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.12.0 <4.0.0'
+  flutter: '>=3.44.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  math_expressions: ^3.2.0
+  shared_preferences: ^2.5.3
+  image_picker: ^1.1.2
+  google_mlkit_text_recognition: ^0.17.1
+  crypto: ^3.0.8
+  flutter_secure_storage: ^11.2.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  integration_test:
+    sdk: flutter
+
+flutter:
+  uses-material-design: true
+  assets:
+    - Animated/
+    - assets/certs/

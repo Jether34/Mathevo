@@ -1,0 +1,26 @@
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+backend/.env
+backend/.venv/
+backend/__pycache__/
+**/__pycache__/
+*.py[cod]
+.pytest_cache/
+.idea/
+.vscode/
+.android/
+android/local.properties
+ios/Flutter/ephemeral/
+ios/Pods/
+ios/.symlinks/
+*.iml
+Linear algebra solver/
+dashboard_review_tmp.png
+emulator_fix_tmp.png
+screen.png
+system dashboard.png
+system logo/
+android/.kotlin/
