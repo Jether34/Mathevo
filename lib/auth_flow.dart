@@ -475,13 +475,6 @@ class _AuthFlowState extends State<AuthFlow> {
                         borderRadius: BorderRadius.vertical(
                           top: Radius.circular(26),
                         ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Color(0x330B1633),
-                            blurRadius: 24,
-                            offset: Offset(0, -8),
-                          ),
-                        ],
                       ),
                       child: LayoutBuilder(
                         builder: (context, cardConstraints) =>
