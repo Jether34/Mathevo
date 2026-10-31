@@ -731,7 +731,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 )
               else
                 _policyConsentRow(),
-              const Spacer(),
+              if (isSignup) const Spacer() else const SizedBox(height: 8),
               if (_error != null) ...[
                 const SizedBox(height: 4),
                 Text(
