@@ -1,5 +1,4 @@
 import 'dart:math';
-import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -55,8 +54,6 @@ class _AuthFlowState extends State<AuthFlow> {
 
   GlobalKey<FormState> get _formKey =>
       _formKeys.putIfAbsent(_page, GlobalKey<FormState>.new);
-
-  bool get _blurBackground => _page != _AuthPage.getStarted;
 
   @override
   void initState() {
@@ -378,195 +375,173 @@ class _AuthFlowState extends State<AuthFlow> {
   @override
   Widget build(BuildContext context) {
     final isSignup = _page == _AuthPage.signup;
-    final media = MediaQuery.of(context);
-    final navigationInset = max(
-      24.0,
-      max(media.viewPadding.bottom, media.systemGestureInsets.bottom),
-    );
-    return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Colors.transparent,
-        systemNavigationBarDividerColor: Colors.transparent,
-        systemNavigationBarIconBrightness: Brightness.dark,
-        systemNavigationBarContrastEnforced: false,
+    final isIntro =
+        _page == _AuthPage.getStarted ||
+        _page == _AuthPage.welcome ||
+        _page == _AuthPage.benefits;
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          primary: const Color(0xFF4F7F86),
+          secondary: const Color(0xFF4F7F86),
+        ),
       ),
-      child: Scaffold(
-        backgroundColor: const Color(0xFFF9FAFF),
-        body: SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final screenHeight = constraints.maxHeight;
-              final cardHeight = switch (_page) {
-                _AuthPage.signup => min(screenHeight * .78, 610.0),
-                _AuthPage.login => min(screenHeight * .72, 550.0),
-                _AuthPage.resetPassword => min(screenHeight * .50, 390.0),
-                _AuthPage.forgotPassword => min(screenHeight * .42, 330.0),
-                _AuthPage.welcome => min(screenHeight * .46, 360.0),
-                _AuthPage.benefits => min(screenHeight * .56, 430.0),
-                _AuthPage.verifyEmail ||
-                _AuthPage.verifyResetCode => min(screenHeight * .62, 470.0),
-                _ => min(screenHeight * .48, 390.0),
-              };
-              return Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Positioned.fill(
-                    child: _blurBackground
-                        ? ImageFiltered(
-                            imageFilter: ui.ImageFilter.blur(
-                              sigmaX: 2.4,
-                              sigmaY: 2.4,
-                            ),
-                            child: Image.asset(
-                              'assets/brand/math_chalkboard.png',
-                              fit: BoxFit.cover,
-                            ),
-                          )
-                        : Image.asset(
-                            'assets/brand/math_chalkboard.png',
-                            fit: BoxFit.cover,
-                          ),
-                  ),
-                  Positioned(
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    height: screenHeight - cardHeight + 42,
-                    child: Column(
-                      children: [
-                        if (_page != _AuthPage.getStarted &&
-                            _page != _AuthPage.welcome)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: IconButton(
-                              tooltip: 'Back',
-                              onPressed: _back,
-                              icon: const Icon(
-                                Icons.arrow_back,
-                                color: Colors.white,
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                return SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      minHeight: max(0, constraints.maxHeight - 30),
+                    ),
+                    child: IntrinsicHeight(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          if (isIntro)
+                            _brandHeader()
+                          else
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: IconButton(
+                                tooltip: 'Back',
+                                onPressed: _back,
+                                padding: EdgeInsets.zero,
+                                alignment: Alignment.centerLeft,
+                                constraints: const BoxConstraints(
+                                  minWidth: 44,
+                                  minHeight: 44,
+                                ),
+                                icon: const Icon(
+                                  Icons.arrow_back_rounded,
+                                  color: Color(0xFF273638),
+                                ),
                               ),
                             ),
-                          )
-                        else
                           const SizedBox(height: 18),
-                        const Spacer(),
-                        if (_page == _AuthPage.welcome ||
-                            _page == _AuthPage.benefits)
-                          Image.asset(
-                            'assets/brand/mathverse-logo.png',
-                            width: 92,
-                            height: 92,
-                            fit: BoxFit.contain,
-                            errorBuilder: (_, _, _) => const Icon(
-                              Icons.functions_rounded,
-                              size: 54,
-                              color: Colors.white,
-                            ),
-                          ),
-                        if (_page == _AuthPage.getStarted) const Spacer(),
-                        const Spacer(),
-                      ],
-                    ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: -navigationInset,
-                    height: cardHeight + navigationInset,
-                    child: Container(
-                      decoration: const BoxDecoration(
-                        color: Color(0xFFF9FAFF),
-                        borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(26),
-                        ),
-                      ),
-                      child: SizedBox(
-                        height: cardHeight,
-                        child: LayoutBuilder(
-                          builder: (context, cardConstraints) =>
-                              SingleChildScrollView(
-                                padding: const EdgeInsets.fromLTRB(
-                                  26,
-                                  28,
-                                  26,
-                                  40,
-                                ),
-                                child: ConstrainedBox(
-                                  constraints: BoxConstraints(
-                                    minHeight: max(
-                                      0,
-                                      cardConstraints.maxHeight - 68,
-                                    ),
-                                  ),
-                                  child: IntrinsicHeight(
-                                    child: _content(context, isSignup),
-                                  ),
-                                ),
-                              ),
-                        ),
+                          Expanded(child: _content(context, isSignup)),
+                        ],
                       ),
                     ),
                   ),
-                ],
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),
     );
   }
 
+  Widget _brandHeader() => Row(
+    children: [
+      Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: const Color(0xFFE9F2F2),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Icon(
+          Icons.functions_rounded,
+          color: Color(0xFF4F7F86),
+          size: 23,
+        ),
+      ),
+      const SizedBox(width: 10),
+      const Text(
+        'MathVerse',
+        style: TextStyle(
+          color: Color(0xFF293638),
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+        ),
+      ),
+    ],
+  );
+
   Widget _content(BuildContext context, bool isSignup) {
     switch (_page) {
       case _AuthPage.getStarted:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'MathVerse',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1B2422),
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Calculate · Learn · Grow',
-                  style: TextStyle(color: Color(0xFF77817F)),
-                ),
-              ],
+            const Spacer(),
+            Center(
+              child: Image.asset(
+                'assets/brand/mathverse_mascot.png',
+                height: min(MediaQuery.sizeOf(context).height * .39, 310),
+                fit: BoxFit.contain,
+              ),
             ),
-            _primaryButton('GET STARTED', () => _go(_AuthPage.welcome)),
+            const SizedBox(height: 20),
+            const Text(
+              'Welcome to MathVerse!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF343B3B),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Solve, explore, and understand mathematics at your own pace.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF8A9292),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+            _progressDots(0),
+            const Spacer(),
+            _primaryButton('Get Started', () => _go(_AuthPage.welcome)),
           ],
         );
       case _AuthPage.welcome:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _eyebrow('01  /  INTRODUCTION'),
-            const SizedBox(height: 8),
-            const Text(
-              'Welcome to MathVerse',
-              style: TextStyle(
-                fontSize: 25,
-                fontWeight: FontWeight.w800,
-                color: Color(0xFF1B2422),
+            const Spacer(),
+            Center(
+              child: Image.asset(
+                'assets/brand/mathverse_mascot.png',
+                height: min(MediaQuery.sizeOf(context).height * .31, 245),
+                fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 18),
+            const Text(
+              'Welcome to MathVerse',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF343B3B),
+              ),
+            ),
+            const SizedBox(height: 10),
             const Text(
               'A workspace to solve, see, and understand mathematics.',
-              style: TextStyle(color: Color(0xFF77817F), height: 1.4),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF8A9292), height: 1.45),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: 20),
             _featureRow(
               Icons.calculate_outlined,
               'Solve with purpose',
@@ -578,54 +553,59 @@ class _AuthFlowState extends State<AuthFlow> {
               'See how math behaves',
               'Explore graphs, geometry, and interactive visualizations.',
             ),
-            const SizedBox(height: 18),
-            _primaryButton('CONTINUE', () => _go(_AuthPage.benefits)),
+            const SizedBox(height: 20),
+            _progressDots(1),
+            const Spacer(),
+            _primaryButton('Continue', () => _go(_AuthPage.benefits)),
           ],
         );
       case _AuthPage.benefits:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _eyebrow('02  /  YOUR TOOLKIT'),
-            const SizedBox(height: 8),
+            const Spacer(),
             const Text(
-              'What you’ll get',
+              'What you?ll get',
+              textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF1B2422),
+                color: Color(0xFF343B3B),
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
             const Text(
               'Tools for practice, discovery, and progress.',
-              style: TextStyle(color: Color(0xFF77817F)),
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF8A9292)),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 24),
             _featureRow(
               Icons.functions_rounded,
               'Calculate and visualize',
               'Explore selected math modes, graphs, geometry, and interactive visualizations.',
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _featureRow(
               Icons.menu_book_outlined,
               'Learn and build a habit',
               'Resume lessons and track progress, streaks, and XP.',
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _featureRow(
               Icons.history_rounded,
               'Review your work',
               'Return to recent calculations and saved history.',
             ),
+            const SizedBox(height: 18),
+            _progressDots(2),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Text(
                   'Already have an account?',
-                  style: TextStyle(color: Color(0xFF77817F), fontSize: 12),
+                  style: TextStyle(color: Color(0xFF8A9292), fontSize: 12),
                 ),
                 TextButton(
                   onPressed: () => _go(_AuthPage.login),
@@ -638,7 +618,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 ),
               ],
             ),
-            _primaryButton('CREATE YOUR ACCOUNT', () => _go(_AuthPage.signup)),
+            _primaryButton('Create your account', () => _go(_AuthPage.signup)),
           ],
         );
       case _AuthPage.signup:
@@ -750,7 +730,7 @@ class _AuthFlowState extends State<AuthFlow> {
               ],
               const SizedBox(height: 8),
               _primaryButton(
-                isSignup ? 'CREATE ACCOUNT' : 'LOG IN',
+                isSignup ? 'Create account' : 'Sign in',
                 isSignup ? _createAccount : _login,
                 busy: _busy,
               ),
@@ -811,11 +791,11 @@ class _AuthFlowState extends State<AuthFlow> {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: const Color(0xFFF0F2F5),
-          borderRadius: BorderRadius.circular(9),
+          color: const Color(0xFFEAF2F2),
+          borderRadius: BorderRadius.circular(11),
         ),
         alignment: Alignment.center,
-        child: Icon(icon, color: const Color(0xFF111315), size: 19),
+        child: Icon(icon, color: const Color(0xFF4F7F86), size: 19),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -855,6 +835,23 @@ class _AuthFlowState extends State<AuthFlow> {
     ),
   );
 
+  Widget _progressDots(int active) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: List.generate(3, (index) {
+      final selected = index == active;
+      return AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        width: selected ? 24 : 8,
+        height: 8,
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF4F7F86) : const Color(0xFFE2E8E8),
+          borderRadius: BorderRadius.circular(8),
+        ),
+      );
+    }),
+  );
+
   Widget _policyConsentRow() => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
@@ -892,7 +889,7 @@ class _AuthFlowState extends State<AuthFlow> {
                       'Privacy Policy',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFF4F7F86),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -908,7 +905,7 @@ class _AuthFlowState extends State<AuthFlow> {
                       'Terms of Use',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF2563EB),
+                        color: Color(0xFF4F7F86),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -991,7 +988,7 @@ class _AuthFlowState extends State<AuthFlow> {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: const BorderSide(
-                          color: Color(0xFF2563EB),
+                          color: Color(0xFF4F7F86),
                           width: 1.8,
                         ),
                       ),
@@ -1013,7 +1010,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const Spacer(),
         const SizedBox(height: 8),
         _primaryButton(
-          showResend ? 'VERIFY EMAIL' : 'VERIFY CODE',
+          showResend ? 'Verify email' : 'Verify code',
           onSubmit,
           busy: _busy,
         ),
@@ -1083,7 +1080,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 4),
         if (_error != null) _errorText(_error!),
         const SizedBox(height: 6),
-        _primaryButton('SEND RESET CODE', _requestPasswordReset, busy: _busy),
+        _primaryButton('Send reset code', _requestPasswordReset, busy: _busy),
       ],
     ),
   );
@@ -1131,7 +1128,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const Spacer(),
         const SizedBox(height: 10),
         if (_error != null) _errorText(_error!),
-        _primaryButton('UPDATE PASSWORD', _completePasswordReset, busy: _busy),
+        _primaryButton('Update password', _completePasswordReset, busy: _busy),
       ],
     ),
   );
@@ -1168,7 +1165,7 @@ class _AuthFlowState extends State<AuthFlow> {
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF39465B),
+        color: Color(0xFF596566),
       ),
     ),
   );
@@ -1185,27 +1182,27 @@ class _AuthFlowState extends State<AuthFlow> {
     validator: validator,
     keyboardType: keyboardType,
     obscureText: obscureText,
-    style: const TextStyle(fontSize: 14, color: Color(0xFF17233D)),
+    style: const TextStyle(fontSize: 15, color: Color(0xFF293638)),
     decoration: InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF3F6FA),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      fillColor: const Color(0xFFF8F9F9),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       suffixIcon: suffix,
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFFE1E7EF)),
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFFEEF0F0)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: Color(0xFF2563EB), width: 1.6),
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFF4F7F86), width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(15),
         borderSide: const BorderSide(color: Color(0xFFD84B4B)),
       ),
       focusedErrorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(15),
         borderSide: const BorderSide(color: Color(0xFFD84B4B), width: 1.6),
       ),
       errorStyle: const TextStyle(fontSize: 10),
@@ -1218,13 +1215,13 @@ class _AuthFlowState extends State<AuthFlow> {
     bool busy = false,
   }) => SizedBox(
     width: double.infinity,
-    height: 50,
+    height: 56,
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF111315),
+        backgroundColor: const Color(0xFF4F7F86),
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: busy
           ? const SizedBox(
@@ -1237,7 +1234,7 @@ class _AuthFlowState extends State<AuthFlow> {
             )
           : Text(
               label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
     ),
   );
