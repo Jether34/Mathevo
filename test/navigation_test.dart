@@ -169,6 +169,8 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Scientific'), findsOneWidget);
       expect(find.text('Graphing'), findsOneWidget);
+      await tester.tap(find.byKey(const Key('expression-edit-toggle')));
+      await tester.pumpAndSettle();
       await tester.enterText(
         find.byKey(const Key('expression-input')),
         '3 * 5 + 7',
@@ -176,15 +178,21 @@ void main() {
       await tester.pumpAndSettle();
       await tester.tap(find.text('=').last);
       await tester.pumpAndSettle();
-      expect(find.text('22'), findsOneWidget);
+      expect(
+        tester
+            .widget<Semantics>(find.byKey(const Key('calculation-result')))
+            .properties
+            .label,
+        '≈ 22',
+      );
       expect(find.text('Solution steps'), findsNothing);
       expect(find.text('Calculate'), findsNothing);
-      await tester.ensureVisible(find.text('a/b'));
+      await tester.ensureVisible(find.byKey(const Key('function-key-a/b')));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('a/b'));
+      await tester.tap(find.byKey(const Key('function-key-a/b')));
       await tester.pumpAndSettle();
-      expect(find.text('Numerator'), findsOneWidget);
-      expect(find.text('Denominator'), findsOneWidget);
+      expect(find.byType(TextField), findsNWidgets(2));
+      expect(find.byKey(const Key('fraction-insert')), findsOneWidget);
     },
   );
 

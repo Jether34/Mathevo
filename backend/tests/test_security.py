@@ -8,8 +8,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from datetime import datetime, timezone
 from uuid import uuid4
+from contextlib import contextmanager
 
-from app.main import AuthResponse, Credentials, SignupRequest
+from app import main as auth_main
+from app.main import AuthResponse, Credentials, SignupRequest, VerificationRequest
 from app.security import (
     decode_access_token,
     hash_password,
@@ -73,3 +75,66 @@ def test_auth_response_exposes_profile_name_without_password_hash():
     encoded = response.model_dump(mode="json")
     assert encoded["user"]["name"] == "Math Learner"
     assert "password_hash" not in encoded["user"]
+
+
+def test_valid_signup_code_creates_a_session_and_returns_user(monkeypatch):
+    user = {
+        "id": uuid4(),
+        "email": "person@example.com",
+        "username": "learner_123",
+        "display_name": "Math Learner",
+    }
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def execute(self, _query, _params=None):
+            pass
+
+        def fetchone(self):
+            return user
+
+    class Connection:
+        def __init__(self):
+            self.queries = []
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def cursor(self, **_kwargs):
+            return Cursor()
+
+        def execute(self, query, params=None):
+            self.queries.append((query, params))
+
+    connection = Connection()
+
+    class Pool:
+        @contextmanager
+        def connection(self):
+            yield connection
+
+    monkeypatch.setattr(auth_main, "pool", Pool())
+    monkeypatch.setattr(auth_main, "_verify_email_code", lambda *_args: True)
+    monkeypatch.setattr(
+        auth_main, "issue_access_token", lambda _user_id: ("access-token", datetime.now(timezone.utc))
+    )
+    monkeypatch.setattr(auth_main, "new_refresh_token", lambda: "refresh-token")
+    monkeypatch.setattr(auth_main, "refresh_token_hash", lambda _token: "hashed-refresh")
+
+    response = auth_main.verify_email(
+        VerificationRequest(email="person@example.com", code="123456")
+    )
+
+    assert response.user.name == "Math Learner"
+    assert response.access_token == "access-token"
+    assert response.refresh_token == "refresh-token"
+    assert any("UPDATE users SET email_verified" in query for query, _ in connection.queries)
+    assert any("INSERT INTO refresh_sessions" in query for query, _ in connection.queries)

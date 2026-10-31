@@ -6,6 +6,7 @@ import 'dart:ui' show ImageFilter, ImageByteFormat;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -20,8 +21,8 @@ import 'math_history.dart';
 void main() => runApp(const MathVerseApp());
 
 const _navy = Color(0xFF17233D);
-const _blue = Color(0xFF526DAB);
-const _background = Color(0xFFF6F7FA);
+const _blue = Color(0xFF2563EB);
+const _background = Color(0xFFF5F7FC);
 
 class MathVerseApp extends StatefulWidget {
   const MathVerseApp({super.key, this.authApi, this.tokenStore});
@@ -241,11 +242,22 @@ class _MathVerseAppState extends State<MathVerseApp> {
     title: '',
     debugShowCheckedModeBanner: false,
     themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
+    themeAnimationDuration: const Duration(milliseconds: 420),
+    themeAnimationCurve: Curves.easeInOutCubic,
     theme: ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: _background,
       colorScheme: ColorScheme.fromSeed(seedColor: _blue),
       fontFamily: 'Roboto',
+      inputDecorationTheme: InputDecorationTheme(
+        filled: true,
+        fillColor: const Color(0xFFF0F3FA),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: const BorderSide(color: Color(0xFFDCE3F1)),
+        ),
+      ),
     ),
     darkTheme: ThemeData(
       useMaterial3: true,
@@ -826,7 +838,7 @@ class _RecentActivity extends StatelessWidget {
         _ActivityItem(
           record.createdAt,
           'Calculation',
-          '${record.expression} = ${record.result}',
+          _calculationSummary(record),
           Icons.calculate_outlined,
         ),
       for (final dayKey in progress.completedDays)
@@ -855,16 +867,57 @@ class _RecentActivity extends StatelessWidget {
           ),
         for (final item in activity.take(10))
           Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: _SectionCard(
-              child: ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(item.icon, color: _blue),
-                title: Text(item.title),
-                subtitle: Text(item.detail),
-                trailing: Text(
-                  TimeOfDay.fromDateTime(item.at).format(context),
-                  style: Theme.of(context).textTheme.labelSmall,
+            padding: const EdgeInsets.only(bottom: 7),
+            child: Material(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(15),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 9,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  border: Border.all(
+                    color: Theme.of(
+                      context,
+                    ).dividerColor.withValues(alpha: .24),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CircleAvatar(
+                      radius: 18,
+                      backgroundColor: _blue.withValues(alpha: .11),
+                      child: Icon(item.icon, color: _blue, size: 18),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.title,
+                            style: const TextStyle(fontWeight: FontWeight.w600),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            item.detail.length > 52
+                                ? '${item.detail.substring(0, 52)}…'
+                                : item.detail,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      TimeOfDay.fromDateTime(item.at).format(context),
+                      style: Theme.of(context).textTheme.labelSmall,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -876,15 +929,20 @@ class _RecentActivity extends StatelessWidget {
   _ActivityItem _challengeActivity(String dayKey, DateTime? completedAt) {
     final date = DateTime.parse(dayKey);
     final challenge = DailyChallenge.forDate(date);
-    final answer = const MathEngine()
-        .calculate(challenge.expression)
-        .displayValue;
     return _ActivityItem(
       completedAt ?? date,
       'Daily challenge completed',
-      '${challenge.expression} = $answer',
+      challenge.expression,
       Icons.local_fire_department_outlined,
     );
+  }
+
+  String _calculationSummary(CalculationRecord record) {
+    final firstLine = record.expression.split('\n').first.trim();
+    final resultSeparator = firstLine.lastIndexOf(' = ');
+    return resultSeparator < 0
+        ? firstLine
+        : firstLine.substring(0, resultSeparator).trim();
   }
 }
 
@@ -1176,9 +1234,7 @@ class _LeaderboardPreview extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
               const SizedBox(height: 5),
-              Text(
-                'Local rank: #1 of 1 ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${progress.xp} XP',
-              ),
+              Text('Local rank: #1 of 1 | ${progress.xp} XP'),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
@@ -1319,13 +1375,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
   TextRecognizer? _recognizer;
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
+  bool _fractionDenominatorSelected = false;
+  bool _sourceEditorVisible = false;
+  bool _errorDialogOpen = false;
   bool _conversionOnly = true;
   bool _recognizingDrawing = false;
   bool _answerShown = false;
   bool _showVisualization = false;
   bool _visualIs3D = false;
   double _visualAngle = 62;
+  double _visualRotationX = -.18;
+  double _visualRotationY = .28;
   double _visualHypotenuse = 20;
+  double _geometryVisualFirst = 3;
+  double _geometryVisualSecond = 4;
   double _graphSlope = 1.5;
   double _graphIntercept = 1;
   double _graphX = 2;
@@ -1370,6 +1433,23 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _insert(String value) {
+    FocusScope.of(context).unfocus();
+    if (_fractionBuilder) {
+      final controller = _fractionDenominatorSelected
+          ? _denominator
+          : _numerator;
+      final selection = controller.selection;
+      final start = selection.isValid
+          ? selection.start
+          : controller.text.length;
+      final end = selection.isValid ? selection.end : controller.text.length;
+      controller.value = TextEditingValue(
+        text: controller.text.replaceRange(start, end, value),
+        selection: TextSelection.collapsed(offset: start + value.length),
+      );
+      setState(() {});
+      return;
+    }
     if (_answerShown) {
       final isOperator = const {'+', '-', '*', '/', '^'}.contains(value);
       _input.text = isOperator ? (_result ?? '') : '';
@@ -1390,14 +1470,105 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _insertFraction() {
     if (_numerator.text.trim().isEmpty || _denominator.text.trim().isEmpty) {
-      setState(() => _error = 'Enter both a numerator and denominator.');
+      _showCalculationError('Enter both a numerator and denominator.');
       return;
     }
-    _insert('(${_numerator.text})/(${_denominator.text})');
     setState(() {
       _fractionBuilder = false;
-      _error = null;
     });
+    _insert('(${_numerator.text})/(${_denominator.text})');
+  }
+
+  void _showCalculationError(String message) {
+    if (!mounted || _errorDialogOpen) return;
+    _errorDialogOpen = true;
+    _error = message;
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: const Icon(Icons.error_outline_rounded),
+        title: const Text('Check the expression'),
+        content: Text(_error ?? message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    ).whenComplete(() {
+      _error = null;
+      _errorDialogOpen = false;
+    });
+  }
+
+  String _mathTexFromSource(String source) {
+    var tex = source.trim();
+    if (tex.isEmpty) return r'\square';
+    tex = tex.replaceAll('3.141592653589793', r'\pi');
+    tex = tex.replaceAllMapped(
+      RegExp(r'\(([^()]*)\)\s*/\s*\(([^()]*)\)'),
+      (m) => '\\frac{${m[1]}}{${m[2]}}',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(r'(?<![A-Za-z])([A-Za-z0-9.]+)\s*/\s*([A-Za-z0-9.]+)(?![A-Za-z])'),
+      (m) => '\\frac{${m[1]}}{${m[2]}}',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(r'\b(sqrt|cbrt)\(([^()]*)\)'),
+      (m) => m[1] == 'sqrt' ? '\\sqrt{${m[2]}}' : '\\sqrt[3]{${m[2]}}',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(r'\b(abs)\(([^()]*)\)'),
+      (m) => r'\left|' + m[2]! + r'\right|',
+    );
+    tex = tex.replaceAll('(', r'\left(').replaceAll(')', r'\right)');
+    tex = tex.replaceAllMapped(
+      RegExp(
+        r'\b(arcsin|arccos|arctan|sin|cos|tan|sec|csc|cot|log|ln)\\left\(',
+      ),
+      (m) => '\\${m[1]}\\left(',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(r'\^([A-Za-z0-9]+)'),
+      (m) => '^{${m[1]}}',
+    );
+    return tex
+        .replaceAll('*', r'\times ')
+        .replaceAll('/', r'\div ')
+        .replaceAll('<=', r'\leq ')
+        .replaceAll('>=', r'\geq ')
+        .replaceAll('!=', r'\neq ')
+        .replaceAll('≈', r'\approx ');
+  }
+
+  String get _expressionTex {
+    if (_mode == _CalculatorMode.geometry && _input.text.trim().isEmpty) {
+      return switch (_geometryOperation) {
+        'Circle area' => r'A=\pi r^2',
+        'Circle circumference' => r'C=2\pi r',
+        'Rectangle area' => r'A=wh',
+        'Rectangle perimeter' => r'P=2w+2h',
+        'Triangle area' => r'A=\frac{1}{2}bh',
+        'Pythagorean hypotenuse' => r'c=\sqrt{a^2+b^2}',
+        'Parallelogram area' => r'A=bh',
+        'Cylinder volume' => r'V=\pi r^2h',
+        'Cylinder surface area' => r'SA=2\pi rh+2\pi r^2',
+        'Cone volume' => r'V=\frac{1}{3}\pi r^2h',
+        'Cone surface area' => r'SA=\pi r(r+\sqrt{h^2+r^2})',
+        'Sphere volume' => r'V=\frac{4}{3}\pi r^3',
+        'Sphere surface area' => r'SA=4\pi r^2',
+        _ => r'\square',
+      };
+    }
+    final body = _mathTexFromSource(_input.text);
+    if (_mode != _CalculatorMode.calculus) return body;
+    return switch (_calculusOperation) {
+      'Derivative' => '\\frac{d}{dx}\\left($body\\right)',
+      'Indefinite integral' => '\\int $body\\,dx',
+      _ =>
+        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}} $body\\,dx',
+    };
   }
 
   void _updateResult() {
@@ -1430,6 +1601,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _error = _input.text.trim().isEmpty ? null : error.message;
         _result = null;
         _resultIsExact = false;
+        _answerShown = false;
       });
     }
   }
@@ -1520,7 +1692,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           lower: lower,
           upper: upper,
         );
-        final answer = '≈ ${calculation.displayValue}';
+        final answer = '\u2248 ${calculation.displayValue}';
         setState(() {
           _result = answer;
           _error = null;
@@ -1528,7 +1700,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           _answerShown = true;
         });
         _appendSessionEntry(
-          '∫[$lower,$upper] $expression dx',
+          '\u222B[$lower,$upper] $expression dx',
           answer,
           exact: false,
         );
@@ -1552,7 +1724,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return;
       }
       final calculation = _calculateExpression(expression);
-      final answer = calculation.displayValue;
+      final answer = '\u2248 ${calculation.displayValue}';
       setState(() {
         _result = answer;
         _error = null;
@@ -1570,14 +1742,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _answerShown = false;
         _error = error.message;
       });
+      _showCalculationError(error.message);
     } on Object {
+      final message = _mode == _CalculatorMode.calculus
+          ? 'Enter a valid expression and finite numeric bounds.'
+          : 'Check the equation and try again.';
       setState(() {
         _result = null;
         _answerShown = false;
-        _error = _mode == _CalculatorMode.calculus
-            ? 'Enter a valid expression and finite numeric bounds.'
-            : 'Check the equation and try again.';
+        _error = message;
       });
+      _showCalculationError(message);
     }
   }
 
@@ -1622,27 +1797,64 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _ => throw const MathInputException('Select a geometry operation.'),
       };
       final answer = formatApproximateValue(result);
-      final expression = needsSecond
-          ? '$_geometryOperation(${_geometryFirst.text}, ${_geometrySecond.text})'
-          : '$_geometryOperation(${_geometryFirst.text})';
+      final expression = _geometryExpression(first, second);
       setState(() {
+        _input.text = expression;
         _result = answer;
         _error = null;
         _resultIsExact = false;
-        _answerShown = true;
+        _answerShown = commit;
       });
       if (commit) _appendSessionEntry(expression, answer, exact: false);
     } on MathInputException catch (error) {
-      setState(() => _error = error.message);
+      setState(() {
+        _error = error.message;
+        _result = null;
+        _answerShown = false;
+      });
+      if (commit) _showCalculationError(error.message);
     } on Object {
-      setState(() => _error = 'Enter valid non-negative dimensions.');
+      const message = 'Enter valid non-negative dimensions.';
+      setState(() {
+        _error = message;
+        _result = null;
+        _answerShown = false;
+      });
+      if (commit) _showCalculationError(message);
     }
   }
 
+  String _numberForExpression(double value) =>
+      value == value.roundToDouble() ? value.toInt().toString() : '$value';
+
+  String _geometryExpression(double first, double second) {
+    final a = _numberForExpression(first);
+    final b = _numberForExpression(second);
+    const pi = '3.141592653589793';
+    return switch (_geometryOperation) {
+      'Circle area' => '$pi*($a)^2',
+      'Circle circumference' => '2*$pi*$a',
+      'Rectangle area' => '$a*$b',
+      'Rectangle perimeter' => '2*$a+2*$b',
+      'Triangle area' => '($a*$b)/2',
+      'Pythagorean hypotenuse' => 'sqrt($a^2+$b^2)',
+      'Parallelogram area' => '$a*$b',
+      'Cylinder volume' => '$pi*($a)^2*$b',
+      'Cylinder surface area' => '2*$pi*$a*$b+2*$pi*($a)^2',
+      'Cone volume' => '($pi*($a)^2*$b)/3',
+      'Cone surface area' => '$pi*$a*($a+sqrt($b^2+$a^2))',
+      'Sphere volume' => '(4*$pi*($a)^3)/3',
+      'Sphere surface area' => '4*$pi*($a)^2',
+      _ => a,
+    };
+  }
+
   void _pressGeometryDigit(String key) {
+    FocusScope.of(context).unfocus();
     final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
     if (key == 'C') {
       controller.clear();
+      _input.clear();
     } else {
       final selection = controller.selection;
       final start = selection.isValid
@@ -1783,14 +1995,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
       });
       if (commit) _appendSessionEntry(expression, result, exact: true);
     } on FormatException catch (error) {
+      final message = error.message.toString().contains('divide')
+          ? 'Cannot divide by zero.'
+          : error.message.toString().contains('Shift amount')
+          ? error.message.toString()
+          : 'Use digits valid for base $_sourceBase.';
       setState(() {
         _result = null;
-        _error = error.message.toString().contains('divide')
-            ? 'Cannot divide by zero.'
-            : error.message.toString().contains('Shift amount')
-            ? error.message.toString()
-            : 'Use digits valid for base $_sourceBase.';
+        _error = message;
+        _answerShown = false;
       });
+      if (commit) _showCalculationError(message);
     }
   }
 
@@ -1854,12 +2069,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
           .replaceAll(RegExp(r'\s+'), '')
           .replaceAll(RegExp(r'[^0-9.+\-*/^()]'), '');
       if (expression.isEmpty) {
+        const message = 'No expression recognized. Write larger and clearer.';
         setState(() {
           _recognizedExpression = null;
           _result = null;
-          _error = 'No expression recognized. Write larger and clearer.';
           _drawingStatus = 'Could not read the handwriting.';
         });
+        _showCalculationError(message);
         return;
       }
       final result = _engine.calculate(expression);
@@ -1877,17 +2093,19 @@ class _CalculatorPageState extends State<CalculatorPage> {
         exact: result.kind == MathResultKind.exact,
       );
     } on MathInputException catch (error) {
+      final message = 'Recognized text could not be solved: ${error.message}';
       setState(() {
         _recognizedExpression = null;
         _result = null;
-        _error = 'Recognized text could not be solved: ${error.message}';
         _drawingStatus = 'Expression read, but unsupported.';
       });
+      _showCalculationError(message);
     } on Object {
+      const message = 'Could not read the drawing. Write larger and clearer.';
       setState(() {
-        _error = 'Could not read the drawing. Write larger and clearer.';
         _drawingStatus = 'Recognition failed.';
       });
+      _showCalculationError(message);
     } finally {
       if (tempDirectory != null) await tempDirectory.delete(recursive: true);
       if (mounted) setState(() => _recognizingDrawing = false);
@@ -1906,23 +2124,71 @@ class _CalculatorPageState extends State<CalculatorPage> {
     });
   }
 
+  void _undoDrawingStroke() {
+    _drawingDebounce?.cancel();
+    setState(() {
+      if (_activeStroke.isNotEmpty) {
+        _activeStroke = [];
+      } else if (_drawingStrokes.isNotEmpty) {
+        _drawingStrokes.removeLast();
+      }
+      _recognizedExpression = null;
+      _drawingStatus = null;
+      _result = null;
+    });
+  }
+
   void _pressFunction(String key) {
-    if (key == 'C') {
+    FocusScope.of(context).unfocus();
+    if (key.startsWith('CALC_')) {
+      setState(() {
+        _calculusOperation = switch (key) {
+          'CALC_DERIVATIVE' => 'Derivative',
+          'CALC_INTEGRAL' => 'Indefinite integral',
+          _ => 'Definite integral',
+        };
+        _result = null;
+        _answerShown = false;
+      });
+    } else if (_fractionBuilder && key == 'C') {
+      (_fractionDenominatorSelected ? _denominator : _numerator).clear();
+      setState(() {});
+    } else if (_fractionBuilder && key == 'DEL') {
+      final controller = _fractionDenominatorSelected
+          ? _denominator
+          : _numerator;
+      if (controller.text.isNotEmpty) {
+        controller.text = controller.text.substring(
+          0,
+          controller.text.length - 1,
+        );
+      }
+    } else if (key == 'C') {
       _input.clear();
       _updateResult();
     } else if (key == 'DEL') {
       final selection = _input.selection;
-      final start = selection.isValid
+      var start = selection.isValid
           ? selection.start
           : (_input.text.isEmpty ? 0 : _input.text.length - 1);
       final end = selection.isValid ? selection.end : _input.text.length;
+      if (selection.isValid && start == end && start > 0) start--;
       _input.value = TextEditingValue(
         text: _input.text.replaceRange(start, end, ''),
         selection: TextSelection.collapsed(offset: start),
       );
       _updateResult();
     } else if (key == 'a/b') {
-      setState(() => _fractionBuilder = !_fractionBuilder);
+      FocusScope.of(context).unfocus();
+      setState(() {
+        _fractionBuilder = true;
+        _fractionDenominatorSelected = false;
+        _sourceEditorVisible = false;
+        _answerShown = false;
+        _result = null;
+        _numerator.clear();
+        _denominator.clear();
+      });
     } else if (key == 'EVAL') {
       _evaluate();
     } else {
@@ -1962,7 +2228,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _buildCalculator(BuildContext context) {
     return _PageFrame(
-      title: 'Calculator',
+      title: '',
       subtitle: '',
       bottomPadding: widget.bottomPadding,
       child: Column(
@@ -1992,9 +2258,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             }),
                             selected: _mode == mode,
                             onSelected: (_) {
+                              FocusScope.of(context).unfocus();
                               setState(() {
                                 _mode = mode;
                                 _showVisualization = false;
+                                _sourceEditorVisible = false;
                                 _error = null;
                                 _result = null;
                                 _answerShown = false;
@@ -2016,11 +2284,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
               if (_mode != _CalculatorMode.numberSystem &&
-                  (_mode != _CalculatorMode.geometry ||
-                      const {
-                        'Triangle area',
-                        'Pythagorean hypotenuse',
-                      }.contains(_geometryOperation)))
+                  _mode != _CalculatorMode.drawing)
                 IconButton.filledTonal(
                   tooltip: 'Flip to visualization',
                   onPressed: _openVisualization,
@@ -2031,7 +2295,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
           const SizedBox(height: 5),
           if ({
             _CalculatorMode.scientific,
-            _CalculatorMode.geometry,
             _CalculatorMode.trigonometry,
           }.contains(_mode)) ...[
             Align(
@@ -2142,54 +2405,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 _buildFunctionRow(),
                 const SizedBox(height: 5),
                 _buildResponsiveKeypad(context),
-                if (_fractionBuilder) ...[
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _numerator,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Numerator',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8),
-                        child: Text('/'),
-                      ),
-                      Expanded(
-                        child: TextField(
-                          controller: _denominator,
-                          keyboardType: TextInputType.number,
-                          decoration: const InputDecoration(
-                            labelText: 'Denominator',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        tooltip: 'Insert fraction',
-                        onPressed: _insertFraction,
-                        icon: const Icon(Icons.add_circle_outline_rounded),
-                      ),
-                    ],
-                  ),
-                ],
-                if (_error != null) ...[
-                  const SizedBox(height: 6),
-                  Text(
-                    _error!,
-                    key: const Key('calculation-error'),
-                    style: TextStyle(
-                      color: Theme.of(context).colorScheme.error,
-                    ),
-                  ),
-                ],
               ],
             ),
         ],
@@ -2205,8 +2420,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _ => 'Function graph',
   };
   double get _visualizationValue {
-    if (_mode == _CalculatorMode.geometry ||
-        _mode == _CalculatorMode.trigonometry) {
+    if (_mode == _CalculatorMode.geometry) {
+      final a = _geometryVisualFirst;
+      final b = _geometryVisualSecond;
+      return switch (_geometryOperation) {
+        'Circle area' => math.pi * a * a,
+        'Circle circumference' => 2 * math.pi * a,
+        'Rectangle area' => a * b,
+        'Rectangle perimeter' => 2 * (a + b),
+        'Triangle area' => a * b / 2,
+        'Pythagorean hypotenuse' => math.sqrt(a * a + b * b),
+        'Parallelogram area' => a * b,
+        'Cylinder volume' => math.pi * a * a * b,
+        'Cylinder surface area' => 2 * math.pi * a * (a + b),
+        'Cone volume' => math.pi * a * a * b / 3,
+        'Cone surface area' => math.pi * a * (a + math.sqrt(a * a + b * b)),
+        'Sphere volume' => 4 / 3 * math.pi * a * a * a,
+        'Sphere surface area' => 4 * math.pi * a * a,
+        _ => double.nan,
+      };
+    }
+    if (_mode == _CalculatorMode.trigonometry) {
       final radians = _visualAngle * math.pi / 180;
       return switch (_triangleFunction) {
         'cos' =>
@@ -2223,13 +2457,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.calculus) {
       try {
-        return _engine
-            .integrateDefinite(
-              _input.text.trim().isEmpty ? 'x^2' : _input.text,
-              lower: _integralLower,
-              upper: _integralUpper,
-            )
-            .value!;
+        final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
+        return switch (_calculusOperation) {
+          'Derivative' => _engine.evaluateAt(
+            _engine.differentiate(expression),
+            _graphX,
+          ),
+          'Indefinite integral' => _engine.evaluateAt(
+            _engine
+                .integrateIndefinite(expression)
+                .replaceFirst(RegExp(r'\s*\+\s*C$'), ''),
+            _graphX,
+          ),
+          _ =>
+            _engine
+                .integrateDefinite(
+                  expression,
+                  lower: _integralLower,
+                  upper: _integralUpper,
+                )
+                .value!,
+        };
       } on Object {
         return double.nan;
       }
@@ -2245,8 +2493,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   String get _visualizationFormula {
-    if (_mode == _CalculatorMode.geometry ||
-        _mode == _CalculatorMode.trigonometry) {
+    if (_mode == _CalculatorMode.geometry) {
+      return _geometryExpression(_geometryVisualFirst, _geometryVisualSecond);
+    }
+    if (_mode == _CalculatorMode.trigonometry) {
       return switch (_triangleFunction) {
         'cos' => _triangleHasCoefficient ? 'H * cos(theta)' : 'cos(theta)',
         'tan' =>
@@ -2257,7 +2507,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
       };
     }
     if (_mode == _CalculatorMode.calculus) {
-      return 'Integral of ${_input.text.trim().isEmpty ? 'x^2' : _input.text} from ${_integralLower.toStringAsFixed(1)} to ${_integralUpper.toStringAsFixed(1)}';
+      final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
+      return switch (_calculusOperation) {
+        'Derivative' =>
+          "Derivative of $expression at x=${_graphX.toStringAsFixed(1)}",
+        'Indefinite integral' => 'Antiderivative of $expression',
+        _ =>
+          'Integral of $expression from ${_integralLower.toStringAsFixed(1)} to ${_integralUpper.toStringAsFixed(1)}',
+      };
     }
     if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
       return 'f(x) = ${_input.text}';
@@ -2265,10 +2522,36 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return 'f(${_graphX.toStringAsFixed(1)}) = ${_graphSlope.toStringAsFixed(1)} * ${_graphX.toStringAsFixed(1)} + ${_graphIntercept.toStringAsFixed(1)}';
   }
 
+  String get _visualizationFormulaTex {
+    if (_mode == _CalculatorMode.calculus) {
+      final body = _mathTexFromSource(
+        _input.text.trim().isEmpty ? 'x^2' : _input.text,
+      );
+      return switch (_calculusOperation) {
+        'Derivative' =>
+          '\\left.\\frac{d}{dx}\\left($body\\right)\\right|_{x=${_numberForExpression(_graphX)}}',
+        'Indefinite integral' => '\\int $body\\,dx',
+        _ =>
+          '\\int_{${_numberForExpression(_integralLower)}}^{${_numberForExpression(_integralUpper)}} $body\\,dx',
+      };
+    }
+    return _mathTexFromSource(_visualizationFormula);
+  }
+
   void _openVisualization() {
     final expression = _input.text.toLowerCase().replaceAll(' ', '');
-    if (_mode == _CalculatorMode.geometry ||
-        _mode == _CalculatorMode.trigonometry) {
+    if (_mode == _CalculatorMode.geometry) {
+      _geometryVisualFirst = double.tryParse(_geometryFirst.text) ?? 3;
+      _geometryVisualSecond = double.tryParse(_geometrySecond.text) ?? 4;
+      _visualIs3D = const {
+        'Cylinder volume',
+        'Cylinder surface area',
+        'Cone volume',
+        'Cone surface area',
+        'Sphere volume',
+        'Sphere surface area',
+      }.contains(_geometryOperation);
+    } else if (_mode == _CalculatorMode.trigonometry) {
       final trig = RegExp(
         r'^(\d+(?:\.\d+)?)\*?(?:sin|cos|tan)\((\d+(?:\.\d+)?)\)',
       ).firstMatch(expression);
@@ -2328,11 +2611,63 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _returnFromVisualization() {
+    if (_mode == _CalculatorMode.geometry) {
+      _geometryFirst.text = _numberForExpression(_geometryVisualFirst);
+      _geometrySecond.text = _numberForExpression(_geometryVisualSecond);
+      final expression = _geometryExpression(
+        _geometryVisualFirst,
+        _geometryVisualSecond,
+      );
+      setState(() {
+        _input.text = expression;
+        _result = null;
+        _answerShown = false;
+        _showVisualization = false;
+      });
+      return;
+    }
+    if (_mode == _CalculatorMode.calculus) {
+      _integralLowerInput.text = _numberForExpression(_integralLower);
+      _integralUpperInput.text = _numberForExpression(_integralUpper);
+      setState(() {
+        _answerShown = false;
+        _result = null;
+        _showVisualization = false;
+      });
+      return;
+    }
+    if (_mode == _CalculatorMode.trigonometry) {
+      final angle = _angleDegrees ? _visualAngle : _visualAngle * math.pi / 180;
+      final factor = _triangleHasCoefficient
+          ? '${_numberForExpression(_visualHypotenuse)}*'
+          : '';
+      setState(() {
+        _input.text =
+            '$factor$_triangleFunction(${_numberForExpression(angle)})';
+        _result = null;
+        _answerShown = false;
+        _showVisualization = false;
+      });
+      return;
+    }
+    if (_mode == _CalculatorMode.graphing || _mode == _CalculatorMode.algebra) {
+      final expr =
+          '${_numberForExpression(_graphSlope)}*x${_graphIntercept < 0 ? '' : '+'}${_numberForExpression(_graphIntercept)}';
+      setState(() {
+        _input.text = _mode == _CalculatorMode.algebra ? '$expr=0' : expr;
+        _result = null;
+        _answerShown = false;
+        _showVisualization = false;
+      });
+      return;
+    }
     final value = _visualizationValue;
     if (!value.isFinite) {
+      _showCalculationError(
+        'This expression cannot be evaluated at the selected values.',
+      );
       setState(() {
         _showVisualization = false;
-        _error = 'This expression cannot be evaluated at the selected values.';
       });
       return;
     }
@@ -2341,19 +2676,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _input.selection = TextSelection.collapsed(offset: _input.text.length);
     _result = answer;
     _resultIsExact = false;
-    _answerShown = true;
-    _appendSessionEntry(
-      'Visualization: $_visualizationFormula',
-      answer,
-      exact: false,
-    );
+    _answerShown = false;
     setState(() => _showVisualization = false);
   }
 
   Widget _buildVisualization(BuildContext context) {
-    final isTriangle =
-        _mode == _CalculatorMode.geometry ||
-        _mode == _CalculatorMode.trigonometry;
+    final isGeometry = _mode == _CalculatorMode.geometry;
+    final isTriangle = _mode == _CalculatorMode.trigonometry;
     final colors = Theme.of(context).colorScheme;
     return _PageFrame(
       title: 'Visualization',
@@ -2388,22 +2717,50 @@ class _CalculatorPageState extends State<CalculatorPage> {
               borderRadius: BorderRadius.circular(18),
             ),
             clipBehavior: Clip.antiAlias,
-            child: CustomPaint(
-              painter: _MathVisualizationPainter(
-                mode: _mode,
-                is3D: _visualIs3D,
-                angle: _visualAngle,
-                hypotenuse: _visualHypotenuse,
-                slope: _graphSlope,
-                intercept: _graphIntercept,
-                lower: _integralLower,
-                upper: _integralUpper,
-                selectedX: _graphX,
-                expression: _input.text,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onPanUpdate: _visualIs3D
+                  ? (details) => setState(() {
+                      _visualRotationY += details.delta.dx * .008;
+                      _visualRotationX =
+                          (_visualRotationX + details.delta.dy * .008).clamp(
+                            -1.15,
+                            1.15,
+                          );
+                    })
+                  : null,
+              child: CustomPaint(
+                key: const Key('visualization-canvas'),
+                painter: _MathVisualizationPainter(
+                  mode: _mode,
+                  is3D: _visualIs3D,
+                  calculusOperation: _calculusOperation,
+                  rotationX: _visualRotationX,
+                  rotationY: _visualRotationY,
+                  angle: _visualAngle,
+                  hypotenuse: _visualHypotenuse,
+                  slope: _graphSlope,
+                  intercept: _graphIntercept,
+                  lower: _integralLower,
+                  upper: _integralUpper,
+                  selectedX: _graphX,
+                  expression: _input.text,
+                  geometryOperation: _geometryOperation,
+                  geometryFirst: _geometryVisualFirst,
+                  geometrySecond: _geometryVisualSecond,
+                ),
+                child: const SizedBox.expand(),
               ),
-              child: const SizedBox.expand(),
             ),
           ),
+          if (_visualIs3D) ...[
+            const SizedBox(height: 5),
+            Text(
+              'Drag to rotate | yaw ${(_visualRotationY * 180 / math.pi).round()} deg | tilt ${(_visualRotationX * 180 / math.pi).round()} deg',
+              key: const Key('visualization-orientation'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
           const SizedBox(height: 10),
           _SectionCard(
             child: Row(
@@ -2412,7 +2769,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(_visualizationFormula),
+                      SizedBox(
+                        height: 34,
+                        width: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          alignment: Alignment.centerLeft,
+                          child: Math.tex(
+                            _visualizationFormulaTex,
+                            mathStyle: MathStyle.display,
+                            textStyle: const TextStyle(fontSize: 20),
+                            onErrorFallback: (_) => Text(_visualizationFormula),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 5),
                       Text(
                         'Adjusted result',
@@ -2456,7 +2826,44 @@ class _CalculatorPageState extends State<CalculatorPage> {
               display: _visualHypotenuse.toStringAsFixed(1),
               onChanged: (value) => setState(() => _visualHypotenuse = value),
             ),
-          ] else if (_mode == _CalculatorMode.calculus) ...[
+          ] else if (isGeometry) ...[
+            _visualSlider(
+              context,
+              label: _geometryOperation.contains('Rectangle')
+                  ? 'Width'
+                  : 'Radius / base',
+              value: _geometryVisualFirst,
+              min: .1,
+              max: 20,
+              divisions: 199,
+              display: _geometryVisualFirst.toStringAsFixed(1),
+              onChanged: (value) =>
+                  setState(() => _geometryVisualFirst = value),
+            ),
+            if (const {
+              'Rectangle area',
+              'Rectangle perimeter',
+              'Triangle area',
+              'Pythagorean hypotenuse',
+              'Parallelogram area',
+              'Cylinder volume',
+              'Cylinder surface area',
+              'Cone volume',
+              'Cone surface area',
+            }.contains(_geometryOperation))
+              _visualSlider(
+                context,
+                label: 'Height / second side',
+                value: _geometryVisualSecond,
+                min: .1,
+                max: 20,
+                divisions: 199,
+                display: _geometryVisualSecond.toStringAsFixed(1),
+                onChanged: (value) =>
+                    setState(() => _geometryVisualSecond = value),
+              ),
+          ] else if (_mode == _CalculatorMode.calculus &&
+              _calculusOperation == 'Definite integral') ...[
             Text(
               'Integration interval  [${_integralLower.toStringAsFixed(1)}, ${_integralUpper.toStringAsFixed(1)}]',
             ),
@@ -2473,6 +2880,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 _integralLower = range.start;
                 _integralUpper = range.end;
               }),
+            ),
+          ] else if (_mode == _CalculatorMode.calculus) ...[
+            _visualSlider(
+              context,
+              label: 'Evaluate at x',
+              value: _graphX,
+              min: -5,
+              max: 5,
+              divisions: 100,
+              display: _graphX.toStringAsFixed(1),
+              onChanged: (value) => setState(() => _graphX = value),
             ),
           ] else if (_mode == _CalculatorMode.graphing &&
               _input.text.trim().isNotEmpty) ...[
@@ -2522,7 +2940,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           FilledButton.icon(
             onPressed: _returnFromVisualization,
             icon: const Icon(Icons.flip_to_back_rounded),
-            label: const Text('Use this result in calculator'),
+            label: const Text('Use adjusted expression in calculator'),
           ),
         ],
       ),
@@ -2558,9 +2976,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
   );
 
   Widget _buildExpressionAnswer(BuildContext context) {
-    final height = (MediaQuery.sizeOf(context).height * .40)
-        .clamp(150.0, 250.0)
-        .toDouble();
+    final height = _mode == _CalculatorMode.calculus
+        ? 132.0
+        : _mode == _CalculatorMode.geometry
+        ? 90.0
+        : (MediaQuery.sizeOf(context).height * .24)
+              .clamp(125.0, 180.0)
+              .toDouble();
     final panelColor = Theme.of(
       context,
     ).colorScheme.surfaceContainerHighest.withValues(alpha: .48);
@@ -2586,15 +3008,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: SelectableText(
-                    _result ?? '--',
-                    key: const Key('calculation-result'),
-                    style: const TextStyle(
-                      fontSize: 34,
-                      fontWeight: FontWeight.w800,
+                child: Semantics(
+                  key: const Key('calculation-result'),
+                  label: _result ?? '--',
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Math.tex(
+                      _mathTexFromSource(_result ?? '--'),
+                      key: const Key('calculation-result-math'),
+                      mathStyle: MathStyle.display,
+                      textStyle: const TextStyle(
+                        fontSize: 34,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      onErrorFallback: (_) => Text(_result ?? '--'),
                     ),
                   ),
                 ),
@@ -2611,27 +3039,123 @@ class _CalculatorPageState extends State<CalculatorPage> {
         color: panelColor,
         borderRadius: BorderRadius.circular(15),
       ),
-      child: TextField(
-        key: const Key('expression-input'),
-        controller: _input,
-        onChanged: (_) => _updateResult(),
-        onSubmitted: (_) => _evaluate(),
-        keyboardType: const TextInputType.numberWithOptions(
-          decimal: true,
-          signed: true,
-        ),
-        maxLines: 2,
-        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-        decoration: const InputDecoration(
-          labelText: 'Expression',
-          hintText: '12 + 8',
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(child: Text('Expression')),
+              TextButton.icon(
+                key: const Key('expression-edit-toggle'),
+                onPressed: () => setState(
+                  () => _sourceEditorVisible = !_sourceEditorVisible,
+                ),
+                icon: Icon(
+                  _sourceEditorVisible ? Icons.functions : Icons.edit,
+                  size: 16,
+                ),
+                label: Text(_sourceEditorVisible ? 'Math view' : 'Edit'),
+              ),
+            ],
+          ),
+          Expanded(
+            child: _sourceEditorVisible
+                ? TextField(
+                    key: const Key('expression-input'),
+                    controller: _input,
+                    autofocus: true,
+                    onChanged: (_) => _updateResult(),
+                    onSubmitted: (_) => _evaluate(),
+                    maxLines: 2,
+                    decoration: const InputDecoration(
+                      hintText: '12 + 8',
+                      border: InputBorder.none,
+                    ),
+                  )
+                : _fractionBuilder
+                ? Row(
+                    children: [
+                      if (_input.text.isNotEmpty)
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Math.tex(
+                              _expressionTex,
+                              mathStyle: MathStyle.display,
+                              textStyle: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                        ),
+                      _inlineFractionEditor(),
+                    ],
+                  )
+                : _input.text.trim().isEmpty &&
+                      _mode != _CalculatorMode.geometry
+                ? const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Enter an expression',
+                      style: TextStyle(color: Colors.black45, fontSize: 18),
+                    ),
+                  )
+                : SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Math.tex(
+                        _expressionTex,
+                        mathStyle: MathStyle.display,
+                        textStyle: const TextStyle(
+                          fontSize: 28,
+                          fontWeight: FontWeight.w500,
+                        ),
+                        onErrorFallback: (_) =>
+                            const Text('Complete the expression'),
+                      ),
+                    ),
+                  ),
+          ),
+        ],
       ),
     );
   }
+
+  Widget _inlineFractionEditor() => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      SizedBox(
+        width: 76,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: 32, child: _fractionField(_numerator, false)),
+            Container(height: 2, color: Theme.of(context).colorScheme.primary),
+            SizedBox(height: 32, child: _fractionField(_denominator, true)),
+          ],
+        ),
+      ),
+      IconButton(
+        key: const Key('fraction-insert'),
+        tooltip: 'Insert fraction into expression',
+        onPressed: _insertFraction,
+        icon: const Icon(Icons.check_circle_outline_rounded),
+      ),
+    ],
+  );
+
+  Widget _fractionField(TextEditingController controller, bool denominator) =>
+      TextField(
+        controller: controller,
+        readOnly: true,
+        textAlign: TextAlign.center,
+        onTap: () => setState(() => _fractionDenominatorSelected = denominator),
+        decoration: const InputDecoration(
+          hintText: '\u25A1',
+          border: OutlineInputBorder(),
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      );
 
   Widget _buildFunctionRow() {
     final List<(String, String)> functions = switch (_mode) {
@@ -2649,6 +3173,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _CalculatorMode.calculus => [
         ('x', 'x'),
         ('^', '^'),
+        ('d/dx', 'CALC_DERIVATIVE'),
+        ('\u222B', 'CALC_INTEGRAL'),
+        ('\u222B\u2090\u1D47', 'CALC_DEFINITE_INTEGRAL'),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
@@ -2678,7 +3205,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('sec', 'sec('),
         ('csc', 'csc('),
         ('cot', 'cot('),
-        ('mul', '*'),
+        ('×', '*'),
         ('a/b', 'a/b'),
         ('(', '('),
         (')', ')'),
@@ -2732,19 +3259,57 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 child: SizedBox(
                   height: 32,
                   child: OutlinedButton(
+                    key: ValueKey('function-key-$key'),
                     onPressed: () => _pressFunction(key),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       minimumSize: const Size(36, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: Text(label),
+                    child: _functionKeyVisual(label, key),
                   ),
                 ),
               ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _functionKeyVisual(String label, String key) {
+    if (key == 'DEL') return const Icon(Icons.backspace_outlined, size: 17);
+    final tex = switch (key) {
+      'sqrt(' => r'\sqrt{\square}',
+      'cbrt(' => r'\sqrt[3]{\square}',
+      'a/b' => r'\frac{\square}{\square}',
+      '^' => r'\square^{\square}',
+      'e^(' => r'e^x',
+      '3.141592653589793' => r'\pi',
+      'abs(' => r'|x|',
+      'sin(' => r'\sin(\square)',
+      'cos(' => r'\cos(\square)',
+      'tan(' => r'\tan(\square)',
+      'sec(' => r'\sec(\square)',
+      'csc(' => r'\csc(\square)',
+      'cot(' => r'\cot(\square)',
+      'arcsin(' => r'\arcsin(\square)',
+      'arccos(' => r'\arccos(\square)',
+      'arctan(' => r'\arctan(\square)',
+      'ln(' => r'\ln(\square)',
+      'log(' => r'\log(\square)',
+      '*' => r'\times',
+      '/' => r'\div',
+      'CALC_DERIVATIVE' => r'\frac{d}{dx}',
+      'CALC_INTEGRAL' => r'\int \square\,dx',
+      'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
+      _ => null,
+    };
+    if (tex == null) return Text(label);
+    return Math.tex(
+      tex,
+      mathStyle: MathStyle.text,
+      textStyle: const TextStyle(fontSize: 16),
+      onErrorFallback: (_) => Text(label),
     );
   }
 
@@ -2800,8 +3365,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 for (final (label, value) in const [
                   ('+', '+'),
                   ('-', '-'),
-                  ('x', '*'),
-                  ('/', '/'),
+                  ('×', '*'),
+                  ('÷', '/'),
                 ]) ...[
                   SizedBox(
                     height: keyHeight,
@@ -2846,7 +3411,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(child: Text(label)),
+            child: FittedBox(child: _basicKeyVisual(label)),
           )
         : OutlinedButton(
             onPressed: onPressed,
@@ -2863,15 +3428,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(
-              child: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
-                ),
-              ),
-            ),
+            child: FittedBox(child: _basicKeyVisual(label)),
           ),
   );
 
@@ -2994,6 +3551,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 hintText: _sourceBase == 16 ? 'FF' : '1010',
                 border: const OutlineInputBorder(),
                 isDense: true,
+                suffixIcon: _numberSystemEditActions(_numberA),
               ),
             ),
             if (!_conversionOnly) ...[
@@ -3041,6 +3599,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   labelText: 'Second value in base $_sourceBase',
                   border: const OutlineInputBorder(),
                   isDense: true,
+                  suffixIcon: _numberSystemEditActions(_numberB),
                 ),
               ),
             ],
@@ -3053,15 +3612,62 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ),
             ),
           ],
-          if (_error != null) ...[
-            const SizedBox(height: 6),
-            Text(
-              _error!,
-              style: TextStyle(color: Theme.of(context).colorScheme.error),
-            ),
-          ],
         ],
       ),
+    );
+  }
+
+  Widget _numberSystemEditActions(TextEditingController controller) => SizedBox(
+    width: 96,
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        IconButton(
+          tooltip: 'Delete last digit',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            final text = controller.text;
+            final selection = controller.selection;
+            final start = selection.isValid ? selection.start : text.length;
+            final end = selection.isValid ? selection.end : text.length;
+            final from = start == end && start > 0 ? start - 1 : start;
+            controller.value = TextEditingValue(
+              text: text.replaceRange(from, end, ''),
+              selection: TextSelection.collapsed(offset: from),
+            );
+            _calculateNumberSystem();
+          },
+          icon: const Icon(Icons.backspace_outlined, size: 17),
+        ),
+        IconButton(
+          tooltip: 'Clear value',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
+          padding: EdgeInsets.zero,
+          onPressed: () {
+            controller.clear();
+            _calculateNumberSystem();
+          },
+          icon: const Icon(Icons.clear_rounded, size: 18),
+        ),
+      ],
+    ),
+  );
+
+  Widget _basicKeyVisual(String label) {
+    final tex = switch (label) {
+      '×' => r'\times',
+      '÷' => r'\div',
+      '−' => '-',
+      _ => null,
+    };
+    if (tex == null) return Text(label);
+    return Math.tex(
+      tex,
+      mathStyle: MathStyle.text,
+      textStyle: const TextStyle(fontSize: 19),
     );
   }
 
@@ -3115,6 +3721,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _buildExpressionAnswer(context),
         DropdownButtonFormField<String>(
           initialValue: _geometryOperation,
           decoration: const InputDecoration(
@@ -3132,6 +3739,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               _geometryOperation = value;
               _geometryFirst.clear();
               _geometrySecond.clear();
+              _input.clear();
               _geometryUsesSecond = false;
               _result = null;
               _answerShown = false;
@@ -3144,6 +3752,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             Expanded(
               child: TextField(
                 controller: _geometryFirst,
+                readOnly: true,
                 onTap: () => setState(() => _geometryUsesSecond = false),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -3165,6 +3774,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               Expanded(
                 child: TextField(
                   controller: _geometrySecond,
+                  readOnly: true,
                   onTap: () => setState(() => _geometryUsesSecond = true),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,
@@ -3182,7 +3792,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 184,
+          height: 156,
           child: GridView.count(
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
@@ -3207,7 +3817,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 'DEL',
               ])
                 OutlinedButton(
+                  key: ValueKey('geometry-key-$key'),
                   onPressed: () => _pressGeometryDigit(key),
+                  style: OutlinedButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                   child: Text(key),
                 ),
             ],
@@ -3219,29 +3835,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
           icon: const Icon(Icons.calculate_outlined),
           label: const Text('Calculate'),
         ),
-        if (_answerShown && _result != null) ...[
-          const SizedBox(height: 8),
-          _SectionCard(
-            child: Row(
-              children: [
-                const Expanded(child: Text('Result')),
-                SelectableText(
-                  _result!,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ),
-        ],
-        if (_error != null) ...[
-          const SizedBox(height: 6),
-          Text(
-            _error!,
-            style: TextStyle(color: Theme.of(context).colorScheme.error),
-          ),
-        ],
       ],
     );
   }
@@ -3264,6 +3857,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
         title: const Text('Handwritten calculation'),
         actions: [
+          IconButton(
+            tooltip: 'Delete last stroke',
+            onPressed: _undoDrawingStroke,
+            icon: const Icon(Icons.undo_rounded),
+          ),
           IconButton(
             tooltip: 'Clear',
             onPressed: _clearDrawing,
@@ -3344,7 +3942,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
             ),
-            if (_recognizedExpression != null || _error != null)
+            if (_recognizedExpression != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Row(
@@ -3353,13 +3951,23 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Recognized: ${_recognizedExpression ?? '--'}'),
-                          Text(
-                            _result == null
-                                ? (_error ?? '--')
-                                : 'Answer: $_result',
-                            style: Theme.of(context).textTheme.titleMedium,
+                          const Text('Recognized expression'),
+                          Math.tex(
+                            _mathTexFromSource(_recognizedExpression!),
+                            mathStyle: MathStyle.display,
+                            textStyle: Theme.of(context).textTheme.titleLarge,
+                            onErrorFallback: (_) =>
+                                Text(_recognizedExpression!),
                           ),
+                          if (_result != null) ...[
+                            const Text('Answer'),
+                            Math.tex(
+                              _mathTexFromSource(_result!),
+                              mathStyle: MathStyle.display,
+                              textStyle: Theme.of(context).textTheme.titleLarge,
+                              onErrorFallback: (_) => Text(_result!),
+                            ),
+                          ],
                         ],
                       ),
                     ),
@@ -3420,6 +4028,9 @@ class _MathVisualizationPainter extends CustomPainter {
   const _MathVisualizationPainter({
     required this.mode,
     required this.is3D,
+    required this.calculusOperation,
+    required this.rotationX,
+    required this.rotationY,
     required this.angle,
     required this.hypotenuse,
     required this.slope,
@@ -3428,28 +4039,234 @@ class _MathVisualizationPainter extends CustomPainter {
     required this.upper,
     required this.selectedX,
     required this.expression,
+    required this.geometryOperation,
+    required this.geometryFirst,
+    required this.geometrySecond,
   });
 
   final _CalculatorMode mode;
   final bool is3D;
+  final String calculusOperation;
+  final double rotationX, rotationY;
   final double angle, hypotenuse, slope, intercept, lower, upper, selectedX;
   final String expression;
+  final String geometryOperation;
+  final double geometryFirst, geometrySecond;
 
-  bool get _triangle =>
-      mode == _CalculatorMode.geometry || mode == _CalculatorMode.trigonometry;
+  bool get _triangle => mode == _CalculatorMode.trigonometry;
+
+  String get _plotExpression {
+    if (mode != _CalculatorMode.calculus) return expression;
+    final source = expression.trim().isEmpty ? 'x^2' : expression;
+    try {
+      if (calculusOperation == 'Derivative') {
+        return const MathEngine().differentiate(source);
+      }
+      if (calculusOperation == 'Indefinite integral') {
+        return const MathEngine()
+            .integrateIndefinite(source)
+            .replaceFirst(RegExp(r'\s*\+\s*C$'), '');
+      }
+    } on Object {
+      return source;
+    }
+    return source;
+  }
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF1E2230), BlendMode.src);
-    if (_triangle) {
+    if (is3D) {
+      final centerX = size.width / 2;
+      final centerY = size.height / 2;
+      final transform = Matrix4.identity()
+        ..setEntry(3, 2, .001)
+        ..translateByDouble(centerX, centerY, 0, 1)
+        ..rotateX(rotationX)
+        ..rotateY(rotationY)
+        ..translateByDouble(-centerX, -centerY, 0, 1);
+      canvas.save();
+      canvas.transform(transform.storage);
+    }
+    if (mode == _CalculatorMode.geometry) {
+      _paintGeometry(canvas, size);
+    } else if (_triangle) {
       _paintTriangle(canvas, size);
     } else if (is3D) {
       _paintSurface(canvas, size);
-    } else if (mode == _CalculatorMode.calculus) {
+    } else if (mode == _CalculatorMode.calculus &&
+        calculusOperation == 'Definite integral') {
       _paintIntegral(canvas, size);
+    } else if (mode == _CalculatorMode.calculus &&
+        calculusOperation == 'Derivative') {
+      _paintDerivative(canvas, size);
+    } else if (mode == _CalculatorMode.calculus) {
+      _paintGraph(canvas, size);
     } else {
       _paintGraph(canvas, size);
     }
+    if (is3D) canvas.restore();
+  }
+
+  void _paintGeometry(Canvas canvas, Size size) {
+    final c = Offset(size.width * .5, size.height * .53);
+    final scale = math.min(size.width * .032, size.height * .032);
+    final a = geometryFirst.clamp(.1, 20) * scale;
+    final b = geometrySecond.clamp(.1, 20) * scale;
+    final stroke = Paint()
+      ..color = const Color(0xFF4A86FF)
+      ..strokeWidth = 3
+      ..style = PaintingStyle.stroke;
+    final green = Paint()
+      ..color = const Color(0xFF35C46A)
+      ..strokeWidth = 2
+      ..style = PaintingStyle.stroke;
+    final fill = Paint()
+      ..color = const Color(0xFF4A86FF).withValues(alpha: .18)
+      ..style = PaintingStyle.fill;
+    if (geometryOperation.startsWith('Circle')) {
+      final r = math.min(a, math.min(size.width * .3, size.height * .34));
+      if (geometryOperation == 'Circle area') {
+        canvas.drawCircle(c, r, fill);
+      }
+      canvas.drawCircle(c, r, stroke);
+      if (is3D) {
+        canvas.drawOval(
+          Rect.fromCenter(
+            center: c + const Offset(0, 12),
+            width: r * 2,
+            height: r * .55,
+          ),
+          green,
+        );
+      }
+    } else if (geometryOperation.startsWith('Rectangle') ||
+        geometryOperation == 'Parallelogram area') {
+      final w = math.min(a, size.width * .62),
+          h = math.min(b, size.height * .55);
+      final l = c.dx - w / 2, t = c.dy - h / 2;
+      final skew = geometryOperation == 'Parallelogram area' ? w * .2 : 0.0;
+      final p = Path()
+        ..moveTo(l + skew, t)
+        ..lineTo(l + w + skew, t)
+        ..lineTo(l + w, t + h)
+        ..lineTo(l, t + h)
+        ..close();
+      canvas.drawPath(p, fill);
+      canvas.drawPath(p, stroke);
+      if (is3D) {
+        const d = Offset(22, -16);
+        for (final point in [
+          Offset(l + skew, t),
+          Offset(l + w + skew, t),
+          Offset(l + w, t + h),
+          Offset(l, t + h),
+        ]) {
+          canvas.drawLine(point, point + d, green);
+        }
+      }
+    } else if (geometryOperation == 'Triangle area' ||
+        geometryOperation == 'Pythagorean hypotenuse') {
+      final w = math.min(a, size.width * .62),
+          h = math.min(b, size.height * .55);
+      final l = c.dx - w / 2, base = c.dy + h / 2;
+      final p = Path()
+        ..moveTo(l, base)
+        ..lineTo(l + w, base)
+        ..lineTo(l + w * .62, base - h)
+        ..close();
+      canvas.drawPath(p, fill);
+      canvas.drawPath(p, stroke);
+      if (geometryOperation == 'Pythagorean hypotenuse') {
+        canvas.drawLine(
+          Offset(l + w * .62, base - h),
+          Offset(l + w * .62, base),
+          green,
+        );
+      }
+    } else if (geometryOperation.contains('Cylinder')) {
+      final r = math.min(a, size.width * .25),
+          h = math.min(b, size.height * .48);
+      final rect = Rect.fromCenter(center: c, width: r * 2, height: h);
+      canvas.drawRect(rect, fill);
+      canvas.drawLine(
+        Offset(rect.left, rect.top),
+        Offset(rect.left, rect.bottom),
+        stroke,
+      );
+      canvas.drawLine(
+        Offset(rect.right, rect.top),
+        Offset(rect.right, rect.bottom),
+        stroke,
+      );
+      canvas.drawOval(
+        Rect.fromCenter(
+          center: Offset(c.dx, rect.top),
+          width: r * 2,
+          height: r * .55,
+        ),
+        stroke,
+      );
+      canvas.drawArc(
+        Rect.fromCenter(
+          center: Offset(c.dx, rect.bottom),
+          width: r * 2,
+          height: r * .55,
+        ),
+        0,
+        math.pi,
+        false,
+        stroke,
+      );
+      if (is3D) {
+        canvas.drawArc(
+          Rect.fromCenter(
+            center: Offset(c.dx, rect.bottom),
+            width: r * 2,
+            height: r * .55,
+          ),
+          math.pi,
+          math.pi,
+          false,
+          green,
+        );
+      }
+    } else if (geometryOperation.contains('Cone')) {
+      final r = math.min(a, size.width * .27),
+          h = math.min(b, size.height * .53);
+      final top = Offset(c.dx, c.dy - h / 2),
+          left = Offset(c.dx - r, c.dy + h / 2),
+          right = Offset(c.dx + r, c.dy + h / 2);
+      final p = Path()
+        ..moveTo(top.dx, top.dy)
+        ..lineTo(left.dx, left.dy)
+        ..lineTo(right.dx, right.dy)
+        ..close();
+      canvas.drawPath(p, fill);
+      canvas.drawPath(p, stroke);
+      final base = Rect.fromCenter(
+        center: Offset(c.dx, c.dy + h / 2),
+        width: r * 2,
+        height: r * .55,
+      );
+      canvas.drawArc(base, 0, math.pi, false, stroke);
+      if (is3D) canvas.drawArc(base, math.pi, math.pi, false, green);
+    } else {
+      final r = math.min(a, math.min(size.width * .28, size.height * .34));
+      canvas.drawCircle(c, r, fill);
+      canvas.drawCircle(c, r, stroke);
+      canvas.drawOval(
+        Rect.fromCenter(center: c, width: r * 2, height: r * .72),
+        green,
+      );
+    }
+    _label(canvas, geometryOperation, const Offset(16, 14), Colors.white);
+    _label(
+      canvas,
+      is3D ? '3D solid preview' : '2D shape preview',
+      Offset(16, size.height - 22),
+      const Color(0xFF78A5FF),
+    );
   }
 
   void _paintTriangle(Canvas canvas, Size size) {
@@ -3546,15 +4363,16 @@ class _MathVisualizationPainter extends CustomPainter {
     );
   }
 
-  void _paintGraph(Canvas canvas, Size size) {
+  void _paintGraph(Canvas canvas, Size size, {String? functionExpression}) {
     _paintAxes(canvas, size);
+    final plottedExpression = functionExpression ?? _plotExpression;
     Offset point(double x) {
       var y = slope * x + intercept;
-      if (expression.trim().isNotEmpty &&
+      if (plottedExpression.trim().isNotEmpty &&
           (mode == _CalculatorMode.graphing ||
               mode == _CalculatorMode.calculus)) {
         try {
-          y = const MathEngine().evaluateAt(expression, x);
+          y = const MathEngine().evaluateAt(plottedExpression, x);
         } on Object {
           y = double.nan;
         }
@@ -3591,7 +4409,7 @@ class _MathVisualizationPainter extends CustomPainter {
       canvas,
       expression.trim().isEmpty
           ? 'y = ${slope.toStringAsFixed(1)}x + ${intercept.toStringAsFixed(1)}'
-          : 'y = $expression',
+          : 'y = ${functionExpression ?? expression}',
       const Offset(20, 16),
       Colors.white,
     );
@@ -3603,6 +4421,50 @@ class _MathVisualizationPainter extends CustomPainter {
           : const Offset(20, 38),
       const Color(0xFFFF8A7F),
     );
+  }
+
+  void _paintDerivative(Canvas canvas, Size size) {
+    final source = expression.trim().isEmpty ? 'x^2' : expression;
+    _paintGraph(canvas, size, functionExpression: source);
+    try {
+      final derivative = const MathEngine().differentiate(source);
+      final slopeAtPoint = const MathEngine().evaluateAt(derivative, selectedX);
+      final yAtPoint = const MathEngine().evaluateAt(source, selectedX);
+      final point = Offset(
+        size.width * (.5 + selectedX / 12),
+        size.height * (.72 - yAtPoint / 24),
+      );
+      const leftX = -5.5;
+      const rightX = 5.5;
+      double tangentY(double x) => yAtPoint + slopeAtPoint * (x - selectedX);
+      canvas.drawLine(
+        Offset(
+          size.width * (.5 + leftX / 12),
+          size.height * (.72 - tangentY(leftX) / 24),
+        ),
+        Offset(
+          size.width * (.5 + rightX / 12),
+          size.height * (.72 - tangentY(rightX) / 24),
+        ),
+        Paint()
+          ..color = const Color(0xFFFF594D)
+          ..strokeWidth = 2.5,
+      );
+      canvas.drawCircle(point, 5, Paint()..color = const Color(0xFFFF594D));
+      _label(
+        canvas,
+        "f'(${selectedX.toStringAsFixed(1)}) = ${slopeAtPoint.toStringAsFixed(2)}",
+        Offset(point.dx + 8, point.dy - 18),
+        const Color(0xFFFF8A7F),
+      );
+    } on Object {
+      _label(
+        canvas,
+        'Enter a differentiable function',
+        const Offset(18, 18),
+        Colors.white,
+      );
+    }
   }
 
   void _paintIntegral(Canvas canvas, Size size) {
@@ -3676,7 +4538,7 @@ class _MathVisualizationPainter extends CustomPainter {
           (mode == _CalculatorMode.graphing ||
               mode == _CalculatorMode.calculus)) {
         try {
-          functionValue = const MathEngine().evaluateAt(expression, x);
+          functionValue = const MathEngine().evaluateAt(_plotExpression, x);
         } on Object {
           functionValue = 0;
         }
@@ -3814,14 +4676,20 @@ class _LessonsContentState extends State<_LessonsContent> {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _search,
-                onChanged: (value) => setState(() => _query = value.trim()),
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Search lessons',
-                  border: OutlineInputBorder(),
-                  isDense: true,
+              child: SizedBox(
+                height: 42,
+                child: TextField(
+                  controller: _search,
+                  onChanged: (value) => setState(() => _query = value.trim()),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search, size: 19),
+                    hintText: 'Search lessons',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                  ),
                 ),
               ),
             ),
@@ -3871,8 +4739,8 @@ class _LessonsContentState extends State<_LessonsContent> {
               widget.progress.completedLearningIds.contains(
                     _orderOfOperationsId,
                   )
-                  ? 'Completed ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· +20 XP earned'
-                  : 'Learn operation order ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· +5 XP to start, +20 XP to finish',
+                  ? 'Completed - +20 XP earned'
+                  : 'Learn operation order - +5 XP to start, +20 XP to finish',
             ),
             trailing: IconButton(
               tooltip: 'Open Order of Operations lesson',
@@ -3890,7 +4758,7 @@ class _LessonsContentState extends State<_LessonsContent> {
         const SizedBox(height: 8),
         _SectionCard(
           child: Text(
-            'Topic popularity requires shared, privacy-safe learner activity. No shared usage counts are available yet${_query.isEmpty ? '' : ' matching ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“$_queryÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â'}${_category == 'All' ? '' : ' in $_category'}.',
+            'Topic popularity requires shared, privacy-safe learner activity. No shared usage counts are available yet${_query.isEmpty ? '' : ' matching "$_query"'}${_category == 'All' ? '' : ' in $_category'}.',
           ),
         ),
       ],
@@ -3954,10 +4822,10 @@ class _OrderOfOperationsLessonState extends State<_OrderOfOperationsLesson> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Do multiplication before addition. In 6 + 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5, solve 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5 first, then add 6.',
+          'Do multiplication before addition. In 6 + 2 * 5, solve 2 * 5 first, then add 6.',
         ),
         const SizedBox(height: 14),
-        const Text('What is 6 + 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5?'),
+        const Text('What is 6 + 2 * 5?'),
         const SizedBox(height: 8),
         TextField(
           key: const Key('lesson-answer-input'),
@@ -4075,15 +4943,21 @@ class _CommunityPageState extends State<CommunityPage> {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _search,
-                onChanged: (_) => setState(() {}),
-                decoration: InputDecoration(
-                  prefixIcon: const Icon(Icons.search),
-                  hintText: 'Search posts or users',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  suffixText: _searchIn,
+              child: SizedBox(
+                height: 42,
+                child: TextField(
+                  controller: _search,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    prefixIcon: const Icon(Icons.search, size: 19),
+                    hintText: 'Search posts or users',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(22),
+                    ),
+                    isDense: true,
+                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
+                    suffixText: _searchIn,
+                  ),
                 ),
               ),
             ),
@@ -4093,16 +4967,12 @@ class _CommunityPageState extends State<CommunityPage> {
               onPressed: _chooseSearchFilter,
               icon: const Icon(Icons.tune_rounded),
             ),
+            IconButton.filled(
+              tooltip: 'Create post',
+              onPressed: _createPost,
+              icon: const Icon(Icons.add_comment_outlined),
+            ),
           ],
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton.icon(
-            onPressed: _createPost,
-            icon: const Icon(Icons.edit_rounded),
-            label: const Text('Create post'),
-          ),
         ),
         const SizedBox(height: 10),
         Row(
@@ -4426,7 +5296,7 @@ class SettingsPage extends StatelessWidget {
               leading: Icon(Icons.info_outline),
               title: Text('About MathVerse'),
               subtitle: Text(
-                'Version 1.0.0+1 ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· Offline mathematics foundation',
+                'Version 1.0.0+1 | Offline mathematics foundation',
               ),
             ),
             ListTile(
@@ -4761,7 +5631,7 @@ class _CalculationDetailPage extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}  ?  ${TimeOfDay.fromDateTime(localDate).format(context)}',
+            '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')} at ${TimeOfDay.fromDateTime(localDate).format(context)}',
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -4881,7 +5751,7 @@ class _HistoryTile extends StatelessWidget {
                       ),
                       Text(
                         record.calculationCount > 1
-                            ? '${record.calculationCount} calculations ? tap to view breakdown'
+                            ? '${record.calculationCount} calculations - tap to view breakdown'
                             : 'Tap to view calculation',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
