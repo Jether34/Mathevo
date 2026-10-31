@@ -920,15 +920,15 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
         );
         final float = sin(phase * 2 * pi);
         return Transform.translate(
-          offset: Offset(0, float * 3.5),
+          offset: Offset(0, float * 4.5),
           child: Transform.rotate(
-            alignment: const Alignment(0, .25),
-            angle: float * .012,
+            alignment: const Alignment(0, .3),
+            angle: float * .022,
             child: Stack(
               fit: StackFit.expand,
               children: [
                 child!,
-                CustomPaint(painter: _MascotBlinkPainter(blink)),
+                CustomPaint(painter: _MascotAnimationPainter(blink, float)),
               ],
             ),
           ),
@@ -1369,13 +1369,33 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   );
 }
 
-class _MascotBlinkPainter extends CustomPainter {
-  const _MascotBlinkPainter(this.blink);
+class _MascotAnimationPainter extends CustomPainter {
+  const _MascotAnimationPainter(this.blink, this.wingPhase);
 
   final double blink;
+  final double wingPhase;
 
   @override
   void paint(Canvas canvas, Size size) {
+    final feather = Paint()
+      ..color = const Color(0xFFB7E4FF).withValues(alpha: .34)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = size.width * .009;
+    final lift = wingPhase * size.height * .024;
+    for (var index = 0; index < 3; index++) {
+      final offset = index * size.width * .025;
+      final path = Path()
+        ..moveTo(size.width * .33 + offset, size.height * (.705 + index * .025))
+        ..quadraticBezierTo(
+          size.width * (.43 + index * .025),
+          size.height * (.655 + index * .02) - lift,
+          size.width * (.555 - index * .012),
+          size.height * (.59 + index * .055) - lift,
+        );
+      canvas.drawPath(path, feather);
+    }
+
     if (blink < .02) return;
     final fill = Paint()..color = const Color(0xFFFFF5E6);
     final lid = Paint()
@@ -1387,11 +1407,13 @@ class _MascotBlinkPainter extends CustomPainter {
     void closeEye(double x, double y) {
       final center = Offset(size.width * x, size.height * y);
       final width = size.width * .125;
-      final height = size.height * .155 * blink;
       final rect = Rect.fromCenter(
         center: center,
         width: width,
-        height: height.clamp(size.height * .002, size.height * .155),
+        height: (size.height * .155 * blink).clamp(
+          size.height * .002,
+          size.height * .155,
+        ),
       );
       canvas.drawOval(rect, fill);
       if (blink > .62) {
@@ -1412,6 +1434,6 @@ class _MascotBlinkPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _MascotBlinkPainter oldDelegate) =>
-      oldDelegate.blink != blink;
+  bool shouldRepaint(covariant _MascotAnimationPainter oldDelegate) =>
+      oldDelegate.blink != blink || oldDelegate.wingPhase != wingPhase;
 }
