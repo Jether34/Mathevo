@@ -34,8 +34,16 @@ enum _AuthPage {
   resetPassword,
 }
 
-class _AuthFlowState extends State<AuthFlow> {
+const _introPages = [
+  _AuthPage.getStarted,
+  _AuthPage.welcome,
+  _AuthPage.benefits,
+];
+
+class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   _AuthPage _page = _AuthPage.getStarted;
+  late final PageController _introController;
+  late final AnimationController _mascotMotion;
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
@@ -51,7 +59,6 @@ class _AuthFlowState extends State<AuthFlow> {
   String? _resetToken;
   String? _error;
   String? _notice;
-  double _introDirection = 1;
 
   GlobalKey<FormState> get _formKey =>
       _formKeys.putIfAbsent(_page, GlobalKey<FormState>.new);
@@ -59,6 +66,13 @@ class _AuthFlowState extends State<AuthFlow> {
   @override
   void initState() {
     super.initState();
+    _introController = PageController(
+      initialPage: widget.startAtWelcome ? 1 : 0,
+    );
+    _mascotMotion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4800),
+    )..repeat();
     if (widget.startAtWelcome) _page = _AuthPage.welcome;
   }
 
@@ -75,6 +89,8 @@ class _AuthFlowState extends State<AuthFlow> {
       node.dispose();
     }
     _confirmPassword.dispose();
+    _introController.dispose();
+    _mascotMotion.dispose();
     super.dispose();
   }
 
@@ -90,27 +106,21 @@ class _AuthFlowState extends State<AuthFlow> {
     _ => -1,
   };
 
-  void _go(_AuthPage page) => setState(() {
+  void _go(_AuthPage page) {
     if (_isIntroPage(_page) && _isIntroPage(page)) {
-      _introDirection = _introIndex(page) >= _introIndex(_page) ? 1 : -1;
+      _introController.animateToPage(
+        _introIndex(page),
+        duration: const Duration(milliseconds: 620),
+        curve: Curves.easeInOutCubicEmphasized,
+      );
+      return;
     }
-    _page = page;
-    _error = null;
-    _notice = null;
-    _policyRequiredError = false;
-  });
-
-  void _handleIntroSwipe(DragEndDetails details) {
-    final velocity = details.primaryVelocity ?? 0;
-    if (velocity.abs() < 300) return;
-    final next = switch ((_page, velocity.isNegative)) {
-      (_AuthPage.getStarted, true) => _AuthPage.welcome,
-      (_AuthPage.welcome, true) => _AuthPage.benefits,
-      (_AuthPage.welcome, false) => _AuthPage.getStarted,
-      (_AuthPage.benefits, false) => _AuthPage.welcome,
-      _ => null,
-    };
-    if (next != null) _go(next);
+    setState(() {
+      _page = page;
+      _error = null;
+      _notice = null;
+      _policyRequiredError = false;
+    });
   }
 
   void _back() {
@@ -427,81 +437,97 @@ class _AuthFlowState extends State<AuthFlow> {
         child: Scaffold(
           backgroundColor: Colors.white,
           body: SafeArea(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                return SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      minHeight: max(0, constraints.maxHeight - 30),
-                    ),
-                    child: IntrinsicHeight(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (isIntro)
-                            _brandHeader()
-                          else
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: IconButton(
-                                tooltip: 'Back',
-                                onPressed: _back,
-                                padding: EdgeInsets.zero,
-                                alignment: Alignment.centerLeft,
-                                constraints: const BoxConstraints(
-                                  minWidth: 44,
-                                  minHeight: 44,
-                                ),
-                                icon: const Icon(
-                                  Icons.arrow_back_rounded,
-                                  color: Color(0xFF302523),
-                                ),
-                              ),
-                            ),
-                          const SizedBox(height: 18),
-                          Expanded(
-                            child: GestureDetector(
-                              behavior: HitTestBehavior.translucent,
-                              onHorizontalDragEnd: isIntro
-                                  ? _handleIntroSwipe
-                                  : null,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 260),
-                                switchInCurve: Curves.easeOutCubic,
-                                switchOutCurve: Curves.easeInCubic,
-                                transitionBuilder: (child, animation) {
-                                  final slide = Tween<Offset>(
-                                    begin: Offset(_introDirection * .12, 0),
-                                    end: Offset.zero,
-                                  ).animate(animation);
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(
-                                      position: slide,
-                                      child: child,
-                                    ),
-                                  );
-                                },
-                                child: KeyedSubtree(
-                                  key: ValueKey(_page),
-                                  child: _content(context, isSignup),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
+            child: isIntro
+                ? _introLayout(context)
+                : _accountLayout(context, isSignup),
           ),
         ),
       ),
     );
   }
+
+  Widget _introLayout(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _brandHeader(),
+        const SizedBox(height: 18),
+        Expanded(
+          child: PageView(
+            controller: _introController,
+            onPageChanged: (index) => setState(() {
+              _page = _introPages[index];
+              _error = null;
+              _notice = null;
+            }),
+            children: [
+              for (final page in _introPages)
+                _content(context, false, page: page),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _progressDots(_introIndex(_page)),
+        const SizedBox(height: 22),
+        _introActionButton(),
+        const SizedBox(height: 4),
+      ],
+    ),
+  );
+
+  Widget _accountLayout(BuildContext context, bool isSignup) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: max(0, constraints.maxHeight - 30),
+        ),
+        child: IntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: 'Back',
+                  onPressed: _back,
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Color(0xFF302523),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 18),
+              Expanded(child: _content(context, isSignup)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _introActionButton() => switch (_page) {
+    _AuthPage.getStarted => _primaryButton(
+      'Get Started',
+      () => _go(_AuthPage.welcome),
+    ),
+    _AuthPage.welcome => _primaryButton(
+      'Continue',
+      () => _go(_AuthPage.benefits),
+    ),
+    _AuthPage.benefits => _primaryButton(
+      'Create your account',
+      () => _go(_AuthPage.signup),
+    ),
+    _ => const SizedBox.shrink(),
+  };
 
   Widget _brandHeader() => Row(
     children: [
@@ -530,18 +556,16 @@ class _AuthFlowState extends State<AuthFlow> {
     ],
   );
 
-  Widget _content(BuildContext context, bool isSignup) {
-    switch (_page) {
+  Widget _content(BuildContext context, bool isSignup, {_AuthPage? page}) {
+    switch (page ?? _page) {
       case _AuthPage.getStarted:
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Spacer(),
             Center(
-              child: Image.asset(
-                'assets/brand/mathevo_mascot.png',
-                height: min(MediaQuery.sizeOf(context).height * .39, 310),
-                fit: BoxFit.contain,
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .39, 310),
               ),
             ),
             const SizedBox(height: 20),
@@ -565,10 +589,6 @@ class _AuthFlowState extends State<AuthFlow> {
                 height: 1.5,
               ),
             ),
-            const SizedBox(height: 24),
-            _progressDots(0),
-            const Spacer(),
-            _primaryButton('Get Started', () => _go(_AuthPage.welcome)),
           ],
         );
       case _AuthPage.welcome:
@@ -577,10 +597,8 @@ class _AuthFlowState extends State<AuthFlow> {
           children: [
             const Spacer(),
             Center(
-              child: Image.asset(
-                'assets/brand/mathevo_mascot.png',
-                height: min(MediaQuery.sizeOf(context).height * .31, 245),
-                fit: BoxFit.contain,
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .31, 245),
               ),
             ),
             const SizedBox(height: 18),
@@ -611,10 +629,6 @@ class _AuthFlowState extends State<AuthFlow> {
               'See how math behaves',
               'Explore graphs, geometry, and interactive visualizations.',
             ),
-            const SizedBox(height: 20),
-            _progressDots(1),
-            const Spacer(),
-            _primaryButton('Continue', () => _go(_AuthPage.benefits)),
           ],
         );
       case _AuthPage.benefits:
@@ -656,8 +670,6 @@ class _AuthFlowState extends State<AuthFlow> {
               'Return to recent calculations and saved history.',
             ),
             const SizedBox(height: 18),
-            _progressDots(2),
-            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -676,7 +688,6 @@ class _AuthFlowState extends State<AuthFlow> {
                 ),
               ],
             ),
-            _primaryButton('Create your account', () => _go(_AuthPage.signup)),
           ],
         );
       case _AuthPage.signup:
@@ -893,21 +904,81 @@ class _AuthFlowState extends State<AuthFlow> {
     ),
   );
 
+  Widget _animatedMascot(double height) => SizedBox.square(
+    dimension: height,
+    child: AnimatedBuilder(
+      animation: _mascotMotion,
+      child: Image.asset(
+        'assets/brand/mathevo_mascot.png',
+        fit: BoxFit.contain,
+      ),
+      builder: (context, child) {
+        final phase = _mascotMotion.value;
+        final blink = max(
+          _blinkPulse(phase, .31, .026),
+          max(_blinkPulse(phase, .355, .026), _blinkPulse(phase, .82, .03)),
+        );
+        final float = sin(phase * 2 * pi);
+        return Transform.translate(
+          offset: Offset(0, float * 3.5),
+          child: Transform.rotate(
+            alignment: const Alignment(0, .25),
+            angle: float * .012,
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                child!,
+                CustomPaint(painter: _MascotBlinkPainter(blink)),
+              ],
+            ),
+          ),
+        );
+      },
+    ),
+  );
+
+  double _blinkPulse(double phase, double center, double radius) =>
+      (1 - (phase - center).abs() / radius).clamp(0.0, 1.0);
+
   Widget _progressDots(int active) => Row(
     mainAxisAlignment: MainAxisAlignment.center,
-    children: List.generate(3, (index) {
-      final selected = index == active;
-      return AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        margin: const EdgeInsets.symmetric(horizontal: 4),
-        width: selected ? 24 : 8,
-        height: 8,
-        decoration: BoxDecoration(
-          color: selected ? const Color(0xFFC45136) : const Color(0xFFE9DFDA),
-          borderRadius: BorderRadius.circular(8),
+    children: [
+      SizedBox(
+        width: 64,
+        height: 16,
+        child: Stack(
+          children: [
+            for (var index = 0; index < 3; index++)
+              Positioned(
+                left: index * 20 + 8,
+                top: 4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE9DFDA),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 560),
+              curve: Curves.easeInOutCubicEmphasized,
+              left: active * 20,
+              top: 4,
+              width: 24,
+              height: 8,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC45136),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
         ),
-      );
-    }),
+      ),
+    ],
   );
 
   Widget _policyConsentRow() => Column(
@@ -1296,4 +1367,51 @@ class _AuthFlowState extends State<AuthFlow> {
             ),
     ),
   );
+}
+
+class _MascotBlinkPainter extends CustomPainter {
+  const _MascotBlinkPainter(this.blink);
+
+  final double blink;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (blink < .02) return;
+    final fill = Paint()..color = const Color(0xFFFFF5E6);
+    final lid = Paint()
+      ..color = const Color(0xFF24364C)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = size.width * .006;
+
+    void closeEye(double x, double y) {
+      final center = Offset(size.width * x, size.height * y);
+      final width = size.width * .125;
+      final height = size.height * .155 * blink;
+      final rect = Rect.fromCenter(
+        center: center,
+        width: width,
+        height: height.clamp(size.height * .002, size.height * .155),
+      );
+      canvas.drawOval(rect, fill);
+      if (blink > .62) {
+        final path = Path()
+          ..moveTo(rect.left + width * .12, center.dy)
+          ..quadraticBezierTo(
+            center.dx,
+            center.dy + size.height * .012,
+            rect.right - width * .12,
+            center.dy,
+          );
+        canvas.drawPath(path, lid);
+      }
+    }
+
+    closeEye(.365, .385);
+    closeEye(.59, .355);
+  }
+
+  @override
+  bool shouldRepaint(covariant _MascotBlinkPainter oldDelegate) =>
+      oldDelegate.blink != blink;
 }
