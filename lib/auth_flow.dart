@@ -378,11 +378,16 @@ class _AuthFlowState extends State<AuthFlow> {
   @override
   Widget build(BuildContext context) {
     final isSignup = _page == _AuthPage.signup;
+    final media = MediaQuery.of(context);
+    final navigationInset = max(
+      24.0,
+      max(media.viewPadding.bottom, media.systemGestureInsets.bottom),
+    );
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
         statusBarIconBrightness: Brightness.light,
-        systemNavigationBarColor: Color(0xFFF9FAFF),
+        systemNavigationBarColor: Colors.transparent,
         systemNavigationBarDividerColor: Colors.transparent,
         systemNavigationBarIconBrightness: Brightness.dark,
         systemNavigationBarContrastEnforced: false,
@@ -405,6 +410,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 _ => min(screenHeight * .48, 390.0),
               };
               return Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
                     child: _blurBackground
@@ -467,8 +473,8 @@ class _AuthFlowState extends State<AuthFlow> {
                   Positioned(
                     left: 0,
                     right: 0,
-                    bottom: 0,
-                    height: cardHeight,
+                    bottom: -navigationInset,
+                    height: cardHeight + navigationInset,
                     child: Container(
                       decoration: const BoxDecoration(
                         color: Color(0xFFF9FAFF),
@@ -476,27 +482,30 @@ class _AuthFlowState extends State<AuthFlow> {
                           top: Radius.circular(26),
                         ),
                       ),
-                      child: LayoutBuilder(
-                        builder: (context, cardConstraints) =>
-                            SingleChildScrollView(
-                              padding: const EdgeInsets.fromLTRB(
-                                26,
-                                28,
-                                26,
-                                24,
-                              ),
-                              child: ConstrainedBox(
-                                constraints: BoxConstraints(
-                                  minHeight: max(
-                                    0,
-                                    cardConstraints.maxHeight - 52,
+                      child: SizedBox(
+                        height: cardHeight,
+                        child: LayoutBuilder(
+                          builder: (context, cardConstraints) =>
+                              SingleChildScrollView(
+                                padding: const EdgeInsets.fromLTRB(
+                                  26,
+                                  28,
+                                  26,
+                                  40,
+                                ),
+                                child: ConstrainedBox(
+                                  constraints: BoxConstraints(
+                                    minHeight: max(
+                                      0,
+                                      cardConstraints.maxHeight - 68,
+                                    ),
+                                  ),
+                                  child: IntrinsicHeight(
+                                    child: _content(context, isSignup),
                                   ),
                                 ),
-                                child: IntrinsicHeight(
-                                  child: _content(context, isSignup),
-                                ),
                               ),
-                            ),
+                        ),
                       ),
                     ),
                   ),
@@ -1001,6 +1010,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 10),
         if (_notice != null) _noticeText(_notice!),
         if (_error != null) _errorText(_error!),
+        const Spacer(),
         const SizedBox(height: 8),
         _primaryButton(
           showResend ? 'VERIFY EMAIL' : 'VERIFY CODE',

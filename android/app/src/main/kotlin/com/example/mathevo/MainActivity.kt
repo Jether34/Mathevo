@@ -11,7 +11,7 @@ class MainActivity : FlutterActivity() {
 
         // Keep the gesture navigation area visually continuous with the auth
         // sheet and suppress Android's default separator line.
-        window.navigationBarColor = Color.rgb(249, 250, 255)
+        window.navigationBarColor = Color.TRANSPARENT
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             window.navigationBarDividerColor = Color.TRANSPARENT
         }
