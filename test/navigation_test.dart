@@ -58,7 +58,7 @@ void main() {
     }
     await tester.tap(find.byKey(const Key('nav-home')));
     await tester.pumpAndSettle();
-    expect(find.text('MathVerse'), findsOneWidget);
+    expect(find.text('Mathevo'), findsOneWidget);
 
     await tester.tap(find.byKey(const Key('nav-lessons')));
     await tester.pumpAndSettle();
@@ -128,7 +128,7 @@ void main() {
       ]),
     });
     await tester.pumpWidget(
-      MathVerseApp(
+      MathevoApp(
         tokenStore: MemoryAuthTokenStore(
           accessToken: 'test-access',
           refreshToken: 'test-refresh',
@@ -243,7 +243,7 @@ void main() {
 Widget _testApp({VoidCallback onLogOut = _ignore}) => MaterialApp(
   home: TickerMode(
     enabled: false,
-    child: MathVerseShell(
+    child: MathevoShell(
       records: [],
       onCalculation: _ignoreRecord,
       darkMode: false,

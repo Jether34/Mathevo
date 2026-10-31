@@ -89,9 +89,11 @@ class HttpAuthApi implements AuthApi {
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'MATHVERSE_API_BASE_URL',
+    defaultValue: 'https://76.13.183.207:18443',
   );
   static const _pinnedCertificateAsset = String.fromEnvironment(
     'MATHVERSE_API_CERTIFICATE_ASSET',
+    defaultValue: 'assets/certs/server.crt',
   );
 
   final String baseUrl;

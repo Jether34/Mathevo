@@ -17,7 +17,7 @@ void main() {
     final authApi = FakeAuthApi();
 
     await tester.pumpWidget(
-      MathVerseApp(authApi: authApi, tokenStore: MemoryAuthTokenStore()),
+      MathevoApp(authApi: authApi, tokenStore: MemoryAuthTokenStore()),
     );
     await tester.pumpAndSettle();
 

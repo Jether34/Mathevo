@@ -1,6 +1,6 @@
-# MathVerse
+# Mathevo
 
-MathVerse is an offline-first mathematics app built with Flutter. It brings calculator tools, interactive math views, learning, personal progress, and calculation history into one mobile app.
+Mathevo is an offline-first mathematics app built with Flutter. It brings calculator tools, interactive math views, learning, personal progress, and calculation history into one mobile app.
 
 ## Current app
 
@@ -29,13 +29,13 @@ Build an Android APK:
 flutter build apk
 ```
 
-For cloud signup and login, configure the HTTPS API origin at build time:
+Cloud signup, email verification, login, and password reset use the existing HTTPS account service and pinned certificate configuration. The deployed API address and public certificate are defaults in the app. For a different environment, override them at build time:
 
 ```sh
-flutter run --dart-define=MATHVERSE_API_BASE_URL=https://api.example.com
+flutter run --dart-define=MATHVERSE_API_BASE_URL=https://your-api-host:18443 --dart-define=MATHVERSE_API_CERTIFICATE_ASSET=assets/certs/server.crt
 ```
 
-Use the certificate configuration documented in [`backend/README.md`](backend/README.md) when deploying the fixed-IP TLS gateway. Keep `.env`, database credentials, JWT signing secrets, and TLS private keys out of source control.
+The app communicates with the existing account service. Keep `.env`, database credentials, JWT signing secrets, and TLS private keys out of source control.
 
 ## Verification
 
@@ -49,7 +49,7 @@ flutter test --reporter expanded
 flutter test integration_test/calculator_e2e_test.dart -d emulator-5554
 ```
 
-The Android emulator was restarted with a clean app state and currently shows the MathVerse welcome screen. A dashboard session requires signing in.
+The Android emulator has the current debug build installed. A dashboard session requires signing in.
 
 ## Project map
 

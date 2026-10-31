@@ -18,23 +18,23 @@ import 'gamification.dart';
 import 'math_engine.dart';
 import 'math_history.dart';
 
-void main() => runApp(const MathVerseApp());
+void main() => runApp(const MathevoApp());
 
-const _navy = Color(0xFF17233D);
-const _blue = Color(0xFF2563EB);
-const _background = Color(0xFFF5F7FC);
+const _navy = Color(0xFF302523);
+const _accent = Color(0xFFC45136);
+const _background = Color(0xFFFFFAF7);
 
-class MathVerseApp extends StatefulWidget {
-  const MathVerseApp({super.key, this.authApi, this.tokenStore});
+class MathevoApp extends StatefulWidget {
+  const MathevoApp({super.key, this.authApi, this.tokenStore});
 
   final AuthApi? authApi;
   final AuthTokenStore? tokenStore;
 
   @override
-  State<MathVerseApp> createState() => _MathVerseAppState();
+  State<MathevoApp> createState() => _MathevoAppState();
 }
 
-class _MathVerseAppState extends State<MathVerseApp> {
+class _MathevoAppState extends State<MathevoApp> {
   late final AuthApi _authApi = widget.authApi ?? const HttpAuthApi();
   late final AuthTokenStore _tokenStore =
       widget.tokenStore ?? const SecureAuthTokenStore();
@@ -247,22 +247,22 @@ class _MathVerseAppState extends State<MathVerseApp> {
     theme: ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: _background,
-      colorScheme: ColorScheme.fromSeed(seedColor: _blue),
+      colorScheme: ColorScheme.fromSeed(seedColor: _accent),
       fontFamily: 'Roboto',
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFF0F3FA),
+        fillColor: const Color(0xFFFFF3EE),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFDCE3F1)),
+          borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
         ),
       ),
     ),
     darkTheme: ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: _blue,
+        seedColor: _accent,
         brightness: Brightness.dark,
       ),
     ),
@@ -274,7 +274,7 @@ class _MathVerseAppState extends State<MathVerseApp> {
             authApi: _authApi,
             onAuthenticated: _onAuthenticated,
           )
-        : MathVerseShell(
+        : MathevoShell(
             records: _records,
             onCalculation: _addRecord,
             darkMode: _darkMode,
@@ -298,8 +298,8 @@ class _MathVerseAppState extends State<MathVerseApp> {
 
 enum _Destination { home, lessons, calculator, community, settings }
 
-class MathVerseShell extends StatefulWidget {
-  const MathVerseShell({
+class MathevoShell extends StatefulWidget {
+  const MathevoShell({
     super.key,
     required this.records,
     required this.onCalculation,
@@ -344,10 +344,10 @@ class MathVerseShell extends StatefulWidget {
   onSaveProfile;
 
   @override
-  State<MathVerseShell> createState() => _MathVerseShellState();
+  State<MathevoShell> createState() => _MathevoShellState();
 }
 
-class _MathVerseShellState extends State<MathVerseShell> {
+class _MathevoShellState extends State<MathevoShell> {
   _Destination _selected = _Destination.home;
   final _calculatorPageKey = GlobalKey<_CalculatorPageState>();
   bool _hideNavigation = false;
@@ -562,7 +562,7 @@ class _NavItem extends StatelessWidget {
                 child: Icon(
                   icon,
                   size: 21,
-                  color: selected ? _blue : inactiveColor,
+                  color: selected ? _accent : inactiveColor,
                 ),
               ),
             ),
@@ -675,9 +675,20 @@ class _DashboardHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'MathVerse',
-              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+            Row(
+              children: [
+                Image.asset(
+                  'assets/brand/mathevo-logo.png',
+                  width: 28,
+                  height: 28,
+                  fit: BoxFit.contain,
+                ),
+                const SizedBox(width: 7),
+                const Text(
+                  'Mathevo',
+                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+                ),
+              ],
             ),
             Text(
               displayName == 'Your name'
@@ -735,7 +746,7 @@ class _DashboardGrid extends StatelessWidget {
               ? 'Solve an expression'
               : '${latestCalculation!.expression} = ${latestCalculation!.result}',
           icon: Icons.calculate_outlined,
-          color: _blue,
+          color: _accent,
           onTap: onCalculator,
         ),
         _WorkspaceTile(
@@ -888,8 +899,8 @@ class _RecentActivity extends StatelessWidget {
                   children: [
                     CircleAvatar(
                       radius: 18,
-                      backgroundColor: _blue.withValues(alpha: .11),
-                      child: Icon(item.icon, color: _blue, size: 18),
+                      backgroundColor: _accent.withValues(alpha: .11),
+                      child: Icon(item.icon, color: _accent, size: 18),
                     ),
                     const SizedBox(width: 11),
                     Expanded(
@@ -973,7 +984,7 @@ class _ProgressOverview extends StatelessWidget {
                   label: 'TOTAL XP',
                   value: '${progress.xp}',
                   icon: Icons.bolt_rounded,
-                  color: _blue,
+                  color: _accent,
                 ),
               ),
               Expanded(
@@ -1005,8 +1016,8 @@ class _ProgressOverview extends StatelessWidget {
                   child: CircleAvatar(
                     radius: 6,
                     backgroundColor: days[i]
-                        ? _blue
-                        : _blue.withValues(alpha: .13),
+                        ? _accent
+                        : _accent.withValues(alpha: .13),
                     child: days[i]
                         ? const Icon(Icons.check, size: 9, color: Colors.white)
                         : null,
@@ -1144,7 +1155,7 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: _blue),
+            const Icon(Icons.auto_awesome_rounded, color: _accent),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
@@ -1223,7 +1234,7 @@ class _LeaderboardPreview extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.leaderboard_outlined, color: _blue),
+        const Icon(Icons.leaderboard_outlined, color: _accent),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -4732,7 +4743,7 @@ class _LessonsContentState extends State<_LessonsContent> {
             contentPadding: EdgeInsets.zero,
             leading: const CircleAvatar(
               backgroundColor: Color(0xFFE8EFFF),
-              child: Icon(Icons.functions_rounded, color: _blue),
+              child: Icon(Icons.functions_rounded, color: _accent),
             ),
             title: const Text('Order of Operations'),
             subtitle: Text(
@@ -5294,7 +5305,7 @@ class SettingsPage extends StatelessWidget {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline),
-              title: Text('About MathVerse'),
+              title: Text('About Mathevo'),
               subtitle: Text(
                 'Version 1.0.0+1 | Offline mathematics foundation',
               ),

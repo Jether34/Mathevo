@@ -1,4 +1,4 @@
-# MathVerse implementation status
+# Mathevo implementation status
 
 This document distinguishes working app flows from planned features. Test coverage demonstrates selected examples and does not establish correctness for every input.
 

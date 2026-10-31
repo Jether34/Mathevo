@@ -15,7 +15,7 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(480, 900));
 
     await tester.pumpWidget(
-      MathVerseApp(
+      MathevoApp(
         authApi: FakeAuthApi(registered: true),
         tokenStore: MemoryAuthTokenStore(),
       ),
@@ -55,7 +55,7 @@ void main() {
     final tokenStore = MemoryAuthTokenStore();
 
     await tester.pumpWidget(
-      MathVerseApp(authApi: authApi, tokenStore: tokenStore),
+      MathevoApp(authApi: authApi, tokenStore: tokenStore),
     );
     await tester.pumpAndSettle();
     expect(find.text('Get Started'), findsOneWidget);
@@ -63,7 +63,7 @@ void main() {
 
     await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to MathVerse'), findsOneWidget);
+    expect(find.text('Welcome to Mathevo'), findsOneWidget);
     expect(find.text('Solve with purpose'), findsOneWidget);
     expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
     await tester.tap(find.text('Continue'));
@@ -106,7 +106,7 @@ void main() {
     await tester.tap(find.text('Verify email'));
     await _pumpUntil(tester, find.byKey(const Key('nav-home')));
     expect(find.byKey(const Key('nav-home')), findsOneWidget);
-    expect(find.text('MathVerse'), findsOneWidget);
+    expect(find.text('Mathevo'), findsOneWidget);
     expect(await tokenStore.readRefreshToken(), isNotNull);
     final prefs = await SharedPreferences.getInstance();
     expect(prefs.getString('mathverse.auth.email'), isNull);
@@ -116,7 +116,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('Log out'));
     await tester.pumpAndSettle();
-    expect(find.text('Welcome to MathVerse'), findsOneWidget);
+    expect(find.text('Welcome to Mathevo'), findsOneWidget);
     expect(await tokenStore.readRefreshToken(), isNull);
 
     await tester.tap(find.text('Continue'));

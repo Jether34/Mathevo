@@ -5,7 +5,7 @@ import 'package:flutter/services.dart';
 
 import 'auth_api.dart';
 
-/// Onboarding and account gate backed by the MathVerse cloud API.
+/// Onboarding and account gate backed by the Mathevo cloud API.
 class AuthFlow extends StatefulWidget {
   const AuthFlow({
     super.key,
@@ -51,6 +51,7 @@ class _AuthFlowState extends State<AuthFlow> {
   String? _resetToken;
   String? _error;
   String? _notice;
+  double _introDirection = 1;
 
   GlobalKey<FormState> get _formKey =>
       _formKeys.putIfAbsent(_page, GlobalKey<FormState>.new);
@@ -77,12 +78,40 @@ class _AuthFlowState extends State<AuthFlow> {
     super.dispose();
   }
 
+  bool _isIntroPage(_AuthPage page) =>
+      page == _AuthPage.getStarted ||
+      page == _AuthPage.welcome ||
+      page == _AuthPage.benefits;
+
+  int _introIndex(_AuthPage page) => switch (page) {
+    _AuthPage.getStarted => 0,
+    _AuthPage.welcome => 1,
+    _AuthPage.benefits => 2,
+    _ => -1,
+  };
+
   void _go(_AuthPage page) => setState(() {
+    if (_isIntroPage(_page) && _isIntroPage(page)) {
+      _introDirection = _introIndex(page) >= _introIndex(_page) ? 1 : -1;
+    }
     _page = page;
     _error = null;
     _notice = null;
     _policyRequiredError = false;
   });
+
+  void _handleIntroSwipe(DragEndDetails details) {
+    final velocity = details.primaryVelocity ?? 0;
+    if (velocity.abs() < 300) return;
+    final next = switch ((_page, velocity.isNegative)) {
+      (_AuthPage.getStarted, true) => _AuthPage.welcome,
+      (_AuthPage.welcome, true) => _AuthPage.benefits,
+      (_AuthPage.welcome, false) => _AuthPage.getStarted,
+      (_AuthPage.benefits, false) => _AuthPage.welcome,
+      _ => null,
+    };
+    if (next != null) _go(next);
+  }
 
   void _back() {
     final page = switch (_page) {
@@ -119,10 +148,10 @@ class _AuthFlowState extends State<AuthFlow> {
 
   void _showPrivacyPolicy() => _showPolicy(
     'Privacy Policy',
-    'MathVerse uses your name and email to create and secure your account. '
+    'Mathevo uses your name and email to create and secure your account. '
         'Your password is stored as a one-way hash. Email verification and '
         'password-reset codes are stored as hashes and expire. Account and '
-        'session records are kept in the MathVerse cloud service. Calculation '
+        'session records are kept in the Mathevo cloud service. Calculation '
         'history and learning progress are stored on this device. The current '
         'community screens do not publish your calculations. You can use the '
         'local calculator without creating an account. Contact the developer '
@@ -131,9 +160,9 @@ class _AuthFlowState extends State<AuthFlow> {
 
   void _showTerms() => _showPolicy(
     'Terms of Use',
-    'Use MathVerse for personal learning and calculation. Keep your account '
+    'Use Mathevo for personal learning and calculation. Keep your account '
         'credentials private and do not misuse the service or attempt to access '
-        'another person’s account. MathVerse provides mathematical tools and '
+        'another person’s account. Mathevo provides mathematical tools and '
         'learning aids; check important results independently, especially '
         'before using them in coursework or other consequential work. Features '
         'may change as the app is maintained. By creating an account, you agree '
@@ -382,8 +411,8 @@ class _AuthFlowState extends State<AuthFlow> {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: const Color(0xFF4F7F86),
-          secondary: const Color(0xFF4F7F86),
+          primary: const Color(0xFFC45136),
+          secondary: const Color(0xFFC45136),
         ),
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -426,12 +455,41 @@ class _AuthFlowState extends State<AuthFlow> {
                                 ),
                                 icon: const Icon(
                                   Icons.arrow_back_rounded,
-                                  color: Color(0xFF273638),
+                                  color: Color(0xFF302523),
                                 ),
                               ),
                             ),
                           const SizedBox(height: 18),
-                          Expanded(child: _content(context, isSignup)),
+                          Expanded(
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.translucent,
+                              onHorizontalDragEnd: isIntro
+                                  ? _handleIntroSwipe
+                                  : null,
+                              child: AnimatedSwitcher(
+                                duration: const Duration(milliseconds: 260),
+                                switchInCurve: Curves.easeOutCubic,
+                                switchOutCurve: Curves.easeInCubic,
+                                transitionBuilder: (child, animation) {
+                                  final slide = Tween<Offset>(
+                                    begin: Offset(_introDirection * .12, 0),
+                                    end: Offset.zero,
+                                  ).animate(animation);
+                                  return FadeTransition(
+                                    opacity: animation,
+                                    child: SlideTransition(
+                                      position: slide,
+                                      child: child,
+                                    ),
+                                  );
+                                },
+                                child: KeyedSubtree(
+                                  key: ValueKey(_page),
+                                  child: _content(context, isSignup),
+                                ),
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -448,23 +506,23 @@ class _AuthFlowState extends State<AuthFlow> {
   Widget _brandHeader() => Row(
     children: [
       Container(
-        width: 38,
-        height: 38,
+        width: 42,
+        height: 42,
+        padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: const Color(0xFFE9F2F2),
+          color: const Color(0xFFFFEFEA),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Icon(
-          Icons.functions_rounded,
-          color: Color(0xFF4F7F86),
-          size: 23,
+        child: Image.asset(
+          'assets/brand/mathevo-logo.png',
+          fit: BoxFit.contain,
         ),
       ),
       const SizedBox(width: 10),
       const Text(
-        'MathVerse',
+        'Mathevo',
         style: TextStyle(
-          color: Color(0xFF293638),
+          color: Color(0xFF302523),
           fontWeight: FontWeight.w800,
           fontSize: 18,
         ),
@@ -481,20 +539,20 @@ class _AuthFlowState extends State<AuthFlow> {
             const Spacer(),
             Center(
               child: Image.asset(
-                'assets/brand/mathverse_mascot.png',
+                'assets/brand/mathevo_mascot.png',
                 height: min(MediaQuery.sizeOf(context).height * .39, 310),
                 fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 20),
             const Text(
-              'Welcome to MathVerse!',
+              'Welcome to Mathevo!',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 28,
                 height: 1.15,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF343B3B),
+                color: Color(0xFF302523),
               ),
             ),
             const SizedBox(height: 10),
@@ -502,7 +560,7 @@ class _AuthFlowState extends State<AuthFlow> {
               'Solve, explore, and understand mathematics at your own pace.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF8A9292),
+                color: Color(0xFF817772),
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -520,26 +578,26 @@ class _AuthFlowState extends State<AuthFlow> {
             const Spacer(),
             Center(
               child: Image.asset(
-                'assets/brand/mathverse_mascot.png',
+                'assets/brand/mathevo_mascot.png',
                 height: min(MediaQuery.sizeOf(context).height * .31, 245),
                 fit: BoxFit.contain,
               ),
             ),
             const SizedBox(height: 18),
             const Text(
-              'Welcome to MathVerse',
+              'Welcome to Mathevo',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 27,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF343B3B),
+                color: Color(0xFF302523),
               ),
             ),
             const SizedBox(height: 10),
             const Text(
               'A workspace to solve, see, and understand mathematics.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF8A9292), height: 1.45),
+              style: TextStyle(color: Color(0xFF817772), height: 1.45),
             ),
             const SizedBox(height: 20),
             _featureRow(
@@ -570,14 +628,14 @@ class _AuthFlowState extends State<AuthFlow> {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF343B3B),
+                color: Color(0xFF302523),
               ),
             ),
             const SizedBox(height: 8),
             const Text(
               'Tools for practice, discovery, and progress.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF8A9292)),
+              style: TextStyle(color: Color(0xFF817772)),
             ),
             const SizedBox(height: 24),
             _featureRow(
@@ -605,7 +663,7 @@ class _AuthFlowState extends State<AuthFlow> {
               children: [
                 const Text(
                   'Already have an account?',
-                  style: TextStyle(color: Color(0xFF8A9292), fontSize: 12),
+                  style: TextStyle(color: Color(0xFF817772), fontSize: 12),
                 ),
                 TextButton(
                   onPressed: () => _go(_AuthPage.login),
@@ -637,7 +695,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 style: const TextStyle(
                   fontSize: 27,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF1B2422),
+                  color: Color(0xFF302523),
                 ),
               ),
               const SizedBox(height: 6),
@@ -646,7 +704,7 @@ class _AuthFlowState extends State<AuthFlow> {
                     ? 'Save your progress and pick up where you left off.'
                     : 'Sign in to continue learning and calculating.',
                 textAlign: TextAlign.left,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF77817F)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF817772)),
               ),
               const SizedBox(height: 18),
               if (isSignup) ...[
@@ -739,9 +797,9 @@ class _AuthFlowState extends State<AuthFlow> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Text(
-                    isSignup ? 'Already have an account?' : 'New to MathVerse?',
+                    isSignup ? 'Already have an account?' : 'New to Mathevo?',
                     style: const TextStyle(
-                      color: Color(0xFF77817F),
+                      color: Color(0xFF817772),
                       fontSize: 12,
                     ),
                   ),
@@ -791,11 +849,11 @@ class _AuthFlowState extends State<AuthFlow> {
         width: 34,
         height: 34,
         decoration: BoxDecoration(
-          color: const Color(0xFFEAF2F2),
+          color: const Color(0xFFFFEFEA),
           borderRadius: BorderRadius.circular(11),
         ),
         alignment: Alignment.center,
-        child: Icon(icon, color: const Color(0xFF4F7F86), size: 19),
+        child: Icon(icon, color: const Color(0xFFC45136), size: 19),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -805,7 +863,7 @@ class _AuthFlowState extends State<AuthFlow> {
             Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF17233D),
+                color: Color(0xFF302523),
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -814,7 +872,7 @@ class _AuthFlowState extends State<AuthFlow> {
             Text(
               description,
               style: const TextStyle(
-                color: Color(0xFF77817F),
+                color: Color(0xFF817772),
                 fontSize: 11,
                 height: 1.3,
               ),
@@ -828,7 +886,7 @@ class _AuthFlowState extends State<AuthFlow> {
   Widget _eyebrow(String label) => Text(
     label,
     style: const TextStyle(
-      color: Color(0xFF69717D),
+      color: Color(0xFF817772),
       fontSize: 10,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.1,
@@ -845,7 +903,7 @@ class _AuthFlowState extends State<AuthFlow> {
         width: selected ? 24 : 8,
         height: 8,
         decoration: BoxDecoration(
-          color: selected ? const Color(0xFF4F7F86) : const Color(0xFFE2E8E8),
+          color: selected ? const Color(0xFFC45136) : const Color(0xFFE9DFDA),
           borderRadius: BorderRadius.circular(8),
         ),
       );
@@ -880,7 +938,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 children: [
                   const Text(
                     'I agree to the ',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF39465B)),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF534744)),
                   ),
                   InkWell(
                     key: const Key('privacy-policy-link'),
@@ -889,14 +947,14 @@ class _AuthFlowState extends State<AuthFlow> {
                       'Privacy Policy',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF4F7F86),
+                        color: Color(0xFFC45136),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
                   const Text(
                     ' and ',
-                    style: TextStyle(fontSize: 12, color: Color(0xFF39465B)),
+                    style: TextStyle(fontSize: 12, color: Color(0xFF534744)),
                   ),
                   InkWell(
                     key: const Key('terms-of-use-link'),
@@ -905,7 +963,7 @@ class _AuthFlowState extends State<AuthFlow> {
                       'Terms of Use',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFF4F7F86),
+                        color: Color(0xFFC45136),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -943,13 +1001,13 @@ class _AuthFlowState extends State<AuthFlow> {
           style: const TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1B2422),
+            color: Color(0xFF302523),
           ),
         ),
         const SizedBox(height: 6),
         Text(
           description,
-          style: const TextStyle(color: Color(0xFF77817F), fontSize: 13),
+          style: const TextStyle(color: Color(0xFF817772), fontSize: 13),
         ),
         const SizedBox(height: 22),
         Row(
@@ -972,23 +1030,23 @@ class _AuthFlowState extends State<AuthFlow> {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF17233D),
+                      color: Color(0xFF302523),
                     ),
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (value) => _handleCodeDigitChanged(index, value),
                     decoration: InputDecoration(
                       counterText: '',
                       filled: true,
-                      fillColor: const Color(0xFFF3F6FA),
+                      fillColor: const Color(0xFFFFF3EE),
                       contentPadding: EdgeInsets.zero,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
-                        borderSide: const BorderSide(color: Color(0xFFE1E7EF)),
+                        borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
                       ),
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: const BorderSide(
-                          color: Color(0xFF4F7F86),
+                          color: Color(0xFFC45136),
                           width: 1.8,
                         ),
                       ),
@@ -1002,7 +1060,7 @@ class _AuthFlowState extends State<AuthFlow> {
         const SizedBox(height: 12),
         const Text(
           'The code expires in 10 minutes.',
-          style: TextStyle(color: Color(0xFF77817F), fontSize: 12),
+          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
         ),
         const SizedBox(height: 10),
         if (_notice != null) _noticeText(_notice!),
@@ -1020,7 +1078,7 @@ class _AuthFlowState extends State<AuthFlow> {
             children: [
               const Text(
                 'Didn’t get the email?',
-                style: TextStyle(color: Color(0xFF77817F), fontSize: 12),
+                style: TextStyle(color: Color(0xFF817772), fontSize: 12),
               ),
               TextButton(
                 onPressed: _busy ? null : _resendSignupCode,
@@ -1060,13 +1118,13 @@ class _AuthFlowState extends State<AuthFlow> {
           style: TextStyle(
             fontSize: 23,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1B2422),
+            color: Color(0xFF302523),
           ),
         ),
         const SizedBox(height: 5),
         const Text(
           'We’ll email a six-digit code to your account.',
-          style: TextStyle(color: Color(0xFF77817F), fontSize: 12),
+          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
         ),
         const SizedBox(height: 8),
         _label('Email address'),
@@ -1098,14 +1156,14 @@ class _AuthFlowState extends State<AuthFlow> {
           style: TextStyle(
             fontSize: 23,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF1B2422),
+            color: Color(0xFF302523),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Verified for ${_email.text.trim()}',
           textAlign: TextAlign.left,
-          style: const TextStyle(color: Color(0xFF77817F), fontSize: 12),
+          style: const TextStyle(color: Color(0xFF817772), fontSize: 12),
         ),
         const SizedBox(height: 16),
         _label('NEW PASSWORD'),
@@ -1165,7 +1223,7 @@ class _AuthFlowState extends State<AuthFlow> {
       style: const TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF596566),
+        color: Color(0xFF655551),
       ),
     ),
   );
@@ -1182,20 +1240,20 @@ class _AuthFlowState extends State<AuthFlow> {
     validator: validator,
     keyboardType: keyboardType,
     obscureText: obscureText,
-    style: const TextStyle(fontSize: 15, color: Color(0xFF293638)),
+    style: const TextStyle(fontSize: 15, color: Color(0xFF302523)),
     decoration: InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFF8F9F9),
+      fillColor: const Color(0xFFFFFAF8),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       suffixIcon: suffix,
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFFEEF0F0)),
+        borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFF4F7F86), width: 1.6),
+        borderSide: const BorderSide(color: Color(0xFFC45136), width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
@@ -1219,7 +1277,7 @@ class _AuthFlowState extends State<AuthFlow> {
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF4F7F86),
+        backgroundColor: const Color(0xFFC45136),
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
