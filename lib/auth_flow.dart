@@ -717,6 +717,8 @@ class _AuthFlowState extends State<AuthFlow> {
                     ? 'Use at least 8 characters'
                     : null,
               ),
+              if (isSignup) _policyConsentRow(),
+              const Spacer(),
               if (!isSignup)
                 Align(
                   alignment: Alignment.centerRight,
@@ -728,10 +730,8 @@ class _AuthFlowState extends State<AuthFlow> {
                     ),
                     child: const Text('Forgot password?'),
                   ),
-                )
-              else
-                _policyConsentRow(),
-              if (isSignup) const Spacer() else const SizedBox(height: 8),
+                ),
+              if (!isSignup) const SizedBox(height: 4),
               if (_error != null) ...[
                 const SizedBox(height: 4),
                 Text(
@@ -1082,6 +1082,7 @@ class _AuthFlowState extends State<AuthFlow> {
           keyboardType: TextInputType.emailAddress,
           validator: _validateEmail,
         ),
+        const Spacer(),
         const SizedBox(height: 4),
         if (_error != null) _errorText(_error!),
         const SizedBox(height: 6),
@@ -1130,6 +1131,7 @@ class _AuthFlowState extends State<AuthFlow> {
           validator: (value) =>
               value != _password.text ? 'Passwords do not match' : null,
         ),
+        const Spacer(),
         const SizedBox(height: 10),
         if (_error != null) _errorText(_error!),
         _primaryButton('UPDATE PASSWORD', _completePasswordReset, busy: _busy),
