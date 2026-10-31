@@ -392,6 +392,11 @@ class _AuthFlowState extends State<AuthFlow> {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
+              final media = MediaQuery.of(context);
+              final navigationInset = max(
+                24.0,
+                max(media.viewPadding.bottom, media.systemGestureInsets.bottom),
+              );
               final screenHeight = constraints.maxHeight;
               final cardHeight = switch (_page) {
                 _AuthPage.signup => min(screenHeight * .78, 610.0),
@@ -405,6 +410,7 @@ class _AuthFlowState extends State<AuthFlow> {
                 _ => min(screenHeight * .48, 390.0),
               };
               return Stack(
+                clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
                     child: _blurBackground
@@ -499,6 +505,13 @@ class _AuthFlowState extends State<AuthFlow> {
                             ),
                       ),
                     ),
+                  ),
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -navigationInset,
+                    height: navigationInset + 4,
+                    child: const ColoredBox(color: Color(0xFFF9FAFF)),
                   ),
                 ],
               );
