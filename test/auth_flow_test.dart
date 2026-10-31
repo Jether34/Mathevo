@@ -59,23 +59,23 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('GET STARTED'), findsOneWidget);
-    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(830));
+    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
 
     await tester.tap(find.text('GET STARTED'));
     await tester.pumpAndSettle();
     expect(find.text('Welcome to MathVerse'), findsOneWidget);
     expect(find.text('Solve with purpose'), findsOneWidget);
-    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(830));
+    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
     await tester.tap(find.text('CONTINUE'));
     await tester.pumpAndSettle();
     expect(find.textContaining('What you'), findsOneWidget);
     expect(find.text('Calculate and visualize'), findsOneWidget);
     expect(find.text('Review your work'), findsOneWidget);
-    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(830));
+    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
     await tester.tap(find.text('CREATE YOUR ACCOUNT'));
     await tester.pumpAndSettle();
     expect(find.text('Create your account'), findsOneWidget);
-    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(830));
+    expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
 
     await tester.enterText(find.byType(TextFormField).at(0), 'Alex Carter');
     await tester.enterText(

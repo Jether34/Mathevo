@@ -392,11 +392,6 @@ class _AuthFlowState extends State<AuthFlow> {
         body: SafeArea(
           child: LayoutBuilder(
             builder: (context, constraints) {
-              final media = MediaQuery.of(context);
-              final navigationInset = max(
-                24.0,
-                max(media.viewPadding.bottom, media.systemGestureInsets.bottom),
-              );
               final screenHeight = constraints.maxHeight;
               final cardHeight = switch (_page) {
                 _AuthPage.signup => min(screenHeight * .78, 610.0),
@@ -410,7 +405,6 @@ class _AuthFlowState extends State<AuthFlow> {
                 _ => min(screenHeight * .48, 390.0),
               };
               return Stack(
-                clipBehavior: Clip.none,
                 children: [
                   Positioned.fill(
                     child: _blurBackground
@@ -428,13 +422,6 @@ class _AuthFlowState extends State<AuthFlow> {
                             'assets/brand/math_chalkboard.png',
                             fit: BoxFit.cover,
                           ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: -navigationInset,
-                    height: navigationInset + 4,
-                    child: const ColoredBox(color: Color(0xFFF9FAFF)),
                   ),
                   Positioned(
                     top: 0,
@@ -496,13 +483,13 @@ class _AuthFlowState extends State<AuthFlow> {
                                 26,
                                 28,
                                 26,
-                                18,
+                                24,
                               ),
                               child: ConstrainedBox(
                                 constraints: BoxConstraints(
                                   minHeight: max(
                                     0,
-                                    cardConstraints.maxHeight - 32,
+                                    cardConstraints.maxHeight - 52,
                                   ),
                                 ),
                                 child: IntrinsicHeight(
