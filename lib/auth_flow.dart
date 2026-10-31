@@ -430,6 +430,13 @@ class _AuthFlowState extends State<AuthFlow> {
                           ),
                   ),
                   Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: -navigationInset,
+                    height: navigationInset + 4,
+                    child: const ColoredBox(color: Color(0xFFF9FAFF)),
+                  ),
+                  Positioned(
                     top: 0,
                     left: 0,
                     right: 0,
@@ -505,13 +512,6 @@ class _AuthFlowState extends State<AuthFlow> {
                             ),
                       ),
                     ),
-                  ),
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: -navigationInset,
-                    height: navigationInset + 4,
-                    child: const ColoredBox(color: Color(0xFFF9FAFF)),
                   ),
                 ],
               );
