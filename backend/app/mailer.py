@@ -8,8 +8,8 @@ from pathlib import Path
 
 from .config import settings
 
-logger = logging.getLogger("mathverse.mail")
-_LOGO_PATH = Path(__file__).parent / "assets" / "mathverse-logo.png"
+logger = logging.getLogger("mathevo.mail")
+_LOGO_PATH = Path(__file__).parent / "assets" / "mathevo-logo.png"
 
 
 class MailDeliveryError(Exception):
@@ -29,14 +29,14 @@ def send_verification_code(
         raise MailDeliveryError("The email brand image is missing.")
 
     purpose = "reset your password" if password_reset else "verify your email"
-    subject = "MathVerse password reset code" if password_reset else "MathVerse email verification code"
-    safe_name = escape(display_name or "MathVerse user")
+    subject = "Mathevo password reset code" if password_reset else "Mathevo email verification code"
+    safe_name = escape(display_name or "Mathevo user")
     text = (
-        f"Hello {display_name or 'MathVerse user'},\n\n"
+        f"Hello {display_name or 'Mathevo user'},\n\n"
         f"Use this six-digit code to {purpose}: {code}\n\n"
         f"This code expires in {settings.verification_code_minutes} minutes. "
         "If you did not request this, you can ignore this email.\n\n"
-        "MathVerse\nDeveloper: Jether Garque"
+        "Mathevo\nDeveloper: Jether Garque"
     )
     html = f"""\
 <!doctype html>
@@ -45,8 +45,8 @@ def send_verification_code(
 <tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border:1px solid #e2e8f0;border-radius:18px;overflow:hidden">
 <tr><td align="center" style="padding:28px 24px 12px">
-<img src="cid:mathverse-logo" width="88" height="88" alt="MathVerse logo" style="display:block;object-fit:contain">
-<h1 style="margin:14px 0 0;font-size:26px">MathVerse</h1>
+<img src="cid:mathevo-logo" width="88" height="88" alt="Mathevo logo" style="display:block;object-fit:contain">
+<h1 style="margin:14px 0 0;font-size:26px">Mathevo</h1>
 <p style="margin:6px 0 0;color:#64748b">Calculate · Learn · Grow</p>
 </td></tr>
 <tr><td style="padding:20px 32px 30px">
@@ -56,9 +56,9 @@ def send_verification_code(
 <p style="font-size:14px;line-height:1.6;color:#475569">This code expires in {settings.verification_code_minutes} minutes. If you did not request this, you can ignore this email.</p>
 </td></tr>
 <tr><td style="padding:18px 24px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;color:#64748b;font-size:12px;line-height:1.7">
-<strong style="color:#17223b">MathVerse</strong><br>
+<strong style="color:#17223b">Mathevo</strong><br>
 Developer: Jether Garque<br>
-This message was sent to verify your MathVerse account.
+This message was sent to verify your Mathevo account.
 </td></tr>
 </table>
 </td></tr></table>
@@ -76,8 +76,8 @@ This message was sent to verify your MathVerse account.
         _LOGO_PATH.read_bytes(),
         maintype="image",
         subtype="png",
-        cid="mathverse-logo",
-        filename="mathverse-logo.png",
+        cid="mathevo-logo",
+        filename="mathevo-logo.png",
         disposition="inline",
     )
 
@@ -89,5 +89,9 @@ This message was sent to verify your MathVerse account.
             client.login(settings.smtp_username, settings.smtp_password)
             client.send_message(message)
     except (OSError, smtplib.SMTPException) as error:
-        logger.warning("SMTP delivery failed: %s", type(error).__name__)
+        logger.warning(
+            "SMTP delivery failed (%s, status=%s)",
+            type(error).__name__,
+            getattr(error, "smtp_code", "unavailable"),
+        )
         raise MailDeliveryError("Email could not be sent. Try again shortly.") from None

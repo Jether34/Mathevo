@@ -138,20 +138,104 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   void _showPolicy(String title, String text) {
     showDialog<void>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: SingleChildScrollView(
-            child: Text(text, style: const TextStyle(height: 1.45)),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 620),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: const Color(0xFFF0E8E3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x260D2038),
+                blurRadius: 32,
+                offset: Offset(0, 16),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFF3EE), Color(0xFFFFFAF7)],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC45136).withValues(alpha: .10),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(
+                        title.toLowerCase().contains('privacy')
+                            ? Icons.shield_outlined
+                            : Icons.description_outlined,
+                        color: const Color(0xFFC45136),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'MATHEVO ACCOUNT',
+                            style: TextStyle(
+                              color: Color(0xFF9B7165),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Color(0xFF302523),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                  child: Text(
+                    text,
+                    style: const TextStyle(
+                      color: Color(0xFF625B58),
+                      fontSize: 14,
+                      height: 1.65,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+                child: _primaryButton('Got it', () => Navigator.pop(context)),
+              ),
+            ],
           ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close'),
-          ),
-        ],
       ),
     );
   }
@@ -531,18 +615,11 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
 
   Widget _brandHeader() => Row(
     children: [
-      Container(
+      Image.asset(
+        'assets/brand/mathevo-logo.png',
         width: 42,
         height: 42,
-        padding: const EdgeInsets.all(4),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFEFEA),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Image.asset(
-          'assets/brand/mathevo-logo.png',
-          fit: BoxFit.contain,
-        ),
+        fit: BoxFit.contain,
       ),
       const SizedBox(width: 10),
       const Text(
@@ -565,7 +642,9 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
             const Spacer(),
             Center(
               child: _animatedMascot(
-                min(MediaQuery.sizeOf(context).height * .39, 310),
+                min(MediaQuery.sizeOf(context).height * .36, 280),
+                'assets/brand/mathevo_mascot.png',
+                _MascotType.owl,
               ),
             ),
             const SizedBox(height: 20),
@@ -598,7 +677,9 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
             const Spacer(),
             Center(
               child: _animatedMascot(
-                min(MediaQuery.sizeOf(context).height * .31, 245),
+                min(MediaQuery.sizeOf(context).height * .22, 170),
+                'assets/brand/mathevo_mascot_robot.png',
+                _MascotType.robot,
               ),
             ),
             const SizedBox(height: 18),
@@ -636,8 +717,16 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Spacer(),
+            Center(
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .18, 138),
+                'assets/brand/mathevo_mascot_fox.png',
+                _MascotType.fox,
+              ),
+            ),
+            const SizedBox(height: 8),
             const Text(
-              'What you?ll get',
+              'What you’ll get',
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 24,
@@ -859,10 +948,6 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
       Container(
         width: 34,
         height: 34,
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFEFEA),
-          borderRadius: BorderRadius.circular(11),
-        ),
         alignment: Alignment.center,
         child: Icon(icon, color: const Color(0xFFC45136), size: 19),
       ),
@@ -904,38 +989,31 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
     ),
   );
 
-  Widget _animatedMascot(double height) => SizedBox.square(
-    dimension: height,
-    child: AnimatedBuilder(
-      animation: _mascotMotion,
-      child: Image.asset(
-        'assets/brand/mathevo_mascot.png',
-        fit: BoxFit.contain,
-      ),
-      builder: (context, child) {
-        final phase = _mascotMotion.value;
-        final blink = max(
-          _blinkPulse(phase, .31, .026),
-          max(_blinkPulse(phase, .355, .026), _blinkPulse(phase, .82, .03)),
-        );
-        final float = sin(phase * 2 * pi);
-        return Transform.translate(
-          offset: Offset(0, float * 4.5),
-          child: Transform.rotate(
-            alignment: const Alignment(0, .3),
-            angle: float * .022,
-            child: Stack(
+  Widget _animatedMascot(double height, String asset, _MascotType type) =>
+      SizedBox.square(
+        dimension: height,
+        child: AnimatedBuilder(
+          animation: _mascotMotion,
+          child: Image.asset(asset, fit: BoxFit.contain),
+          builder: (context, child) {
+            final phase = _mascotMotion.value;
+            final blink = max(
+              _blinkPulse(phase, .31, .026),
+              max(_blinkPulse(phase, .355, .026), _blinkPulse(phase, .82, .03)),
+            );
+            final wingPhase = sin(phase * 2 * pi);
+            return Stack(
               fit: StackFit.expand,
               children: [
                 child!,
-                CustomPaint(painter: _MascotAnimationPainter(blink, float)),
+                CustomPaint(
+                  painter: _MascotAnimationPainter(blink, wingPhase, type),
+                ),
               ],
-            ),
-          ),
-        );
-      },
-    ),
-  );
+            );
+          },
+        ),
+      );
 
   double _blinkPulse(double phase, double center, double radius) =>
       (1 - (phase - center).abs() / radius).clamp(0.0, 1.0);
@@ -1369,11 +1447,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   );
 }
 
+enum _MascotType { owl, robot, fox }
+
 class _MascotAnimationPainter extends CustomPainter {
-  const _MascotAnimationPainter(this.blink, this.wingPhase);
+  const _MascotAnimationPainter(this.blink, this.wingPhase, this.type);
 
   final double blink;
   final double wingPhase;
+  final _MascotType type;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1382,22 +1463,35 @@ class _MascotAnimationPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = size.width * .009;
-    final lift = wingPhase * size.height * .024;
-    for (var index = 0; index < 3; index++) {
-      final offset = index * size.width * .025;
+    final lift = wingPhase * size.height * .018;
+    final (leftStart, rightStart, wingY, wingTip) = switch (type) {
+      _MascotType.owl => (.22, .78, .63, .55),
+      _MascotType.robot => (.13, .87, .70, .60),
+      _MascotType.fox => (.20, .80, .67, .55),
+    };
+    for (final side in [0, 1]) {
+      final isLeft = side == 0;
+      final start = isLeft ? leftStart : rightStart;
+      final end = isLeft ? start - .06 : start + .06;
+      final flap = isLeft ? lift : -lift;
       final path = Path()
-        ..moveTo(size.width * .33 + offset, size.height * (.705 + index * .025))
+        ..moveTo(size.width * start, size.height * wingY)
         ..quadraticBezierTo(
-          size.width * (.43 + index * .025),
-          size.height * (.655 + index * .02) - lift,
-          size.width * (.555 - index * .012),
-          size.height * (.59 + index * .055) - lift,
+          size.width * (start + (isLeft ? -.035 : .035)),
+          size.height * (wingY - .035) - flap,
+          size.width * end,
+          size.height * wingTip - flap,
         );
       canvas.drawPath(path, feather);
     }
 
     if (blink < .02) return;
-    final fill = Paint()..color = const Color(0xFFFFF5E6);
+    final faceColor = switch (type) {
+      _MascotType.owl => const Color(0xFFFFF5E6),
+      _MascotType.robot => const Color(0xFF14243A),
+      _MascotType.fox => const Color(0xFFFBF7F1),
+    };
+    final fill = Paint()..color = faceColor;
     final lid = Paint()
       ..color = const Color(0xFF24364C)
       ..style = PaintingStyle.stroke
@@ -1429,11 +1523,18 @@ class _MascotAnimationPainter extends CustomPainter {
       }
     }
 
-    closeEye(.365, .385);
-    closeEye(.59, .355);
+    final (leftEye, rightEye, eyeY) = switch (type) {
+      _MascotType.owl => (.365, .59, .37),
+      _MascotType.robot => (.42, .63, .40),
+      _MascotType.fox => (.40, .62, .40),
+    };
+    closeEye(leftEye, eyeY);
+    closeEye(rightEye, eyeY);
   }
 
   @override
   bool shouldRepaint(covariant _MascotAnimationPainter oldDelegate) =>
-      oldDelegate.blink != blink || oldDelegate.wingPhase != wingPhase;
+      oldDelegate.blink != blink ||
+      oldDelegate.wingPhase != wingPhase ||
+      oldDelegate.type != type;
 }

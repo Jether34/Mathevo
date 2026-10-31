@@ -29,7 +29,7 @@ from .security import (
 
 
 app = FastAPI(
-    title="MathVerse API",
+    title="Mathevo API",
     version="1.0.0",
     docs_url=None,
     redoc_url=None,
@@ -171,7 +171,7 @@ def _issue_email_code(user: dict, purpose: str) -> str:
     try:
         send_verification_code(
             user["email"],
-            user.get("display_name", "MathVerse user"),
+            user.get("display_name", "Mathevo user"),
             code,
             password_reset=purpose == "password_reset",
         )
