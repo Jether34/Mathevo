@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, ImageByteFormat;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
@@ -1502,10 +1503,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _recognizingDrawing = false;
   bool _answerShown = false;
   bool _showVisualization = false;
+  bool _showVisualizationDetails = false;
+  bool _showExpressionPlot = false;
   bool _visualIs3D = false;
   double _visualAngle = 62;
   double _visualRotationX = -.18;
   double _visualRotationY = .28;
+  Offset? _lastVisualizationPointer;
   double _visualHypotenuse = 20;
   double _geometryVisualFirst = 3;
   double _geometryVisualSecond = 4;
@@ -2666,6 +2670,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _openVisualization() {
+    _showVisualizationDetails = false;
+    _showExpressionPlot = false;
     final expression = _input.text.toLowerCase().replaceAll(' ', '');
     if (_mode == _CalculatorMode.geometry) {
       _geometryVisualFirst = double.tryParse(_geometryFirst.text) ?? 3;
@@ -2818,13 +2824,43 @@ class _CalculatorPageState extends State<CalculatorPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: _returnFromVisualization,
-              icon: const Icon(Icons.flip_to_back_rounded),
-              label: const Text('Flip back to calculator'),
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: TextButton.icon(
+                  onPressed: _returnFromVisualization,
+                  icon: const Icon(Icons.flip_to_back_rounded),
+                  label: const Text('Flip back to calculator'),
+                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+                ),
+              ),
+              TextButton.icon(
+                key: const Key('visualization-plot-toggle'),
+                onPressed: () => setState(() {
+                  _showVisualizationDetails = false;
+                  _showExpressionPlot = !_showExpressionPlot;
+                }),
+                icon: Icon(
+                  _showExpressionPlot
+                      ? Icons.view_in_ar_rounded
+                      : Icons.show_chart_rounded,
+                ),
+                label: Text(_showExpressionPlot ? 'Model' : 'Plot'),
+              ),
+              TextButton.icon(
+                key: const Key('visualization-details-toggle'),
+                onPressed: () => setState(() {
+                  _showExpressionPlot = false;
+                  _showVisualizationDetails = !_showVisualizationDetails;
+                }),
+                icon: Icon(
+                  _showVisualizationDetails
+                      ? Icons.view_in_ar_rounded
+                      : Icons.flip_rounded,
+                ),
+                label: Text(_showVisualizationDetails ? 'Model' : 'Details'),
+              ),
+            ],
           ),
           const SizedBox(height: 6),
           SegmentedButton<bool>(
@@ -2844,48 +2880,104 @@ class _CalculatorPageState extends State<CalculatorPage> {
               borderRadius: BorderRadius.circular(18),
             ),
             clipBehavior: Clip.antiAlias,
-            child: GestureDetector(
+            child: RawGestureDetector(
               behavior: HitTestBehavior.opaque,
-              onPanUpdate: _visualIs3D
-                  ? (details) => setState(() {
-                      _visualRotationY += details.delta.dx * .008;
-                      _visualRotationX =
-                          (_visualRotationX + details.delta.dy * .008).clamp(
-                            -1.15,
-                            1.15,
-                          );
-                    })
-                  : null,
-              child: CustomPaint(
-                key: const Key('visualization-canvas'),
-                painter: _MathVisualizationPainter(
-                  mode: _mode,
-                  is3D: _visualIs3D,
-                  calculusOperation: _calculusOperation,
-                  rotationX: _visualRotationX,
-                  rotationY: _visualRotationY,
-                  angle: _visualAngle,
-                  hypotenuse: _visualHypotenuse,
-                  slope: _graphSlope,
-                  intercept: _graphIntercept,
-                  lower: _integralLower,
-                  upper: _integralUpper,
-                  selectedX: _graphX,
-                  expression: _input.text,
-                  geometryOperation: _geometryOperation,
-                  geometryFirst: _geometryVisualFirst,
-                  geometrySecond: _geometryVisualSecond,
+              gestures: _visualIs3D && !_showVisualizationDetails
+                  ? {
+                      EagerGestureRecognizer:
+                          GestureRecognizerFactoryWithHandlers<
+                            EagerGestureRecognizer
+                          >(EagerGestureRecognizer.new, (recognizer) {}),
+                    }
+                  : const {},
+              child: Listener(
+                onPointerDown: (event) =>
+                    _lastVisualizationPointer = event.localPosition,
+                onPointerMove: (event) {
+                  final previous = _lastVisualizationPointer;
+                  if (!_visualIs3D ||
+                      _showVisualizationDetails ||
+                      previous == null) {
+                    return;
+                  }
+                  final delta = event.localPosition - previous;
+                  _lastVisualizationPointer = event.localPosition;
+                  setState(() {
+                    const fullTurn = 2 * math.pi;
+                    _visualRotationY =
+                        (_visualRotationY + delta.dx * .008) % fullTurn;
+                    _visualRotationX =
+                        (_visualRotationX + delta.dy * .008) % fullTurn;
+                  });
+                },
+                onPointerUp: (_) => _lastVisualizationPointer = null,
+                onPointerCancel: (_) => _lastVisualizationPointer = null,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 420),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => AnimatedBuilder(
+                    animation: animation,
+                    child: child,
+                    builder: (context, child) => Transform(
+                      alignment: Alignment.center,
+                      transform: Matrix4.identity()
+                        ..setEntry(3, 2, .001)
+                        ..rotateY((1 - animation.value) * math.pi / 2),
+                      child: child,
+                    ),
+                  ),
+                  child: _showVisualizationDetails
+                      ? _buildVisualizationDetails(context)
+                      : CustomPaint(
+                          key: const Key('visualization-canvas'),
+                          painter: _MathVisualizationPainter(
+                            mode: _mode,
+                            is3D: _visualIs3D,
+                            expressionPlot: _showExpressionPlot,
+                            calculusOperation: _calculusOperation,
+                            rotationX: _visualRotationX,
+                            rotationY: _visualRotationY,
+                            angle: _visualAngle,
+                            hypotenuse: _visualHypotenuse,
+                            slope: _graphSlope,
+                            intercept: _graphIntercept,
+                            lower: _integralLower,
+                            upper: _integralUpper,
+                            selectedX: _graphX,
+                            expression: _input.text,
+                            geometryOperation: _geometryOperation,
+                            geometryFirst: _geometryVisualFirst,
+                            geometrySecond: _geometryVisualSecond,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
           ),
           if (_visualIs3D) ...[
             const SizedBox(height: 5),
-            Text(
-              'Drag to rotate | yaw ${(_visualRotationY * 180 / math.pi).round()} deg | tilt ${(_visualRotationX * 180 / math.pi).round()} deg',
-              key: const Key('visualization-orientation'),
-              style: Theme.of(context).textTheme.bodySmall,
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Drag horizontally and vertically to orbit | yaw ${(_visualRotationY * 180 / math.pi).round()}° | pitch ${(_visualRotationX * 180 / math.pi).round()}°',
+                    key: const Key('visualization-orientation'),
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ),
+                IconButton(
+                  key: const Key('visualization-reset-view'),
+                  tooltip: 'Reset 3D view',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: () => setState(() {
+                    _visualRotationX = -.18;
+                    _visualRotationY = .28;
+                  }),
+                  icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
+                ),
+              ],
             ),
           ],
           const SizedBox(height: 10),
@@ -3072,6 +3164,125 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ],
       ),
     );
+  }
+
+  Widget _buildVisualizationDetails(BuildContext context) => Container(
+    key: const Key('visualization-details'),
+    width: double.infinity,
+    height: double.infinity,
+    padding: const EdgeInsets.all(18),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E2230),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          _mode == _CalculatorMode.geometry
+              ? _geometryOperation
+              : _visualizationTitle,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+            color: Colors.white,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 10),
+        Expanded(
+          child: Center(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Math.tex(
+                _visualizationFormulaTex,
+                mathStyle: MathStyle.display,
+                textStyle: const TextStyle(
+                  color: Color(0xFF6DE4F2),
+                  fontSize: 30,
+                ),
+                onErrorFallback: (_) => Text(
+                  _visualizationFormula,
+                  style: const TextStyle(color: Colors.white, fontSize: 18),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          _visualizationMeasureDescription,
+          style: Theme.of(
+            context,
+          ).textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.35),
+        ),
+        const SizedBox(height: 10),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                _visualizationMeasureLabel,
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                  color: const Color(0xFFFFC66D),
+                ),
+              ),
+            ),
+            Text(
+              _visualizationValue.isFinite
+                  ? _visualizationValue.toStringAsFixed(4)
+                  : 'Cannot evaluate',
+              style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  String get _visualizationMeasureLabel {
+    if (_mode == _CalculatorMode.geometry) {
+      if (_geometryOperation.contains('Volume')) return 'Volume';
+      if (_geometryOperation.contains('surface area')) return 'Surface area';
+      if (_geometryOperation.contains('circumference') ||
+          _geometryOperation.contains('hypotenuse') ||
+          _geometryOperation.contains('perimeter')) {
+        return 'Length';
+      }
+      return 'Area';
+    }
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperation == 'Definite integral') {
+      return 'Signed area on [${_numberForExpression(_integralLower)}, ${_numberForExpression(_integralUpper)}]';
+    }
+    if (_mode == _CalculatorMode.trigonometry) return 'Computed side value';
+    return 'f(${_numberForExpression(_graphX)})';
+  }
+
+  String get _visualizationMeasureDescription {
+    if (_mode == _CalculatorMode.geometry) {
+      if (_geometryOperation.contains('Cylinder')) {
+        return 'The cyan mesh is the cylinder surface. Red, green, and blue axes show its 3D orientation.';
+      }
+      if (_geometryOperation.contains('Cone')) {
+        return 'The shaded cone surface follows the radius and height. The amber mesh edges make the solid depth visible.';
+      }
+      if (_geometryOperation.contains('Sphere')) {
+        return 'The cyan mesh wraps the sphere in latitude and longitude bands. Rotate it to inspect the surface from every side.';
+      }
+      if (_geometryOperation.contains('area')) {
+        return 'The shaded faces mark the region associated with this area formula; the axes identify its 3D orientation.';
+      }
+      return 'The solid is built from the selected dimensions. The colored axes show its position in three-dimensional space.';
+    }
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperation == 'Definite integral') {
+      return 'The highlighted region represents the signed area between the curve and x-axis over the selected bounds.';
+    }
+    if (_mode == _CalculatorMode.trigonometry) {
+      return 'The colored sides identify the adjacent, opposite, and hypotenuse lengths for the selected angle.';
+    }
+    return 'The surface maps the expression over x and y. Use the colored axes to track each dimension.';
   }
 
   Widget _visualSlider(
@@ -4166,10 +4377,13 @@ class _ExpressionDrawingPainter extends CustomPainter {
       !identical(strokes, oldDelegate.strokes);
 }
 
+typedef _PlotPoint3 = (double, double, double);
+
 class _MathVisualizationPainter extends CustomPainter {
   const _MathVisualizationPainter({
     required this.mode,
     required this.is3D,
+    required this.expressionPlot,
     required this.calculusOperation,
     required this.rotationX,
     required this.rotationY,
@@ -4188,6 +4402,7 @@ class _MathVisualizationPainter extends CustomPainter {
 
   final _CalculatorMode mode;
   final bool is3D;
+  final bool expressionPlot;
   final String calculusOperation;
   final double rotationX, rotationY;
   final double angle, hypotenuse, slope, intercept, lower, upper, selectedX;
@@ -4196,6 +4411,413 @@ class _MathVisualizationPainter extends CustomPainter {
   final double geometryFirst, geometrySecond;
 
   bool get _triangle => mode == _CalculatorMode.trigonometry;
+
+  String get _sourceExpression =>
+      _plotExpression.trim().isEmpty ? 'x^2' : _plotExpression.trim();
+
+  List<String> get _equationSides {
+    final cleaned = _sourceExpression.replaceAll('×', '*').replaceAll('÷', '/');
+    final sides = cleaned.split(RegExp(r'(?<![<>])=(?![=])'));
+    if (sides.length < 2) return [cleaned, '0'];
+    return [sides.first, sides.skip(1).join('=')];
+  }
+
+  bool get _hasXYVariables =>
+      RegExp(r'\bx\b').hasMatch(_sourceExpression) &&
+      RegExp(r'\by\b').hasMatch(_sourceExpression);
+
+  bool get _hasXYZVariables =>
+      _hasXYVariables && RegExp(r'\bz\b').hasMatch(_sourceExpression);
+
+  bool get _isExplicitZFunction =>
+      RegExp(r'^\s*z\s*=').hasMatch(_sourceExpression);
+
+  String get _explicitZFunction =>
+      RegExp(r'^\s*z\s*=\s*(.+)$').firstMatch(_sourceExpression)?.group(1) ??
+      _sourceExpression;
+
+  void _paintImplicitCurve(Canvas canvas, Size size) {
+    const cells = 84;
+    const minimum = -1.6;
+    const maximum = 1.6;
+    const margin = 30.0;
+    final plotWidth = size.width - margin * 2;
+    final plotHeight = size.height - margin * 2;
+    final plotSize = math.min(plotWidth, plotHeight);
+    final left = (size.width - plotSize) / 2;
+    final top = (size.height - plotSize) / 2;
+    const engine = MathEngine();
+    final (leftExpression, rightExpression) = (
+      _equationSides.first,
+      _equationSides.last,
+    );
+    double sample(double x, double y) {
+      try {
+        final variables = {'x': x, 'y': y};
+        return engine.evaluateAtVariables(leftExpression, variables) -
+            engine.evaluateAtVariables(rightExpression, variables);
+      } on Object {
+        return double.nan;
+      }
+    }
+
+    Offset point(double x, double y) => Offset(
+      left + (x - minimum) / (maximum - minimum) * plotSize,
+      top + (maximum - y) / (maximum - minimum) * plotSize,
+    );
+
+    final values = List<double>.filled((cells + 1) * (cells + 1), double.nan);
+    int index(int x, int y) => y * (cells + 1) + x;
+    double coordinate(int value) =>
+        minimum + (maximum - minimum) * value / cells;
+    for (var y = 0; y <= cells; y++) {
+      for (var x = 0; x <= cells; x++) {
+        values[index(x, y)] = sample(coordinate(x), coordinate(y));
+      }
+    }
+
+    final region = Path();
+    final contour = Path();
+    const edges = [(0, 1), (1, 2), (2, 3), (3, 0)];
+    for (var y = 0; y < cells; y++) {
+      for (var x = 0; x < cells; x++) {
+        final xs = [x, x + 1, x + 1, x];
+        final ys = [y, y, y + 1, y + 1];
+        final f = [
+          values[index(xs[0], ys[0])],
+          values[index(xs[1], ys[1])],
+          values[index(xs[2], ys[2])],
+          values[index(xs[3], ys[3])],
+        ];
+        if (f.any((value) => !value.isFinite)) continue;
+        final centerValue = sample(
+          (coordinate(x) + coordinate(x + 1)) / 2,
+          (coordinate(y) + coordinate(y + 1)) / 2,
+        );
+        if (centerValue.isFinite && centerValue <= 0) {
+          region.addRect(
+            Rect.fromLTRB(
+              point(coordinate(x), coordinate(y + 1)).dx,
+              point(coordinate(x), coordinate(y + 1)).dy,
+              point(coordinate(x + 1), coordinate(y)).dx,
+              point(coordinate(x + 1), coordinate(y)).dy,
+            ),
+          );
+        }
+        final crossings = <Offset>[];
+        for (final (a, b) in edges) {
+          if ((f[a] < 0) == (f[b] < 0)) continue;
+          final amount = (f[a] / (f[a] - f[b])).clamp(0.0, 1.0);
+          final px =
+              coordinate(xs[a]) +
+              (coordinate(xs[b]) - coordinate(xs[a])) * amount;
+          final py =
+              coordinate(ys[a]) +
+              (coordinate(ys[b]) - coordinate(ys[a])) * amount;
+          crossings.add(point(px, py));
+        }
+        for (var crossing = 0; crossing + 1 < crossings.length; crossing += 2) {
+          contour
+            ..moveTo(crossings[crossing].dx, crossings[crossing].dy)
+            ..lineTo(crossings[crossing + 1].dx, crossings[crossing + 1].dy);
+        }
+      }
+    }
+
+    final gridPaint = Paint()
+      ..color = Colors.white.withValues(alpha: .12)
+      ..strokeWidth = .7;
+    for (var tick = -1; tick <= 1; tick++) {
+      final x = point(tick.toDouble(), 0).dx;
+      final y = point(0, tick.toDouble()).dy;
+      canvas.drawLine(Offset(x, top), Offset(x, top + plotSize), gridPaint);
+      canvas.drawLine(Offset(left, y), Offset(left + plotSize, y), gridPaint);
+    }
+    canvas.drawPath(
+      region,
+      Paint()..color = const Color(0xFFAC5DEB).withValues(alpha: .34),
+    );
+    canvas.drawRect(
+      Rect.fromLTWH(left, top, plotSize, plotSize),
+      Paint()
+        ..color = Colors.white.withValues(alpha: .68)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    canvas.drawPath(
+      contour,
+      Paint()
+        ..color = const Color(0xFF75E5F2)
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke,
+    );
+    final origin = point(0, 0);
+    canvas.drawLine(
+      Offset(left, origin.dy),
+      Offset(left + plotSize, origin.dy),
+      Paint()..color = const Color(0xFF57D68D).withValues(alpha: .85),
+    );
+    canvas.drawLine(
+      Offset(origin.dx, top + plotSize),
+      Offset(origin.dx, top),
+      Paint()..color = const Color(0xFFFF625A).withValues(alpha: .85),
+    );
+    _label(
+      canvas,
+      'Implicit equation region',
+      const Offset(14, 12),
+      Colors.white,
+    );
+    _label(
+      canvas,
+      'Shaded side: F(x,y) ≤ 0',
+      Offset(14, size.height - 22),
+      const Color(0xFFFFC66D),
+    );
+  }
+
+  void _paintImplicitSurface(Canvas canvas, Size size) {
+    const cells = 12;
+    const minimum = -1.5;
+    const maximum = 1.5;
+    const engine = MathEngine();
+    final (leftExpression, rightExpression) = (
+      _equationSides.first,
+      _equationSides.last,
+    );
+    double coordinate(int value) =>
+        minimum + (maximum - minimum) * value / cells;
+    int index(int x, int y, int z) => (z * (cells + 1) + y) * (cells + 1) + x;
+    final values = List<double>.filled(
+      (cells + 1) * (cells + 1) * (cells + 1),
+      double.nan,
+    );
+    for (var z = 0; z <= cells; z++) {
+      for (var y = 0; y <= cells; y++) {
+        for (var x = 0; x <= cells; x++) {
+          try {
+            final variables = {
+              'x': coordinate(x),
+              'y': coordinate(y),
+              'z': coordinate(z),
+            };
+            values[index(x, y, z)] =
+                engine.evaluateAtVariables(leftExpression, variables) -
+                engine.evaluateAtVariables(rightExpression, variables);
+          } on Object {
+            values[index(x, y, z)] = double.nan;
+          }
+        }
+      }
+    }
+
+    final triangles = <(_PlotPoint3, _PlotPoint3, _PlotPoint3)>[];
+    const corners = <(int, int, int)>[
+      (0, 0, 0),
+      (1, 0, 0),
+      (1, 1, 0),
+      (0, 1, 0),
+      (0, 0, 1),
+      (1, 0, 1),
+      (1, 1, 1),
+      (0, 1, 1),
+    ];
+    const tetrahedra = [
+      (0, 5, 1, 6),
+      (0, 1, 2, 6),
+      (0, 2, 3, 6),
+      (0, 3, 7, 6),
+      (0, 7, 4, 6),
+      (0, 4, 5, 6),
+    ];
+    const tetraEdges = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
+    for (var z = 0; z < cells; z++) {
+      for (var y = 0; y < cells; y++) {
+        for (var x = 0; x < cells; x++) {
+          final points = corners
+              .map(
+                (corner) => (
+                  coordinate(x + corner.$1),
+                  coordinate(y + corner.$2),
+                  coordinate(z + corner.$3),
+                ),
+              )
+              .toList(growable: false);
+          final field = corners
+              .map(
+                (corner) =>
+                    values[index(x + corner.$1, y + corner.$2, z + corner.$3)],
+              )
+              .toList(growable: false);
+          if (field.any((value) => !value.isFinite)) continue;
+          for (final tetra in tetrahedra) {
+            final ids = [tetra.$1, tetra.$2, tetra.$3, tetra.$4];
+            final intersections = <_PlotPoint3>[];
+            for (final (edgeA, edgeB) in tetraEdges) {
+              final a = ids[edgeA], b = ids[edgeB];
+              if ((field[a] < 0) == (field[b] < 0)) continue;
+              final t = (field[a] / (field[a] - field[b])).clamp(0.0, 1.0);
+              intersections.add((
+                points[a].$1 + (points[b].$1 - points[a].$1) * t,
+                points[a].$2 + (points[b].$2 - points[a].$2) * t,
+                points[a].$3 + (points[b].$3 - points[a].$3) * t,
+              ));
+            }
+            if (intersections.length == 3) {
+              triangles.add((
+                intersections[0],
+                intersections[1],
+                intersections[2],
+              ));
+            } else if (intersections.length == 4) {
+              triangles
+                ..add((intersections[0], intersections[1], intersections[2]))
+                ..add((intersections[0], intersections[2], intersections[3]));
+            }
+          }
+        }
+      }
+    }
+
+    final cx = math.cos(rotationX), sx = math.sin(rotationX);
+    final cy = math.cos(rotationY), sy = math.sin(rotationY);
+    _PlotPoint3 rotate(_PlotPoint3 point) {
+      final x = point.$1 * cy + point.$3 * sy;
+      final z1 = -point.$1 * sy + point.$3 * cy;
+      return (x, point.$2 * cx - z1 * sx, point.$2 * sx + z1 * cx);
+    }
+
+    Offset project(_PlotPoint3 point) {
+      final rotated = rotate(point);
+      final perspective = 4.2 / (4.2 + rotated.$3 / 1.5);
+      final scale = math.min(size.width, size.height) * .34 * perspective;
+      return Offset(
+        size.width / 2 + rotated.$1 * scale,
+        size.height / 2 - rotated.$2 * scale,
+      );
+    }
+
+    final sorted = [...triangles]
+      ..sort((a, b) {
+        double depth((_PlotPoint3, _PlotPoint3, _PlotPoint3) triangle) =>
+            (rotate(triangle.$1).$3 +
+                rotate(triangle.$2).$3 +
+                rotate(triangle.$3).$3) /
+            3;
+        return depth(a).compareTo(depth(b));
+      });
+    var totalSurfaceArea = 0.0;
+    var largestFaceArea = 0.0;
+    var largestFaceSides = (0.0, 0.0, 0.0);
+    double distance(_PlotPoint3 a, _PlotPoint3 b) => math.sqrt(
+      math.pow(a.$1 - b.$1, 2) +
+          math.pow(a.$2 - b.$2, 2) +
+          math.pow(a.$3 - b.$3, 2),
+    );
+    double faceArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
+      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
+      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
+      final cross = (
+        ab.$2 * ac.$3 - ab.$3 * ac.$2,
+        ab.$3 * ac.$1 - ab.$1 * ac.$3,
+        ab.$1 * ac.$2 - ab.$2 * ac.$1,
+      );
+      return math.sqrt(
+            cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3,
+          ) /
+          2;
+    }
+
+    for (final triangle in sorted) {
+      final area = faceArea(triangle.$1, triangle.$2, triangle.$3);
+      totalSurfaceArea += area;
+      if (area > largestFaceArea) {
+        largestFaceArea = area;
+        largestFaceSides = (
+          distance(triangle.$1, triangle.$2),
+          distance(triangle.$2, triangle.$3),
+          distance(triangle.$3, triangle.$1),
+        );
+      }
+      final points = [
+        project(triangle.$1),
+        project(triangle.$2),
+        project(triangle.$3),
+      ];
+      final path = Path()
+        ..moveTo(points[0].dx, points[0].dy)
+        ..lineTo(points[1].dx, points[1].dy)
+        ..lineTo(points[2].dx, points[2].dy)
+        ..close();
+      final centerZ = (triangle.$1.$3 + triangle.$2.$3 + triangle.$3.$3) / 3;
+      final tint = ((centerZ - minimum) / (maximum - minimum)).clamp(0.0, 1.0);
+      final color = Color.lerp(
+        const Color(0xFF7753D6),
+        const Color(0xFFFF8C9E),
+        tint,
+      )!;
+      canvas.drawPath(path, Paint()..color = color.withValues(alpha: .88));
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFFE5D8FF).withValues(alpha: .27)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .55,
+      );
+    }
+    _paint3DAxes(canvas, size, project);
+    _label(
+      canvas,
+      'Implicit surface F(x,y,z) = 0',
+      const Offset(14, 12),
+      Colors.white,
+    );
+    _label(
+      canvas,
+      'Expression surface - drag to orbit',
+      Offset(14, size.height - 22),
+      const Color(0xFFFFC66D),
+    );
+    _metricBadge(
+      canvas,
+      'Σ face area ≈ ${totalSurfaceArea.toStringAsFixed(2)} units²',
+      Offset(14, size.height - 56),
+      const Color(0xFF9BE7FF),
+      maxWidth: size.width - 28,
+    );
+    _metricBadge(
+      canvas,
+      'Face sides ${largestFaceSides.$1.toStringAsFixed(2)}, ${largestFaceSides.$2.toStringAsFixed(2)}, ${largestFaceSides.$3.toStringAsFixed(2)} | area ${largestFaceArea.toStringAsFixed(3)}',
+      const Offset(14, 38),
+      const Color(0xFFFFC66D),
+      maxWidth: size.width - 28,
+    );
+  }
+
+  void _paint3DAxes(
+    Canvas canvas,
+    Size size,
+    Offset Function((double, double, double)) project,
+  ) {
+    const axisDefinitions = <((double, double, double), Color, String)>[
+      ((1.65, 0, 0), Color(0xFFFF625A), 'x'),
+      ((0, 1.65, 0), Color(0xFF57D68D), 'y'),
+      ((0, 0, 1.65), Color(0xFF4A86FF), 'z'),
+    ];
+    final origin = project((0, 0, 0));
+    for (final (end, color, label) in axisDefinitions) {
+      final finish = project(end);
+      canvas.drawLine(
+        origin,
+        finish,
+        Paint()
+          ..color = color
+          ..strokeWidth = 2.1,
+      );
+      _label(canvas, label, finish + const Offset(3, -10), color);
+    }
+  }
 
   String get _plotExpression {
     if (mode != _CalculatorMode.calculus) return expression;
@@ -4218,7 +4840,37 @@ class _MathVisualizationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF1E2230), BlendMode.src);
-    final transformCanvas = is3D && mode != _CalculatorMode.geometry;
+    if (expressionPlot) {
+      if (mode == _CalculatorMode.geometry) {
+        if (is3D) {
+          _paint3DGeometry(canvas, size);
+        } else {
+          _paintGeometry(canvas, size);
+        }
+      } else if (_triangle) {
+        _paintTriangle(canvas, size);
+      } else if (is3D) {
+        if (_hasXYZVariables && !_isExplicitZFunction) {
+          _paintImplicitSurface(canvas, size);
+        } else {
+          _paintSurface(canvas, size);
+        }
+      } else if (_hasXYVariables && !_isExplicitYFunction) {
+        _paintImplicitCurve(canvas, size);
+      } else if (_isExplicitYFunction) {
+        _paintGraph(canvas, size, functionExpression: _explicitYFunction);
+      } else if (mode == _CalculatorMode.calculus &&
+          calculusOperation == 'Definite integral') {
+        _paintIntegral(canvas, size);
+      } else {
+        _paintGraph(canvas, size);
+      }
+      return;
+    }
+    final transformCanvas =
+        is3D &&
+        mode != _CalculatorMode.geometry &&
+        mode != _CalculatorMode.trigonometry;
     if (transformCanvas) {
       final centerX = size.width / 2;
       final centerY = size.height / 2;
@@ -4254,6 +4906,15 @@ class _MathVisualizationPainter extends CustomPainter {
     }
     if (transformCanvas) canvas.restore();
   }
+
+  bool get _isExplicitYFunction {
+    final match = RegExp(r'^\s*y\s*=\s*(.+)$').firstMatch(_sourceExpression);
+    return match != null && !RegExp(r'\by\b').hasMatch(match.group(1)!);
+  }
+
+  String get _explicitYFunction =>
+      RegExp(r'^\s*y\s*=\s*(.+)$').firstMatch(_sourceExpression)?.group(1) ??
+      _sourceExpression;
 
   void _paint3DGeometry(Canvas canvas, Size size) {
     // Scientific convention: X red, Y green, Z blue. Solid surfaces use a
@@ -4650,6 +5311,10 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   void _paintTriangle(Canvas canvas, Size size) {
+    if (is3D) {
+      _paintTriangleSolid(canvas, size);
+      return;
+    }
     final baseY = size.height * .78;
     final startX = size.width * .12;
     final radians = angle * math.pi / 180;
@@ -4746,6 +5411,139 @@ class _MathVisualizationPainter extends CustomPainter {
     canvas.drawCircle(start, 4, Paint()..color = Colors.white);
     canvas.drawCircle(end, 4, Paint()..color = Colors.white);
     canvas.drawCircle(apex, 4, Paint()..color = const Color(0xFF4A86FF));
+  }
+
+  void _paintTriangleSolid(Canvas canvas, Size size) {
+    const xColor = Color(0xFFFF625A);
+    const yColor = Color(0xFF57D68D);
+    const zColor = Color(0xFF4A86FF);
+    const surfaceColor = Color(0xFF36C9E8);
+    final radians = angle * math.pi / 180;
+    final adjacent = hypotenuse * math.cos(radians);
+    final opposite = hypotenuse * math.sin(radians);
+    final triangleArea = adjacent * opposite / 2;
+    final depth = hypotenuse * .36;
+    final sceneScale = math.min(
+      size.width * .52 / (adjacent + depth),
+      size.height * .46 / (opposite + depth),
+    );
+    final cy = math.cos(rotationY), sy = math.sin(rotationY);
+    final cx = math.cos(rotationX), sx = math.sin(rotationX);
+    final originX = size.width * .45;
+    final originY = size.height * .64;
+
+    (double, double, double) rotate((double, double, double) p) {
+      final x = p.$1 * cy + p.$3 * sy;
+      final z1 = -p.$1 * sy + p.$3 * cy;
+      final y = p.$2 * cx - z1 * sx;
+      final z = p.$2 * sx + z1 * cx;
+      return (x, y, z);
+    }
+
+    Offset project((double, double, double) p) {
+      final q = rotate(p);
+      final perspective = 4.5 / (4.5 + q.$3 / hypotenuse);
+      return Offset(
+        originX + q.$1 * sceneScale * perspective,
+        originY - q.$2 * sceneScale * perspective,
+      );
+    }
+
+    const a = (0.0, 0.0, 0.0);
+    final b = (adjacent, 0.0, 0.0);
+    final c = (adjacent, opposite, 0.0);
+    final backA = (0.0, 0.0, depth);
+    final backB = (adjacent, 0.0, depth);
+    final backC = (adjacent, opposite, depth);
+    final faces = <(List<(double, double, double)>, Color, double)>[
+      ([a, b, c], surfaceColor, .86),
+      ([backA, backC, backB], const Color(0xFF286FA8), .32),
+      ([a, backA, backB, b], xColor, .3),
+      ([b, backB, backC, c], yColor, .4),
+      ([c, backC, backA, a], zColor, .25),
+    ];
+    faces.sort((left, right) {
+      double depthOf((List<(double, double, double)>, Color, double) face) =>
+          face.$1.map((p) => rotate(p).$3).reduce((x, y) => x + y) /
+          face.$1.length;
+      return depthOf(left).compareTo(depthOf(right));
+    });
+    for (final face in faces) {
+      final points = face.$1.map(project).toList(growable: false);
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final point in points.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      path.close();
+      canvas.drawPath(
+        path,
+        Paint()..color = face.$2.withValues(alpha: face.$3),
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFFB8F4FF).withValues(alpha: .62)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.1,
+      );
+    }
+
+    void edge(
+      (double, double, double) from,
+      (double, double, double) to,
+      Color color,
+    ) => canvas.drawLine(
+      project(from),
+      project(to),
+      Paint()
+        ..color = color
+        ..strokeWidth = 3
+        ..style = PaintingStyle.stroke,
+    );
+    edge(a, b, yColor);
+    edge(b, c, xColor);
+    edge(c, a, zColor);
+    edge(backA, backB, yColor.withValues(alpha: .7));
+    edge(backB, backC, xColor.withValues(alpha: .7));
+    edge(backC, backA, zColor.withValues(alpha: .7));
+    edge(a, backA, zColor);
+    edge(b, backB, zColor);
+    edge(c, backC, zColor);
+
+    final hypotenuseLabel = project((adjacent * .5, opposite * .54, 0));
+    final adjacentLabel = project((adjacent * .5, 0, 0));
+    final oppositeLabel = project((adjacent, opposite * .5, 0));
+    _label(
+      canvas,
+      'Hypotenuse = ${hypotenuse.toStringAsFixed(1)}',
+      Offset(hypotenuseLabel.dx - 65, hypotenuseLabel.dy - 24),
+      zColor,
+    );
+    _label(
+      canvas,
+      'Adjacent = ${adjacent.toStringAsFixed(2)}',
+      Offset(adjacentLabel.dx - 25, adjacentLabel.dy + 8),
+      yColor,
+    );
+    _label(
+      canvas,
+      'Opposite = ${opposite.toStringAsFixed(2)}',
+      Offset(oppositeLabel.dx + 8, oppositeLabel.dy - 8),
+      xColor,
+    );
+    _metricBadge(
+      canvas,
+      'Shaded triangle | A = ½bh = ${triangleArea.toStringAsFixed(2)} units²',
+      const Offset(12, 12),
+      const Color(0xFFFFFFFF),
+      maxWidth: size.width - 24,
+    );
+    _label(
+      canvas,
+      'θ = ${angle.toStringAsFixed(0)}°',
+      project((.18 * adjacent, .05 * opposite, 0)) + const Offset(4, -18),
+      const Color(0xFFFFC66D),
+    );
   }
 
   void _paintAxes(Canvas canvas, Size size) {
@@ -4936,107 +5734,141 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   void _paintSurface(Canvas canvas, Size size) {
-    final wire = Paint()
-      ..color = const Color(0xFF6DE4F2).withValues(alpha: .82)
-      ..strokeWidth = 1.05
-      ..style = PaintingStyle.stroke;
-    Offset point(double x, double y) {
-      var functionValue = mode == _CalculatorMode.calculus
-          ? x * x + y * y
-          : slope * x + intercept;
-      if (expression.trim().isNotEmpty &&
-          (mode == _CalculatorMode.graphing ||
-              mode == _CalculatorMode.calculus)) {
+    const cells = 18;
+    const min = -3.0;
+    const max = 3.0;
+    const engine = MathEngine();
+    final enteredExpression = _plotExpression.trim();
+    final source = _isExplicitZFunction
+        ? _explicitZFunction
+        : enteredExpression.isNotEmpty
+        ? enteredExpression
+        : mode == _CalculatorMode.calculus
+        ? 'x^2+y^2'
+        : '($slope)*x+($intercept)';
+    final values = List<double>.filled((cells + 1) * (cells + 1), 0);
+    int index(int x, int y) => y * (cells + 1) + x;
+    double coordinate(int step) => min + (max - min) * step / cells;
+    for (var y = 0; y <= cells; y++) {
+      for (var x = 0; x <= cells; x++) {
         try {
-          functionValue = const MathEngine().evaluateAt(_plotExpression, x);
+          final px = coordinate(x), py = coordinate(y);
+          values[index(x, y)] = engine.evaluateAtVariables(source, {
+            'x': px,
+            'y': py,
+          });
         } on Object {
-          functionValue = 0;
+          values[index(x, y)] = double.nan;
         }
       }
-      final z = functionValue.clamp(-10, 10) * .18;
+    }
+    final cosX = math.cos(rotationX), sinX = math.sin(rotationX);
+    final cosY = math.cos(rotationY), sinY = math.sin(rotationY);
+    Offset project(double x, double y, double z) {
+      final rotatedX = x * cosY + z * sinY;
+      final rotatedZ = -x * sinY + z * cosY;
+      final rotatedY = y * cosX - rotatedZ * sinX;
+      final depth = y * sinX + rotatedZ * cosX;
+      final perspective = 4.2 / (4.2 + depth / 1.5);
+      final scale = math.min(size.width, size.height) * .13 * perspective;
       return Offset(
-        size.width * .5 + (x - y) * size.width * .065,
-        size.height * .72 +
-            (x + y) * size.height * .035 -
-            z * size.height * .13,
+        size.width * .5 + rotatedX * scale,
+        size.height * .55 - rotatedY * scale,
       );
     }
 
-    Offset project(double x, double y) {
-      return point(x, y);
+    double triangleArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
+      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
+      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
+      final cross = (
+        ab.$2 * ac.$3 - ab.$3 * ac.$2,
+        ab.$3 * ac.$1 - ab.$1 * ac.$3,
+        ab.$1 * ac.$2 - ab.$2 * ac.$1,
+      );
+      return math.sqrt(
+            cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3,
+          ) /
+          2;
     }
 
-    for (var row = 0; row <= 10; row++) {
-      final fixed = -4 + row * .8;
-      final rowPath = Path();
-      final columnPath = Path();
-      for (var step = 0; step <= 40; step++) {
-        final moving = -4 + step * .2;
-        final a = project(moving, fixed);
-        final b = project(fixed, moving);
-        if (step == 0) {
-          rowPath.moveTo(a.dx, a.dy);
-          columnPath.moveTo(b.dx, b.dy);
-        } else {
-          rowPath.lineTo(a.dx, a.dy);
-          columnPath.lineTo(b.dx, b.dy);
+    var meshArea = 0.0;
+    var patchCount = 0;
+    for (var y = 0; y < cells; y++) {
+      for (var x = 0; x < cells; x++) {
+        final z = [
+          values[index(x, y)],
+          values[index(x + 1, y)],
+          values[index(x + 1, y + 1)],
+          values[index(x, y + 1)],
+        ];
+        if (z.any((value) => !value.isFinite)) continue;
+        final vertices = <_PlotPoint3>[
+          (coordinate(x), coordinate(y), z[0].clamp(-5, 5)),
+          (coordinate(x + 1), coordinate(y), z[1].clamp(-5, 5)),
+          (coordinate(x + 1), coordinate(y + 1), z[2].clamp(-5, 5)),
+          (coordinate(x), coordinate(y + 1), z[3].clamp(-5, 5)),
+        ];
+        final average = z.reduce((a, b) => a + b) / z.length;
+        final tint = ((average.clamp(-5, 5) + 5) / 10).toDouble();
+        final faceColor = Color.lerp(
+          const Color(0xFF7046C8),
+          const Color(0xFF42C7D5),
+          tint,
+        )!;
+        for (final face in [(0, 1, 2), (0, 2, 3)]) {
+          final a = vertices[face.$1],
+              b = vertices[face.$2],
+              c = vertices[face.$3];
+          final area = triangleArea(a, b, c);
+          meshArea += area;
+          patchCount++;
+          final p = [
+            project(a.$1, a.$2, a.$3),
+            project(b.$1, b.$2, b.$3),
+            project(c.$1, c.$2, c.$3),
+          ];
+          final triangle = Path()
+            ..moveTo(p[0].dx, p[0].dy)
+            ..lineTo(p[1].dx, p[1].dy)
+            ..lineTo(p[2].dx, p[2].dy)
+            ..close();
+          canvas.drawPath(
+            triangle,
+            Paint()..color = faceColor.withValues(alpha: .82),
+          );
+          canvas.drawPath(
+            triangle,
+            Paint()
+              ..color = const Color(0xFFE5F5FF).withValues(alpha: .58)
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = .7,
+          );
         }
       }
-      for (var step = 0; step < 40; step++) {
-        final x0 = -4 + step * .2;
-        final x1 = x0 + .2;
-        final corners = [
-          point(x0, fixed),
-          point(x1, fixed),
-          point(x1, fixed + .8),
-          point(x0, fixed + .8),
-        ];
-        final centerX = x0 + .1;
-        final centerY = fixed + .4;
-        final value = mode == _CalculatorMode.calculus
-            ? (centerX * centerX + centerY * centerY)
-            : slope * centerX + intercept;
-        final normalized = ((value.clamp(-8, 8) + 8) / 16).toDouble();
-        final fillColor = Color.lerp(
-          const Color(0xFF286FA8),
-          const Color(0xFFFFB45B),
-          normalized,
-        )!;
-        final cell = Path()
-          ..moveTo(corners[0].dx, corners[0].dy)
-          ..lineTo(corners[1].dx, corners[1].dy)
-          ..lineTo(corners[2].dx, corners[2].dy)
-          ..lineTo(corners[3].dx, corners[3].dy)
-          ..close();
-        canvas.drawPath(
-          cell,
-          Paint()..color = fillColor.withValues(alpha: .19),
-        );
-      }
-      canvas.drawPath(rowPath, wire);
-      canvas.drawPath(columnPath, wire);
     }
-    final axisX = Paint()
-      ..color = const Color(0xFFFF625A)
-      ..strokeWidth = 2;
-    final axisY = Paint()
-      ..color = const Color(0xFF57D68D)
-      ..strokeWidth = 2;
-    final origin = point(0, 0);
-    canvas.drawLine(origin, point(4.3, 0), axisX);
-    canvas.drawLine(origin, point(0, 4.3), axisY);
-    canvas.drawLine(
-      origin,
-      origin.translate(0, -size.height * .35),
-      Paint()
-        ..color = const Color(0xFF4A86FF)
-        ..strokeWidth = 2,
-    );
-    _label(
+    final origin = project(0, 0, 0);
+    for (final (end, color, label) in <(_PlotPoint3, Color, String)>[
+      ((3.4, 0, 0), const Color(0xFFFF625A), 'x'),
+      ((0, 3.4, 0), const Color(0xFF57D68D), 'y'),
+      ((0, 0, 4), const Color(0xFF4A86FF), 'z'),
+    ]) {
+      final finish = project(end.$1, end.$2, end.$3);
+      canvas.drawLine(
+        origin,
+        finish,
+        Paint()
+          ..color = color
+          ..strokeWidth = 2,
+      );
+      _label(canvas, label, finish + const Offset(3, -10), color);
+    }
+    _label(canvas, 'z = $source', const Offset(14, 12), Colors.white);
+    _metricBadge(
       canvas,
-      mode == _CalculatorMode.calculus ? 'z = x² + y²' : 'z = mx + b',
-      const Offset(20, 16),
-      Colors.white,
+      '$patchCount shaded faces | surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
+      Offset(12, size.height - 38),
+      const Color(0xFF9BE7FF),
+      maxWidth: size.width - 24,
     );
   }
 
@@ -5055,6 +5887,49 @@ class _MathVisualizationPainter extends CustomPainter {
       ellipsis: '…',
     )..layout(maxWidth: 210);
     painter.paint(canvas, offset);
+  }
+
+  void _metricBadge(
+    Canvas canvas,
+    String text,
+    Offset offset,
+    Color color, {
+    required double maxWidth,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: math.max(1, maxWidth - 16));
+    final rect = RRect.fromRectAndRadius(
+      Rect.fromLTWH(
+        offset.dx,
+        offset.dy,
+        painter.width + 16,
+        painter.height + 10,
+      ),
+      const Radius.circular(9),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()..color = const Color(0xFF111827).withValues(alpha: .82),
+    );
+    canvas.drawRRect(
+      rect,
+      Paint()
+        ..color = color.withValues(alpha: .42)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1,
+    );
+    painter.paint(canvas, offset + const Offset(8, 5));
   }
 
   @override

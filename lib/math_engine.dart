@@ -128,6 +128,8 @@ String formatApproximateValue(double value, [int significantDigits = 12]) {
 /// The parser is intentionally limited to the grammar provided by
 /// `math_expressions`; it never executes generated or arbitrary code.
 class MathEngine {
+  static final Map<String, Expression> _numericExpressionCache = {};
+
   const MathEngine();
 
   /// Symbolically differentiates supported expressions using the expression
@@ -413,6 +415,41 @@ class MathEngine {
       rethrow;
     } on Object {
       throw const MathInputException('Could not evaluate at this value.');
+    }
+  }
+
+  /// Evaluates a numeric expression with multiple named variables bound.
+  /// Parsed trees are reused so sampled 2D/3D plots do not parse per point.
+  double evaluateAtVariables(String input, Map<String, double> values) {
+    try {
+      final source = input.trim();
+      if (source.isEmpty) {
+        throw const MathInputException('Enter an expression.');
+      }
+      final expression = _numericExpressionCache.putIfAbsent(source, () {
+        if (_numericExpressionCache.length >= 32) {
+          _numericExpressionCache.clear();
+        }
+        return GrammarParser().parse(source);
+      });
+      final context = ContextModel();
+      for (final entry in values.entries) {
+        context.bindVariableName(entry.key, Number(entry.value));
+      }
+      final result = RealEvaluator(
+        context,
+        true,
+      ).evaluate(expression).toDouble();
+      if (!result.isFinite) {
+        throw const MathInputException('The result is not finite.');
+      }
+      return result;
+    } on MathInputException {
+      rethrow;
+    } on Object {
+      throw const MathInputException(
+        'Could not evaluate with these variables.',
+      );
     }
   }
 
