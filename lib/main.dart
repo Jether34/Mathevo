@@ -21,8 +21,8 @@ import 'math_history.dart';
 void main() => runApp(const MathevoApp());
 
 const _navy = Color(0xFF302523);
-const _accent = Color(0xFFC45136);
-const _background = Color(0xFFFFFAF7);
+const _accent = Color(0xFFF43F65);
+const _background = Color(0xFFFAF7F3);
 
 class MathevoApp extends StatefulWidget {
   const MathevoApp({super.key, this.authApi, this.tokenStore});
@@ -247,15 +247,57 @@ class _MathevoAppState extends State<MathevoApp> {
     theme: ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: _background,
-      colorScheme: ColorScheme.fromSeed(seedColor: _accent),
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: _accent,
+        surface: Colors.white,
+      ),
       fontFamily: 'Roboto',
+      textTheme: const TextTheme(
+        headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 14),
+        bodyMedium: TextStyle(fontSize: 12),
+        bodySmall: TextStyle(fontSize: 10),
+        labelLarge: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        labelMedium: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+        labelSmall: TextStyle(fontSize: 9),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFFFFE7EC),
+        labelStyle: const TextStyle(fontSize: 11, color: _navy),
+        side: const BorderSide(color: Color(0xFFEDE7E3)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: const Color(0xFFFFF3EE),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+        isDense: true,
+        fillColor: Colors.white,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 10,
+        ),
+        hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF958B87)),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(13)),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: Color(0xFFECE6E2)),
+        ),
+      ),
+      listTileTheme: const ListTileThemeData(
+        dense: true,
+        minVerticalPadding: 3,
+        horizontalTitleGap: 10,
+        iconColor: Color(0xFF746D69),
+      ),
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(
+          minimumSize: const Size(36, 36),
+          padding: const EdgeInsets.all(8),
+          visualDensity: VisualDensity.compact,
         ),
       ),
     ),
@@ -264,6 +306,18 @@ class _MathevoAppState extends State<MathevoApp> {
       colorScheme: ColorScheme.fromSeed(
         seedColor: _accent,
         brightness: Brightness.dark,
+      ),
+      textTheme: const TextTheme(
+        headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+        titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        bodyLarge: TextStyle(fontSize: 14),
+        bodyMedium: TextStyle(fontSize: 12),
+        bodySmall: TextStyle(fontSize: 10),
+        labelLarge: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+        labelMedium: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+        labelSmall: TextStyle(fontSize: 9),
       ),
     ),
     home: !_isReady
@@ -465,10 +519,10 @@ class _FloatingNavigation extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(34, 6, 34, 2),
+        padding: const EdgeInsets.fromLTRB(24, 6, 24, 4),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 340),
+            constraints: const BoxConstraints(maxWidth: 360),
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(32),
@@ -486,8 +540,8 @@ class _FloatingNavigation extends StatelessWidget {
                   filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                   child: Container(
                     key: const Key('floating-navigation-capsule'),
-                    height: 52,
-                    padding: const EdgeInsets.symmetric(horizontal: 7),
+                    height: 60,
+                    padding: const EdgeInsets.symmetric(horizontal: 5),
                     decoration: BoxDecoration(
                       color: (isDark ? const Color(0xFF202735) : Colors.white)
                           .withValues(alpha: .9),
@@ -555,14 +609,33 @@ class _NavItem extends StatelessWidget {
           hoverColor: Colors.transparent,
           focusColor: Colors.transparent,
           child: SizedBox(
-            height: 52,
+            height: 58,
             child: Center(
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 160),
-                child: Icon(
-                  icon,
-                  size: 21,
-                  color: selected ? _accent : inactiveColor,
+                duration: const Duration(milliseconds: 180),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      icon,
+                      size: 17,
+                      color: selected ? _accent : inactiveColor,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      label == 'Calculator' ? 'Calc' : label,
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: TextStyle(
+                        fontSize: 8,
+                        height: 1.05,
+                        color: selected ? _accent : inactiveColor,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -617,12 +690,12 @@ class HomePage extends StatelessWidget {
               progress: progress,
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _ProgressOverview(progress: progress),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           const Text(
             'Your workspace',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           _DashboardGrid(
@@ -636,18 +709,18 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _DailyChallengeCard(
             onComplete: onDailyChallengeComplete,
             progress: progress,
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 10),
           _LeaderboardPreview(
             displayName: displayName,
             username: username,
             progress: progress,
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 12),
           _RecentActivity(
             records: records,
             progress: progress,
@@ -679,14 +752,14 @@ class _DashboardHeader extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/brand/mathevo-logo.png',
-                  width: 28,
-                  height: 28,
+                  width: 20,
+                  height: 20,
                   fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 7),
+                const SizedBox(width: 5),
                 const Text(
                   'Mathevo',
-                  style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -696,21 +769,28 @@ class _DashboardHeader extends StatelessWidget {
                   : 'Good morning, $displayName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
       IconButton(
+        style: _headerActionStyle,
+        iconSize: 17,
         onPressed: onHistory,
         tooltip: 'History',
         icon: const Icon(Icons.history_rounded),
       ),
       IconButton(
+        style: _headerActionStyle,
+        iconSize: 17,
         onPressed: onNotifications,
         tooltip: 'Notifications',
         icon: const Icon(Icons.notifications_none_rounded),
       ),
       IconButton(
+        style: _headerActionStyle,
+        iconSize: 17,
         onPressed: onLeaderboards,
         tooltip: 'Leaderboards',
         icon: const Icon(Icons.leaderboard_outlined),
@@ -718,6 +798,16 @@ class _DashboardHeader extends StatelessWidget {
     ],
   );
 }
+
+final _headerActionStyle = IconButton.styleFrom(
+  foregroundColor: const Color(0xFF625B58),
+  backgroundColor: Colors.white,
+  minimumSize: const Size(32, 32),
+  maximumSize: const Size(32, 32),
+  padding: EdgeInsets.zero,
+  side: const BorderSide(color: Color(0xFFF0EAE6)),
+  shape: const CircleBorder(),
+);
 
 class _DashboardGrid extends StatelessWidget {
   const _DashboardGrid({
@@ -736,9 +826,9 @@ class _DashboardGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 10,
-      crossAxisSpacing: 10,
-      childAspectRatio: constraints.maxWidth < 350 ? .95 : 1.5,
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: constraints.maxWidth < 350 ? 1.35 : 1.65,
       children: [
         _WorkspaceTile(
           title: 'Calculator',
@@ -790,28 +880,29 @@ class _WorkspaceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surface,
-    borderRadius: BorderRadius.circular(18),
+    borderRadius: BorderRadius.circular(15),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(15),
       child: Container(
-        padding: const EdgeInsets.all(13),
+        padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: Theme.of(context).dividerColor.withValues(alpha: .32),
-          ),
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: const Color(0xFFEFEAE6)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              radius: 17,
+              radius: 13,
               backgroundColor: color.withValues(alpha: .13),
-              child: Icon(icon, color: color, size: 19),
+              child: Icon(icon, color: color, size: 16),
             ),
             const Spacer(),
-            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+            Text(
+              title,
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
+            ),
             const SizedBox(height: 3),
             Text(
               subtitle,
@@ -863,7 +954,7 @@ class _RecentActivity extends StatelessWidget {
             const Expanded(
               child: Text(
                 'Recent activity',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
               ),
             ),
             TextButton(onPressed: onViewAll, child: const Text('View history')),
@@ -878,17 +969,17 @@ class _RecentActivity extends StatelessWidget {
           ),
         for (final item in activity.take(10))
           Padding(
-            padding: const EdgeInsets.only(bottom: 7),
+            padding: const EdgeInsets.only(bottom: 6),
             child: Material(
               color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(15),
+              borderRadius: BorderRadius.circular(13),
               child: Container(
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
-                  vertical: 9,
+                  vertical: 7,
                 ),
                 decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(15),
+                  borderRadius: BorderRadius.circular(13),
                   border: Border.all(
                     color: Theme.of(
                       context,
@@ -898,11 +989,11 @@ class _RecentActivity extends StatelessWidget {
                 child: Row(
                   children: [
                     CircleAvatar(
-                      radius: 18,
+                      radius: 15,
                       backgroundColor: _accent.withValues(alpha: .11),
                       child: Icon(item.icon, color: _accent, size: 18),
                     ),
-                    const SizedBox(width: 11),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -997,12 +1088,12 @@ class _ProgressOverview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 10),
           Row(
             children: [
               const Text(
                 'This week',
-                style: TextStyle(fontWeight: FontWeight.w600),
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
               ),
               const Spacer(),
               for (var i = 0; i < days.length; i++) ...[
@@ -1014,7 +1105,7 @@ class _ProgressOverview extends StatelessWidget {
                               .weekday -
                           1],
                   child: CircleAvatar(
-                    radius: 6,
+                    radius: 5,
                     backgroundColor: days[i]
                         ? _accent
                         : _accent.withValues(alpha: .13),
@@ -1053,8 +1144,8 @@ class _Metric extends StatelessWidget {
             image: true,
             label: label,
             child: SizedBox(
-              width: 24,
-              height: 30,
+              width: 20,
+              height: 22,
               child: Image.asset(
                 switch (label) {
                   'DAY STREAK' => 'Animated/Fire.gif',
@@ -1070,12 +1161,12 @@ class _Metric extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 5),
+          const SizedBox(width: 3),
           Flexible(
             child: Text(
               value,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
             ),
           ),
         ],
@@ -1086,7 +1177,7 @@ class _Metric extends StatelessWidget {
         overflow: TextOverflow.clip,
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(letterSpacing: .1, fontSize: 9),
+        ).textTheme.labelSmall?.copyWith(letterSpacing: .1, fontSize: 8),
       ),
     ],
   );
@@ -1150,6 +1241,9 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
 
   @override
   Widget build(BuildContext context) => _SectionCard(
+    backgroundColor: const Color(0xFFFFF4F0),
+    borderColor: const Color(0xFFFFD9D7),
+    padding: 12,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1172,36 +1266,51 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
         Text(
           _challenge.expression.replaceAll('*', 'x'),
-          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 10),
-        TextField(
-          controller: _answer,
-          enabled: !_completed,
-          keyboardType: TextInputType.none,
-          decoration: const InputDecoration(
-            isDense: true,
-            hintText: 'Your answer',
-            border: OutlineInputBorder(),
-          ),
-          onSubmitted: (_) => _check(),
+          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
-        Align(
-          alignment: Alignment.centerRight,
-          child: FilledButton(
-            onPressed: _completed || _busy ? null : _check,
-            child: Text(
-              _completed
-                  ? 'Done'
-                  : _busy
-                  ? 'Saving'
-                  : 'Check',
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 36,
+                child: TextField(
+                  controller: _answer,
+                  enabled: !_completed,
+                  keyboardType: TextInputType.none,
+                  decoration: const InputDecoration(
+                    isDense: true,
+                    hintText: 'Answer...',
+                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                    border: OutlineInputBorder(),
+                  ),
+                  onSubmitted: (_) => _check(),
+                ),
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            SizedBox(
+              height: 36,
+              child: FilledButton(
+                onPressed: _completed || _busy ? null : _check,
+                style: FilledButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  minimumSize: const Size(0, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: Text(
+                  _completed
+                      ? 'Done'
+                      : _busy
+                      ? 'Saving'
+                      : 'Check',
+                ),
+              ),
+            ),
+          ],
         ),
         if (_message != null) ...[
           const SizedBox(height: 8),
@@ -1242,7 +1351,7 @@ class _LeaderboardPreview extends StatelessWidget {
             children: [
               const Text(
                 'Leaderboards',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
               ),
               const SizedBox(height: 5),
               Text('Local rank: #1 of 1 | ${progress.xp} XP'),
@@ -1360,7 +1469,7 @@ class CalculatorPage extends StatefulWidget {
     required this.records,
     required this.onCalculation,
     required this.onFullscreenChanged,
-    this.bottomPadding = 64,
+    this.bottomPadding = 100,
   });
   final List<CalculationRecord> records;
   final ValueChanged<CalculationRecord> onCalculation;
@@ -2242,6 +2351,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       title: '',
       subtitle: '',
       bottomPadding: widget.bottomPadding,
+      fillAvailable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2329,94 +2439,100 @@ class _CalculatorPageState extends State<CalculatorPage> {
           else if (_mode == _CalculatorMode.drawing)
             _buildDrawingCalculator(context)
           else if (_mode == _CalculatorMode.geometry)
-            _buildGeometryCalculator(context)
+            Expanded(child: _buildGeometryCalculator(context, fill: true))
           else
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (_mode == _CalculatorMode.algebra) ...[
-                  const Text(
-                    'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
-                  ),
-                  const SizedBox(height: 5),
-                ],
-                if (_mode == _CalculatorMode.calculus) ...[
-                  Wrap(
-                    spacing: 6,
-                    children: [
-                      ChoiceChip(
-                        label: const Text('Derivative'),
-                        selected: _calculusOperation == 'Derivative',
-                        onSelected: (_) => setState(() {
-                          _calculusOperation = 'Derivative';
-                          _result = null;
-                          _answerShown = false;
-                        }),
-                      ),
-                      ChoiceChip(
-                        label: const Text('Indefinite integral'),
-                        selected: _calculusOperation == 'Indefinite integral',
-                        onSelected: (_) => setState(() {
-                          _calculusOperation = 'Indefinite integral';
-                          _result = null;
-                          _answerShown = false;
-                        }),
-                      ),
-                      ChoiceChip(
-                        label: const Text('Definite integral'),
-                        selected: _calculusOperation == 'Definite integral',
-                        onSelected: (_) => setState(() {
-                          _calculusOperation = 'Definite integral';
-                          _result = null;
-                          _answerShown = false;
-                        }),
-                      ),
-                    ],
-                  ),
-                  if (_calculusOperation == 'Definite integral') ...[
-                    const SizedBox(height: 4),
-                    Row(
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  if (_mode == _CalculatorMode.algebra) ...[
+                    const Text(
+                      'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
+                    ),
+                    const SizedBox(height: 5),
+                  ],
+                  if (_mode == _CalculatorMode.calculus) ...[
+                    Wrap(
+                      spacing: 6,
                       children: [
-                        Expanded(
-                          child: TextField(
-                            controller: _integralLowerInput,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Lower bound',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
+                        ChoiceChip(
+                          label: const Text('Derivative'),
+                          selected: _calculusOperation == 'Derivative',
+                          onSelected: (_) => setState(() {
+                            _calculusOperation = 'Derivative';
+                            _result = null;
+                            _answerShown = false;
+                          }),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: TextField(
-                            controller: _integralUpperInput,
-                            keyboardType: const TextInputType.numberWithOptions(
-                              decimal: true,
-                              signed: true,
-                            ),
-                            decoration: const InputDecoration(
-                              labelText: 'Upper bound',
-                              isDense: true,
-                              border: OutlineInputBorder(),
-                            ),
-                          ),
+                        ChoiceChip(
+                          label: const Text('Indefinite integral'),
+                          selected: _calculusOperation == 'Indefinite integral',
+                          onSelected: (_) => setState(() {
+                            _calculusOperation = 'Indefinite integral';
+                            _result = null;
+                            _answerShown = false;
+                          }),
+                        ),
+                        ChoiceChip(
+                          label: const Text('Definite integral'),
+                          selected: _calculusOperation == 'Definite integral',
+                          onSelected: (_) => setState(() {
+                            _calculusOperation = 'Definite integral';
+                            _result = null;
+                            _answerShown = false;
+                          }),
                         ),
                       ],
                     ),
+                    if (_calculusOperation == 'Definite integral') ...[
+                      const SizedBox(height: 4),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              controller: _integralLowerInput,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Lower bound',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: TextField(
+                              controller: _integralUpperInput,
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    decimal: true,
+                                    signed: true,
+                                  ),
+                              decoration: const InputDecoration(
+                                labelText: 'Upper bound',
+                                isDense: true,
+                                border: OutlineInputBorder(),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    const SizedBox(height: 5),
                   ],
+                  Expanded(
+                    child: _buildExpressionAnswer(context, expand: true),
+                  ),
                   const SizedBox(height: 5),
+                  _buildFunctionRow(),
+                  const SizedBox(height: 3),
+                  _buildResponsiveKeypad(context),
                 ],
-                _buildExpressionAnswer(context),
-                const SizedBox(height: 6),
-                _buildFunctionRow(),
-                const SizedBox(height: 5),
-                _buildResponsiveKeypad(context),
-              ],
+              ),
             ),
         ],
       ),
@@ -2986,26 +3102,32 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ],
   );
 
-  Widget _buildExpressionAnswer(BuildContext context) {
-    final height = _mode == _CalculatorMode.calculus
-        ? 132.0
-        : _mode == _CalculatorMode.geometry
-        ? 90.0
-        : (MediaQuery.sizeOf(context).height * .24)
-              .clamp(125.0, 180.0)
-              .toDouble();
-    final panelColor = Theme.of(
-      context,
-    ).colorScheme.surfaceContainerHighest.withValues(alpha: .48);
+  Widget _buildExpressionAnswer(
+    BuildContext context, {
+    double? height,
+    bool expand = false,
+  }) {
+    final cardHeight = expand
+        ? null
+        : height ??
+              (_mode == _CalculatorMode.calculus
+                  ? 120.0
+                  : _mode == _CalculatorMode.geometry
+                  ? 84.0
+                  : (MediaQuery.sizeOf(context).height * .18)
+                        .clamp(112.0, 142.0)
+                        .toDouble());
+    const panelColor = Colors.white;
     if (_answerShown) {
       return Container(
         key: const Key('calculation-result-panel'),
-        height: height,
+        height: cardHeight,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         decoration: BoxDecoration(
           color: panelColor,
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFEFE9E5)),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3030,7 +3152,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       key: const Key('calculation-result-math'),
                       mathStyle: MathStyle.display,
                       textStyle: const TextStyle(
-                        fontSize: 34,
+                        fontSize: 27,
                         fontWeight: FontWeight.w800,
                       ),
                       onErrorFallback: (_) => Text(_result ?? '--'),
@@ -3044,11 +3166,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
     }
     return Container(
-      height: height,
+      height: cardHeight,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFEFE9E5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3093,7 +3216,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             child: Math.tex(
                               _expressionTex,
                               mathStyle: MathStyle.display,
-                              textStyle: const TextStyle(fontSize: 24),
+                              textStyle: const TextStyle(fontSize: 20),
                             ),
                           ),
                         ),
@@ -3117,7 +3240,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                         _expressionTex,
                         mathStyle: MathStyle.display,
                         textStyle: const TextStyle(
-                          fontSize: 28,
+                          fontSize: 22,
                           fontWeight: FontWeight.w500,
                         ),
                         onErrorFallback: (_) =>
@@ -3682,7 +3805,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _buildGeometryCalculator(BuildContext context) {
+  Widget _buildGeometryCalculator(BuildContext context, {bool fill = false}) {
     const operations = [
       'Circle area',
       'Circle circumference',
@@ -3709,6 +3832,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'Cone volume',
       'Cone surface area',
     }.contains(_geometryOperation);
+    final geometryGridHeight =
+        (((MediaQuery.sizeOf(context).width - 44) / 4 / 2.1) * 4 + 12)
+            .clamp(156.0, 210.0)
+            .toDouble();
     String firstLabel = switch (_geometryOperation) {
       'Rectangle area' || 'Rectangle perimeter' => 'Length',
       'Triangle area' => 'Base',
@@ -3732,7 +3859,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildExpressionAnswer(context),
+        if (fill)
+          Expanded(child: _buildExpressionAnswer(context, expand: true))
+        else
+          _buildExpressionAnswer(context),
+        const SizedBox(height: 5),
         DropdownButtonFormField<String>(
           initialValue: _geometryOperation,
           decoration: const InputDecoration(
@@ -3803,7 +3934,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 156,
+          height: geometryGridHeight,
           child: GridView.count(
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
@@ -4087,7 +4218,8 @@ class _MathVisualizationPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     canvas.drawColor(const Color(0xFF1E2230), BlendMode.src);
-    if (is3D) {
+    final transformCanvas = is3D && mode != _CalculatorMode.geometry;
+    if (transformCanvas) {
       final centerX = size.width / 2;
       final centerY = size.height / 2;
       final transform = Matrix4.identity()
@@ -4100,7 +4232,11 @@ class _MathVisualizationPainter extends CustomPainter {
       canvas.transform(transform.storage);
     }
     if (mode == _CalculatorMode.geometry) {
-      _paintGeometry(canvas, size);
+      if (is3D) {
+        _paint3DGeometry(canvas, size);
+      } else {
+        _paintGeometry(canvas, size);
+      }
     } else if (_triangle) {
       _paintTriangle(canvas, size);
     } else if (is3D) {
@@ -4116,7 +4252,240 @@ class _MathVisualizationPainter extends CustomPainter {
     } else {
       _paintGraph(canvas, size);
     }
-    if (is3D) canvas.restore();
+    if (transformCanvas) canvas.restore();
+  }
+
+  void _paint3DGeometry(Canvas canvas, Size size) {
+    // Scientific convention: X red, Y green, Z blue. Solid surfaces use a
+    // cool cyan/blue fill with amber edge highlights for clear depth cues.
+    const xColor = Color(0xFFFF625A);
+    const yColor = Color(0xFF57D68D);
+    const zColor = Color(0xFF4A86FF);
+    const surfaceColor = Color(0xFF36C9E8);
+    const edgeColor = Color(0xFFFFC66D);
+    final radius = geometryFirst.clamp(.1, 20).toDouble();
+    final secondary = geometrySecond.clamp(.1, 20).toDouble();
+    final vertices = <(double, double, double)>[];
+    final faces = <(int, int, int)>[];
+
+    void face(int a, int b, int c) => faces.add((a, b, c));
+    void quad(int a, int b, int c, int d) {
+      face(a, b, c);
+      face(a, c, d);
+    }
+
+    final operation = geometryOperation;
+    if (operation.contains('Sphere')) {
+      const latitudes = 16;
+      const longitudes = 28;
+      for (var lat = 0; lat <= latitudes; lat++) {
+        final phi = -math.pi / 2 + math.pi * lat / latitudes;
+        for (var lon = 0; lon <= longitudes; lon++) {
+          final theta = 2 * math.pi * lon / longitudes;
+          vertices.add((
+            radius * math.cos(phi) * math.cos(theta),
+            radius * math.sin(phi),
+            radius * math.cos(phi) * math.sin(theta),
+          ));
+        }
+      }
+      for (var lat = 0; lat < latitudes; lat++) {
+        for (var lon = 0; lon < longitudes; lon++) {
+          final a = lat * (longitudes + 1) + lon;
+          final b = a + longitudes + 1;
+          quad(a, a + 1, b + 1, b);
+        }
+      }
+    } else if (operation.contains('Cone')) {
+      const sides = 40;
+      final h = secondary;
+      vertices.add((0, h / 2, 0));
+      for (var i = 0; i < sides; i++) {
+        final angle = 2 * math.pi * i / sides;
+        vertices.add((
+          radius * math.cos(angle),
+          -h / 2,
+          radius * math.sin(angle),
+        ));
+      }
+      final baseCenter = vertices.length;
+      vertices.add((0, -h / 2, 0));
+      for (var i = 0; i < sides; i++) {
+        final next = (i + 1) % sides;
+        face(0, i + 1, next + 1);
+        face(baseCenter, next + 1, i + 1);
+      }
+    } else if (operation.contains('Cylinder') ||
+        operation.startsWith('Circle')) {
+      const sides = 40;
+      final h = operation.startsWith('Circle')
+          ? math.max(radius * .32, .25)
+          : secondary;
+      for (var cap = 0; cap < 2; cap++) {
+        final y = cap == 0 ? -h / 2 : h / 2;
+        for (var i = 0; i < sides; i++) {
+          final angle = 2 * math.pi * i / sides;
+          vertices.add((radius * math.cos(angle), y, radius * math.sin(angle)));
+        }
+      }
+      final bottomCenter = vertices.length;
+      vertices.add((0, -h / 2, 0));
+      final topCenter = vertices.length;
+      vertices.add((0, h / 2, 0));
+      for (var i = 0; i < sides; i++) {
+        final next = (i + 1) % sides;
+        quad(i, next, sides + next, sides + i);
+        face(bottomCenter, next, i);
+        face(topCenter, sides + i, sides + next);
+      }
+    } else {
+      // Area/perimeter operations become a shallow prism. Right-triangle
+      // calculations use the same base/height in a triangular prism.
+      final length = radius;
+      final height = secondary;
+      final depth = math.min(length, height) * .62;
+      if (operation.contains('Triangle') || operation.contains('Pythagorean')) {
+        final points = <(double, double)>[
+          (-length / 2, -height / 2),
+          (length / 2, -height / 2),
+          (length * .1, height / 2),
+        ];
+        for (final z in [-depth / 2, depth / 2]) {
+          for (final point in points) {
+            vertices.add((point.$1, point.$2, z));
+          }
+        }
+        face(0, 1, 2);
+        face(3, 5, 4);
+        for (var i = 0; i < 3; i++) {
+          final next = (i + 1) % 3;
+          quad(i, next, 3 + next, 3 + i);
+        }
+      } else {
+        final x = length / 2, y = height / 2, z = depth / 2;
+        vertices.addAll([
+          (-x, -y, -z),
+          (x, -y, -z),
+          (x, y, -z),
+          (-x, y, -z),
+          (-x, -y, z),
+          (x, -y, z),
+          (x, y, z),
+          (-x, y, z),
+        ]);
+        quad(0, 3, 2, 1);
+        quad(4, 5, 6, 7);
+        quad(0, 1, 5, 4);
+        quad(1, 2, 6, 5);
+        quad(2, 3, 7, 6);
+        quad(3, 0, 4, 7);
+      }
+    }
+
+    final scale =
+        math.min(size.width, size.height) *
+        .31 /
+        math.max(radius, secondary).clamp(.1, 20);
+    (double, double, double) rotate((double, double, double) p) {
+      final cy = math.cos(rotationY), sy = math.sin(rotationY);
+      final cx = math.cos(rotationX), sx = math.sin(rotationX);
+      final x = p.$1 * cy + p.$3 * sy;
+      final z1 = -p.$1 * sy + p.$3 * cy;
+      final y = p.$2 * cx - z1 * sx;
+      final z = p.$2 * sx + z1 * cx;
+      return (x, y, z);
+    }
+
+    Offset project((double, double, double) p) {
+      final q = rotate(p);
+      final perspective = 4.2 / (4.2 + q.$3 / math.max(radius, secondary));
+      final s = scale * perspective;
+      return Offset(size.width * .5 + q.$1 * s, size.height * .52 - q.$2 * s);
+    }
+
+    final transformed = vertices.map(rotate).toList(growable: false);
+    final orderedFaces = [...faces]
+      ..sort((a, b) {
+        double depth((int, int, int) f) =>
+            (transformed[f.$1].$3 +
+                transformed[f.$2].$3 +
+                transformed[f.$3].$3) /
+            3;
+        return depth(a).compareTo(depth(b));
+      });
+    for (final f in orderedFaces) {
+      final a = transformed[f.$1], b = transformed[f.$2], c = transformed[f.$3];
+      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
+      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
+      final normal = (
+        ab.$2 * ac.$3 - ab.$3 * ac.$2,
+        ab.$3 * ac.$1 - ab.$1 * ac.$3,
+        ab.$1 * ac.$2 - ab.$2 * ac.$1,
+      );
+      final magnitude = math.sqrt(
+        normal.$1 * normal.$1 + normal.$2 * normal.$2 + normal.$3 * normal.$3,
+      );
+      final light = magnitude == 0
+          ? .45
+          : ((normal.$1 * -.35 + normal.$2 * .55 + normal.$3 * .76) / magnitude)
+                .abs();
+      final shade = (.34 + light * .62).clamp(.32, .94);
+      final path = Path()
+        ..moveTo(project(vertices[f.$1]).dx, project(vertices[f.$1]).dy)
+        ..lineTo(project(vertices[f.$2]).dx, project(vertices[f.$2]).dy)
+        ..lineTo(project(vertices[f.$3]).dx, project(vertices[f.$3]).dy)
+        ..close();
+      canvas.drawPath(
+        path,
+        Paint()..color = surfaceColor.withValues(alpha: shade),
+      );
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = const Color(0xFFB8F4FF).withValues(alpha: .54)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = .65,
+      );
+    }
+
+    void axis((double, double, double) end, Color color, String label) {
+      final start = project((0, 0, 0));
+      final finish = project(end);
+      final paint = Paint()
+        ..color = color
+        ..strokeWidth = 2.2
+        ..style = PaintingStyle.stroke;
+      canvas.drawLine(start, finish, paint);
+      final direction = finish - start;
+      if (direction.distance > 0) {
+        final unit = direction / direction.distance;
+        final normal = Offset(-unit.dy, unit.dx);
+        final arrow = Path()
+          ..moveTo(finish.dx, finish.dy)
+          ..lineTo(
+            finish.dx - unit.dx * 8 + normal.dx * 4,
+            finish.dy - unit.dy * 8 + normal.dy * 4,
+          )
+          ..lineTo(
+            finish.dx - unit.dx * 8 - normal.dx * 4,
+            finish.dy - unit.dy * 8 - normal.dy * 4,
+          )
+          ..close();
+        canvas.drawPath(arrow, Paint()..color = color);
+      }
+      _label(canvas, label, finish + const Offset(3, -11), color);
+    }
+
+    axis((radius * 1.35, 0, 0), xColor, 'x');
+    axis((0, secondary * .75, 0), yColor, 'y');
+    axis((0, 0, radius * 1.35), zColor, 'z');
+    _label(canvas, geometryOperation, const Offset(14, 12), Colors.white);
+    _label(
+      canvas,
+      'Drag to rotate  •  3D solid',
+      Offset(14, size.height - 24),
+      edgeColor,
+    );
   }
 
   void _paintGeometry(Canvas canvas, Size size) {
@@ -4295,6 +4664,36 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     final end = Offset(apex.dx, baseY);
     final extrusion = is3D ? const Offset(24, -17) : Offset.zero;
+    if (is3D) {
+      final front = Path()
+        ..moveTo(start.dx, start.dy)
+        ..lineTo(end.dx, end.dy)
+        ..lineTo(apex.dx, apex.dy)
+        ..close();
+      final back = Path()
+        ..moveTo(start.dx + extrusion.dx, start.dy + extrusion.dy)
+        ..lineTo(end.dx + extrusion.dx, end.dy + extrusion.dy)
+        ..lineTo(apex.dx + extrusion.dx, apex.dy + extrusion.dy)
+        ..close();
+      final side = Path()
+        ..moveTo(start.dx, start.dy)
+        ..lineTo(end.dx, end.dy)
+        ..lineTo(end.dx + extrusion.dx, end.dy + extrusion.dy)
+        ..lineTo(start.dx + extrusion.dx, start.dy + extrusion.dy)
+        ..close();
+      canvas.drawPath(
+        side,
+        Paint()..color = const Color(0xFF36C9E8).withValues(alpha: .28),
+      );
+      canvas.drawPath(
+        back,
+        Paint()..color = const Color(0xFF286FA8).withValues(alpha: .22),
+      );
+      canvas.drawPath(
+        front,
+        Paint()..color = const Color(0xFF36C9E8).withValues(alpha: .22),
+      );
+    }
     final blue = Paint()
       ..color = const Color(0xFF4A86FF)
       ..strokeWidth = 3
@@ -4538,12 +4937,12 @@ class _MathVisualizationPainter extends CustomPainter {
 
   void _paintSurface(Canvas canvas, Size size) {
     final wire = Paint()
-      ..color = const Color(0xFF4A86FF).withValues(alpha: .8)
-      ..strokeWidth = 1.2
+      ..color = const Color(0xFF6DE4F2).withValues(alpha: .82)
+      ..strokeWidth = 1.05
       ..style = PaintingStyle.stroke;
-    Offset project(double x, double y) {
+    Offset point(double x, double y) {
       var functionValue = mode == _CalculatorMode.calculus
-          ? x * x
+          ? x * x + y * y
           : slope * x + intercept;
       if (expression.trim().isNotEmpty &&
           (mode == _CalculatorMode.graphing ||
@@ -4563,6 +4962,10 @@ class _MathVisualizationPainter extends CustomPainter {
       );
     }
 
+    Offset project(double x, double y) {
+      return point(x, y);
+    }
+
     for (var row = 0; row <= 10; row++) {
       final fixed = -4 + row * .8;
       final rowPath = Path();
@@ -4579,9 +4982,56 @@ class _MathVisualizationPainter extends CustomPainter {
           columnPath.lineTo(b.dx, b.dy);
         }
       }
+      for (var step = 0; step < 40; step++) {
+        final x0 = -4 + step * .2;
+        final x1 = x0 + .2;
+        final corners = [
+          point(x0, fixed),
+          point(x1, fixed),
+          point(x1, fixed + .8),
+          point(x0, fixed + .8),
+        ];
+        final centerX = x0 + .1;
+        final centerY = fixed + .4;
+        final value = mode == _CalculatorMode.calculus
+            ? (centerX * centerX + centerY * centerY)
+            : slope * centerX + intercept;
+        final normalized = ((value.clamp(-8, 8) + 8) / 16).toDouble();
+        final fillColor = Color.lerp(
+          const Color(0xFF286FA8),
+          const Color(0xFFFFB45B),
+          normalized,
+        )!;
+        final cell = Path()
+          ..moveTo(corners[0].dx, corners[0].dy)
+          ..lineTo(corners[1].dx, corners[1].dy)
+          ..lineTo(corners[2].dx, corners[2].dy)
+          ..lineTo(corners[3].dx, corners[3].dy)
+          ..close();
+        canvas.drawPath(
+          cell,
+          Paint()..color = fillColor.withValues(alpha: .19),
+        );
+      }
       canvas.drawPath(rowPath, wire);
       canvas.drawPath(columnPath, wire);
     }
+    final axisX = Paint()
+      ..color = const Color(0xFFFF625A)
+      ..strokeWidth = 2;
+    final axisY = Paint()
+      ..color = const Color(0xFF57D68D)
+      ..strokeWidth = 2;
+    final origin = point(0, 0);
+    canvas.drawLine(origin, point(4.3, 0), axisX);
+    canvas.drawLine(origin, point(0, 4.3), axisY);
+    canvas.drawLine(
+      origin,
+      origin.translate(0, -size.height * .35),
+      Paint()
+        ..color = const Color(0xFF4A86FF)
+        ..strokeWidth = 2,
+    );
     _label(
       canvas,
       mode == _CalculatorMode.calculus ? 'z = x² + y²' : 'z = mx + b',
@@ -4688,7 +5138,7 @@ class _LessonsContentState extends State<_LessonsContent> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 42,
+                height: 36,
                 child: TextField(
                   controller: _search,
                   onChanged: (value) => setState(() => _query = value.trim()),
@@ -4712,7 +5162,7 @@ class _LessonsContentState extends State<_LessonsContent> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 10),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -4732,18 +5182,21 @@ class _LessonsContentState extends State<_LessonsContent> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const Text(
           'Continue learning',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         _SectionCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
+            dense: true,
+            visualDensity: VisualDensity.compact,
             leading: const CircleAvatar(
-              backgroundColor: Color(0xFFE8EFFF),
-              child: Icon(Icons.functions_rounded, color: _accent),
+              radius: 15,
+              backgroundColor: Color(0xFFFFE7EC),
+              child: Icon(Icons.functions_rounded, color: _accent, size: 16),
             ),
             title: const Text('Order of Operations'),
             subtitle: Text(
@@ -4761,10 +5214,10 @@ class _LessonsContentState extends State<_LessonsContent> {
             onTap: _openOrderOfOperations,
           ),
         ),
-        const SizedBox(height: 18),
+        const SizedBox(height: 14),
         const Text(
           'Popular topics',
-          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         _SectionCard(
@@ -4955,7 +5408,7 @@ class _CommunityPageState extends State<CommunityPage> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 42,
+                height: 36,
                 child: TextField(
                   controller: _search,
                   onChanged: (_) => setState(() {}),
@@ -4985,7 +5438,7 @@ class _CommunityPageState extends State<CommunityPage> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 8),
         Row(
           children: [
             for (final tab in ['For you', 'Recent', 'Top'])
@@ -5001,7 +5454,7 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
         if (_visiblePosts.isEmpty)
           _SectionCard(
             child: Text(
@@ -5045,7 +5498,7 @@ class _CommunityPageState extends State<CommunityPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  const SizedBox(height: 8),
                   SelectableText(post.content),
                 ],
               ),
@@ -5422,9 +5875,9 @@ class _SettingsSection extends StatelessWidget {
     children: [
       Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
       ),
-      const SizedBox(height: 8),
+      const SizedBox(height: 6),
       _SectionCard(child: Column(children: children)),
     ],
   );
@@ -5435,12 +5888,14 @@ class _PageFrame extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    this.bottomPadding = 110,
+    this.bottomPadding = 96,
+    this.fillAvailable = false,
   });
   final String title;
   final String subtitle;
   final Widget child;
   final double bottomPadding;
+  final bool fillAvailable;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -5450,37 +5905,84 @@ class _PageFrame extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: SizedBox(
           width: width,
-          child: SingleChildScrollView(
-            padding: EdgeInsets.fromLTRB(22, 22, 22, bottomPadding),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (title.isNotEmpty || subtitle.isNotEmpty) ...[
-                  if (title.isNotEmpty)
-                    Text(
-                      title,
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(
-                            fontWeight: FontWeight.w700,
-                            color: Theme.of(context).colorScheme.onSurface,
+          height: fillAvailable ? constraints.maxHeight : null,
+          child: fillAvailable
+              ? Padding(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (title.isNotEmpty || subtitle.isNotEmpty) ...[
+                        if (title.isNotEmpty)
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
                           ),
-                    ),
-                  if (subtitle.isNotEmpty)
-                    Padding(
-                      padding: EdgeInsets.only(top: title.isNotEmpty ? 5 : 0),
-                      child: Text(
-                        subtitle,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                  const SizedBox(height: 24),
-                ],
-                child,
-              ],
-            ),
-          ),
+                        if (subtitle.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: title.isNotEmpty ? 5 : 0,
+                            ),
+                            child: Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                      ],
+                      Expanded(child: child),
+                    ],
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPadding),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (title.isNotEmpty || subtitle.isNotEmpty) ...[
+                        if (title.isNotEmpty)
+                          Text(
+                            title,
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurface,
+                                ),
+                          ),
+                        if (subtitle.isNotEmpty)
+                          Padding(
+                            padding: EdgeInsets.only(
+                              top: title.isNotEmpty ? 5 : 0,
+                            ),
+                            child: Text(
+                              subtitle,
+                              style: Theme.of(context).textTheme.bodyMedium
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ),
+                        const SizedBox(height: 16),
+                      ],
+                      child,
+                    ],
+                  ),
+                ),
         ),
       );
     },
@@ -5488,24 +5990,30 @@ class _PageFrame extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.child});
+  const _SectionCard({
+    required this.child,
+    this.backgroundColor,
+    this.borderColor,
+    this.padding = 14,
+  });
   final Widget child;
+  final Color? backgroundColor;
+  final Color? borderColor;
+  final double padding;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: const EdgeInsets.all(18),
+    padding: EdgeInsets.all(padding),
     decoration: BoxDecoration(
-      color: Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(20),
-      border: Border.all(
-        color: Theme.of(context).dividerColor.withValues(alpha: .35),
-      ),
+      color: backgroundColor ?? Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: borderColor ?? const Color(0xFFEFEAE6)),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: .025),
-          blurRadius: 14,
-          offset: const Offset(0, 4),
+          color: Colors.black.withValues(alpha: .018),
+          blurRadius: 10,
+          offset: const Offset(0, 3),
         ),
       ],
     ),
