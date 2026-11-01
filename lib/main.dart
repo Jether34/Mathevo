@@ -5,9 +5,7 @@ import 'dart:math' as math;
 import 'dart:ui' show ImageFilter, ImageByteFormat;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/rendering.dart' show RenderRepaintBoundary;
-import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -19,23 +17,25 @@ import 'gamification.dart';
 import 'math_engine.dart';
 import 'math_history.dart';
 
-void main() => runApp(const MathevoApp());
+void main() => runApp(const MathVerseApp());
 
-const _navy = Color(0xFF302523);
-const _accent = Color(0xFFF43F65);
-const _background = Color(0xFFFAF7F3);
+const _navy = Color(0xFF17233D);
+const _blue = Color(0xFF526DAB);
+const _background = Color(0xFFF6F7FA);
 
-class MathevoApp extends StatefulWidget {
-  const MathevoApp({super.key, this.authApi, this.tokenStore});
+class MathVerseApp extends StatefulWidget {
+  const MathVerseApp({super.key, this.authApi, this.tokenStore});
 
   final AuthApi? authApi;
   final AuthTokenStore? tokenStore;
 
   @override
-  State<MathevoApp> createState() => _MathevoAppState();
+  State<MathVerseApp> createState() => _MathVerseAppState();
 }
 
-class _MathevoAppState extends State<MathevoApp> {
+typedef MathevoApp = MathVerseApp;
+
+class _MathVerseAppState extends State<MathVerseApp> {
   late final AuthApi _authApi = widget.authApi ?? const HttpAuthApi();
   late final AuthTokenStore _tokenStore =
       widget.tokenStore ?? const SecureAuthTokenStore();
@@ -146,6 +146,7 @@ class _MathevoAppState extends State<MathevoApp> {
         builder: (_) => _HistoryPage(
           records: _records,
           onContinue: (record) {
+            _navigatorKey.currentState?.pop();
             _navigatorKey.currentState?.push<void>(
               MaterialPageRoute<void>(
                 builder: (_) => _ContinuedCalculatorPage(
@@ -243,82 +244,17 @@ class _MathevoAppState extends State<MathevoApp> {
     title: '',
     debugShowCheckedModeBanner: false,
     themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
-    themeAnimationDuration: const Duration(milliseconds: 420),
-    themeAnimationCurve: Curves.easeInOutCubic,
     theme: ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: _background,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _accent,
-        surface: Colors.white,
-      ),
+      colorScheme: ColorScheme.fromSeed(seedColor: _blue),
       fontFamily: 'Roboto',
-      textTheme: const TextTheme(
-        headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(fontSize: 14),
-        bodyMedium: TextStyle(fontSize: 12),
-        bodySmall: TextStyle(fontSize: 10),
-        labelLarge: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        labelMedium: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-        labelSmall: TextStyle(fontSize: 9),
-      ),
-      chipTheme: ChipThemeData(
-        backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFFFE7EC),
-        labelStyle: const TextStyle(fontSize: 11, color: _navy),
-        side: const BorderSide(color: Color(0xFFEDE7E3)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
-      ),
-      inputDecorationTheme: InputDecorationTheme(
-        filled: true,
-        isDense: true,
-        fillColor: Colors.white,
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
-        hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF958B87)),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(13)),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFECE6E2)),
-        ),
-      ),
-      listTileTheme: const ListTileThemeData(
-        dense: true,
-        minVerticalPadding: 3,
-        horizontalTitleGap: 10,
-        iconColor: Color(0xFF746D69),
-      ),
-      iconButtonTheme: IconButtonThemeData(
-        style: IconButton.styleFrom(
-          minimumSize: const Size(36, 36),
-          padding: const EdgeInsets.all(8),
-          visualDensity: VisualDensity.compact,
-        ),
-      ),
     ),
     darkTheme: ThemeData(
       useMaterial3: true,
       colorScheme: ColorScheme.fromSeed(
-        seedColor: _accent,
+        seedColor: _blue,
         brightness: Brightness.dark,
-      ),
-      textTheme: const TextTheme(
-        headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
-        titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-        titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-        titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
-        bodyLarge: TextStyle(fontSize: 14),
-        bodyMedium: TextStyle(fontSize: 12),
-        bodySmall: TextStyle(fontSize: 10),
-        labelLarge: TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
-        labelMedium: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-        labelSmall: TextStyle(fontSize: 9),
       ),
     ),
     home: !_isReady
@@ -329,7 +265,7 @@ class _MathevoAppState extends State<MathevoApp> {
             authApi: _authApi,
             onAuthenticated: _onAuthenticated,
           )
-        : MathevoShell(
+        : MathVerseShell(
             records: _records,
             onCalculation: _addRecord,
             darkMode: _darkMode,
@@ -353,8 +289,8 @@ class _MathevoAppState extends State<MathevoApp> {
 
 enum _Destination { home, lessons, calculator, community, settings }
 
-class MathevoShell extends StatefulWidget {
-  const MathevoShell({
+class MathVerseShell extends StatefulWidget {
+  const MathVerseShell({
     super.key,
     required this.records,
     required this.onCalculation,
@@ -399,10 +335,12 @@ class MathevoShell extends StatefulWidget {
   onSaveProfile;
 
   @override
-  State<MathevoShell> createState() => _MathevoShellState();
+  State<MathVerseShell> createState() => _MathVerseShellState();
 }
 
-class _MathevoShellState extends State<MathevoShell> {
+typedef MathevoShell = MathVerseShell;
+
+class _MathVerseShellState extends State<MathVerseShell> {
   _Destination _selected = _Destination.home;
   final _calculatorPageKey = GlobalKey<_CalculatorPageState>();
   bool _hideNavigation = false;
@@ -520,10 +458,10 @@ class _FloatingNavigation extends StatelessWidget {
     return SafeArea(
       top: false,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 6, 24, 4),
+        padding: const EdgeInsets.fromLTRB(34, 6, 34, 2),
         child: Center(
           child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
+            constraints: const BoxConstraints(maxWidth: 340),
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(32),
@@ -541,8 +479,8 @@ class _FloatingNavigation extends StatelessWidget {
                   filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
                   child: Container(
                     key: const Key('floating-navigation-capsule'),
-                    height: 60,
-                    padding: const EdgeInsets.symmetric(horizontal: 5),
+                    height: 52,
+                    padding: const EdgeInsets.symmetric(horizontal: 7),
                     decoration: BoxDecoration(
                       color: (isDark ? const Color(0xFF202735) : Colors.white)
                           .withValues(alpha: .9),
@@ -610,33 +548,14 @@ class _NavItem extends StatelessWidget {
           hoverColor: Colors.transparent,
           focusColor: Colors.transparent,
           child: SizedBox(
-            height: 58,
+            height: 52,
             child: Center(
               child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      icon,
-                      size: 17,
-                      color: selected ? _accent : inactiveColor,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      label == 'Calculator' ? 'Calc' : label,
-                      maxLines: 1,
-                      overflow: TextOverflow.clip,
-                      style: TextStyle(
-                        fontSize: 8,
-                        height: 1.05,
-                        color: selected ? _accent : inactiveColor,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                      ),
-                    ),
-                  ],
+                duration: const Duration(milliseconds: 160),
+                child: Icon(
+                  icon,
+                  size: 21,
+                  color: selected ? _blue : inactiveColor,
                 ),
               ),
             ),
@@ -691,12 +610,12 @@ class HomePage extends StatelessWidget {
               progress: progress,
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _ProgressOverview(progress: progress),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           const Text(
             'Your workspace',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           _DashboardGrid(
@@ -710,18 +629,18 @@ class HomePage extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _DailyChallengeCard(
             onComplete: onDailyChallengeComplete,
             progress: progress,
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 14),
           _LeaderboardPreview(
             displayName: displayName,
             username: username,
             progress: progress,
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 18),
           _RecentActivity(
             records: records,
             progress: progress,
@@ -749,20 +668,9 @@ class _DashboardHeader extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Image.asset(
-                  'assets/brand/mathevo-logo.png',
-                  width: 20,
-                  height: 20,
-                  fit: BoxFit.contain,
-                ),
-                const SizedBox(width: 5),
-                const Text(
-                  'Mathevo',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
-                ),
-              ],
+            const Text(
+              'MathVerse',
+              style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800),
             ),
             Text(
               displayName == 'Your name'
@@ -770,28 +678,21 @@ class _DashboardHeader extends StatelessWidget {
                   : 'Good morning, $displayName',
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: Theme.of(context).textTheme.bodySmall,
             ),
           ],
         ),
       ),
       IconButton(
-        style: _headerActionStyle,
-        iconSize: 17,
         onPressed: onHistory,
         tooltip: 'History',
         icon: const Icon(Icons.history_rounded),
       ),
       IconButton(
-        style: _headerActionStyle,
-        iconSize: 17,
         onPressed: onNotifications,
         tooltip: 'Notifications',
         icon: const Icon(Icons.notifications_none_rounded),
       ),
       IconButton(
-        style: _headerActionStyle,
-        iconSize: 17,
         onPressed: onLeaderboards,
         tooltip: 'Leaderboards',
         icon: const Icon(Icons.leaderboard_outlined),
@@ -799,16 +700,6 @@ class _DashboardHeader extends StatelessWidget {
     ],
   );
 }
-
-final _headerActionStyle = IconButton.styleFrom(
-  foregroundColor: const Color(0xFF625B58),
-  backgroundColor: Colors.white,
-  minimumSize: const Size(32, 32),
-  maximumSize: const Size(32, 32),
-  padding: EdgeInsets.zero,
-  side: const BorderSide(color: Color(0xFFF0EAE6)),
-  shape: const CircleBorder(),
-);
 
 class _DashboardGrid extends StatelessWidget {
   const _DashboardGrid({
@@ -827,9 +718,9 @@ class _DashboardGrid extends StatelessWidget {
       crossAxisCount: 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
-      mainAxisSpacing: 8,
-      crossAxisSpacing: 8,
-      childAspectRatio: constraints.maxWidth < 350 ? 1.35 : 1.65,
+      mainAxisSpacing: 10,
+      crossAxisSpacing: 10,
+      childAspectRatio: constraints.maxWidth < 350 ? .95 : 1.5,
       children: [
         _WorkspaceTile(
           title: 'Calculator',
@@ -837,7 +728,7 @@ class _DashboardGrid extends StatelessWidget {
               ? 'Solve an expression'
               : '${latestCalculation!.expression} = ${latestCalculation!.result}',
           icon: Icons.calculate_outlined,
-          color: _accent,
+          color: _blue,
           onTap: onCalculator,
         ),
         _WorkspaceTile(
@@ -881,29 +772,28 @@ class _WorkspaceTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Material(
     color: Theme.of(context).colorScheme.surface,
-    borderRadius: BorderRadius.circular(15),
+    borderRadius: BorderRadius.circular(18),
     child: InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(15),
+      borderRadius: BorderRadius.circular(18),
       child: Container(
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: const Color(0xFFEFEAE6)),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: Theme.of(context).dividerColor.withValues(alpha: .32),
+          ),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             CircleAvatar(
-              radius: 13,
+              radius: 17,
               backgroundColor: color.withValues(alpha: .13),
-              child: Icon(icon, color: color, size: 16),
+              child: Icon(icon, color: color, size: 19),
             ),
             const Spacer(),
-            Text(
-              title,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12),
-            ),
+            Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
             const SizedBox(height: 3),
             Text(
               subtitle,
@@ -941,7 +831,7 @@ class _RecentActivity extends StatelessWidget {
         _ActivityItem(
           record.createdAt,
           'Calculation',
-          _calculationSummary(record),
+          '${record.expression} = ${record.result}',
           Icons.calculate_outlined,
         ),
       for (final dayKey in progress.completedDays)
@@ -955,7 +845,7 @@ class _RecentActivity extends StatelessWidget {
             const Expanded(
               child: Text(
                 'Recent activity',
-                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
               ),
             ),
             TextButton(onPressed: onViewAll, child: const Text('View history')),
@@ -970,57 +860,16 @@ class _RecentActivity extends StatelessWidget {
           ),
         for (final item in activity.take(10))
           Padding(
-            padding: const EdgeInsets.only(bottom: 6),
-            child: Material(
-              color: Theme.of(context).colorScheme.surface,
-              borderRadius: BorderRadius.circular(13),
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 7,
-                ),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(13),
-                  border: Border.all(
-                    color: Theme.of(
-                      context,
-                    ).dividerColor.withValues(alpha: .24),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    CircleAvatar(
-                      radius: 15,
-                      backgroundColor: _accent.withValues(alpha: .11),
-                      child: Icon(item.icon, color: _accent, size: 18),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            item.title,
-                            style: const TextStyle(fontWeight: FontWeight.w600),
-                          ),
-                          const SizedBox(height: 2),
-                          Text(
-                            item.detail.length > 52
-                                ? '${item.detail.substring(0, 52)}…'
-                                : item.detail,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall,
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      TimeOfDay.fromDateTime(item.at).format(context),
-                      style: Theme.of(context).textTheme.labelSmall,
-                    ),
-                  ],
+            padding: const EdgeInsets.only(bottom: 8),
+            child: _SectionCard(
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(item.icon, color: _blue),
+                title: Text(item.title),
+                subtitle: Text(item.detail),
+                trailing: Text(
+                  TimeOfDay.fromDateTime(item.at).format(context),
+                  style: Theme.of(context).textTheme.labelSmall,
                 ),
               ),
             ),
@@ -1032,20 +881,15 @@ class _RecentActivity extends StatelessWidget {
   _ActivityItem _challengeActivity(String dayKey, DateTime? completedAt) {
     final date = DateTime.parse(dayKey);
     final challenge = DailyChallenge.forDate(date);
+    final answer = const MathEngine()
+        .calculate(challenge.expression)
+        .displayValue;
     return _ActivityItem(
       completedAt ?? date,
       'Daily challenge completed',
-      challenge.expression,
+      '${challenge.expression} = $answer',
       Icons.local_fire_department_outlined,
     );
-  }
-
-  String _calculationSummary(CalculationRecord record) {
-    final firstLine = record.expression.split('\n').first.trim();
-    final resultSeparator = firstLine.lastIndexOf(' = ');
-    return resultSeparator < 0
-        ? firstLine
-        : firstLine.substring(0, resultSeparator).trim();
   }
 }
 
@@ -1076,7 +920,7 @@ class _ProgressOverview extends StatelessWidget {
                   label: 'TOTAL XP',
                   value: '${progress.xp}',
                   icon: Icons.bolt_rounded,
-                  color: _accent,
+                  color: _blue,
                 ),
               ),
               Expanded(
@@ -1089,12 +933,12 @@ class _ProgressOverview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 16),
           Row(
             children: [
               const Text(
                 'This week',
-                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 11),
+                style: TextStyle(fontWeight: FontWeight.w600),
               ),
               const Spacer(),
               for (var i = 0; i < days.length; i++) ...[
@@ -1106,10 +950,10 @@ class _ProgressOverview extends StatelessWidget {
                               .weekday -
                           1],
                   child: CircleAvatar(
-                    radius: 5,
+                    radius: 6,
                     backgroundColor: days[i]
-                        ? _accent
-                        : _accent.withValues(alpha: .13),
+                        ? _blue
+                        : _blue.withValues(alpha: .13),
                     child: days[i]
                         ? const Icon(Icons.check, size: 9, color: Colors.white)
                         : null,
@@ -1145,8 +989,8 @@ class _Metric extends StatelessWidget {
             image: true,
             label: label,
             child: SizedBox(
-              width: 20,
-              height: 22,
+              width: 24,
+              height: 30,
               child: Image.asset(
                 switch (label) {
                   'DAY STREAK' => 'Animated/Fire.gif',
@@ -1162,12 +1006,12 @@ class _Metric extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 3),
+          const SizedBox(width: 5),
           Flexible(
             child: Text(
               value,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+              style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 18),
             ),
           ),
         ],
@@ -1178,7 +1022,7 @@ class _Metric extends StatelessWidget {
         overflow: TextOverflow.clip,
         style: Theme.of(
           context,
-        ).textTheme.labelSmall?.copyWith(letterSpacing: .1, fontSize: 8),
+        ).textTheme.labelSmall?.copyWith(letterSpacing: .1, fontSize: 9),
       ),
     ],
   );
@@ -1242,15 +1086,12 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
 
   @override
   Widget build(BuildContext context) => _SectionCard(
-    backgroundColor: const Color(0xFFFFF4F0),
-    borderColor: const Color(0xFFFFD9D7),
-    padding: 12,
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            const Icon(Icons.auto_awesome_rounded, color: _accent),
+            const Icon(Icons.auto_awesome_rounded, color: _blue),
             const SizedBox(width: 8),
             const Expanded(
               child: Text(
@@ -1267,51 +1108,36 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 14),
         Text(
           _challenge.expression.replaceAll('*', 'x'),
-          style: const TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 25, fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 10),
+        TextField(
+          controller: _answer,
+          enabled: !_completed,
+          keyboardType: TextInputType.none,
+          decoration: const InputDecoration(
+            isDense: true,
+            hintText: 'Your answer',
+            border: OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _check(),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: SizedBox(
-                height: 36,
-                child: TextField(
-                  controller: _answer,
-                  enabled: !_completed,
-                  keyboardType: TextInputType.none,
-                  decoration: const InputDecoration(
-                    isDense: true,
-                    hintText: 'Answer...',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
-                    border: OutlineInputBorder(),
-                  ),
-                  onSubmitted: (_) => _check(),
-                ),
-              ),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton(
+            onPressed: _completed || _busy ? null : _check,
+            child: Text(
+              _completed
+                  ? 'Done'
+                  : _busy
+                  ? 'Saving'
+                  : 'Check',
             ),
-            const SizedBox(width: 8),
-            SizedBox(
-              height: 36,
-              child: FilledButton(
-                onPressed: _completed || _busy ? null : _check,
-                style: FilledButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minimumSize: const Size(0, 36),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(
-                  _completed
-                      ? 'Done'
-                      : _busy
-                      ? 'Saving'
-                      : 'Check',
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
         if (_message != null) ...[
           const SizedBox(height: 8),
@@ -1344,7 +1170,7 @@ class _LeaderboardPreview extends StatelessWidget {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Icon(Icons.leaderboard_outlined, color: _accent),
+        const Icon(Icons.leaderboard_outlined, color: _blue),
         const SizedBox(width: 12),
         Expanded(
           child: Column(
@@ -1352,10 +1178,12 @@ class _LeaderboardPreview extends StatelessWidget {
             children: [
               const Text(
                 'Leaderboards',
-                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+                style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
               ),
               const SizedBox(height: 5),
-              Text('Local rank: #1 of 1 | ${progress.xp} XP'),
+              Text(
+                'Local rank: #1 of 1 ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${progress.xp} XP',
+              ),
               Align(
                 alignment: Alignment.centerLeft,
                 child: TextButton(
@@ -1455,9 +1283,8 @@ class _LeaderboardDetails extends StatelessWidget {
 enum _CalculatorMode {
   basic,
   scientific,
-  geometry,
-  trigonometry,
   graphing,
+  trigonometry,
   algebra,
   calculus,
   numberSystem,
@@ -1470,7 +1297,7 @@ class CalculatorPage extends StatefulWidget {
     required this.records,
     required this.onCalculation,
     required this.onFullscreenChanged,
-    this.bottomPadding = 100,
+    this.bottomPadding = 64,
   });
   final List<CalculationRecord> records;
   final ValueChanged<CalculationRecord> onCalculation;
@@ -1487,42 +1314,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _denominator = TextEditingController();
   final _numberA = TextEditingController();
   final _numberB = TextEditingController();
-  final _geometryFirst = TextEditingController();
-  final _geometrySecond = TextEditingController();
-  final _integralLowerInput = TextEditingController(text: '0');
-  final _integralUpperInput = TextEditingController(text: '2');
   final _drawingBoundaryKey = GlobalKey();
   final _engine = const MathEngine();
-  TextRecognizer? _recognizer;
+  final _recognizer = TextRecognizer(script: TextRecognitionScript.latin);
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
-  bool _fractionDenominatorSelected = false;
-  bool _sourceEditorVisible = false;
-  bool _errorDialogOpen = false;
   bool _conversionOnly = true;
   bool _recognizingDrawing = false;
   bool _answerShown = false;
-  bool _showVisualization = false;
-  bool _showVisualizationDetails = false;
-  bool _showExpressionPlot = false;
-  bool _visualIs3D = false;
-  double _visualAngle = 62;
-  double _visualRotationX = -.18;
-  double _visualRotationY = .28;
-  Offset? _lastVisualizationPointer;
-  double _visualHypotenuse = 20;
-  double _geometryVisualFirst = 3;
-  double _geometryVisualSecond = 4;
-  double _graphSlope = 1.5;
-  double _graphIntercept = 1;
-  double _graphX = 2;
-  double _integralLower = 0;
-  double _integralUpper = 2;
   int _sourceBase = 10;
   int _targetBase = 2;
   String _numberOperator = '+';
-  String _geometryOperation = 'Circle area';
-  bool _geometryUsesSecond = false;
   final List<List<Offset>> _drawingStrokes = [];
   List<Offset> _activeStroke = [];
   String? _recognizedExpression;
@@ -1534,10 +1336,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final List<String> _sessionBreakdown = [];
   String? _sessionFinalResult;
   bool _sessionIsExact = true;
-  String _calculusOperation = 'Derivative';
-  bool _angleDegrees = true;
-  String _triangleFunction = 'sin';
-  bool _triangleHasCoefficient = false;
+  double _triangleAngle = 41;
+  double _triangleHypotenuse = 15.5;
 
   @override
   void dispose() {
@@ -1547,33 +1347,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _denominator.dispose();
     _numberA.dispose();
     _numberB.dispose();
-    _geometryFirst.dispose();
-    _geometrySecond.dispose();
-    _integralLowerInput.dispose();
-    _integralUpperInput.dispose();
-    final recognizer = _recognizer;
-    if (recognizer != null) unawaited(recognizer.close());
+    unawaited(_recognizer.close());
     super.dispose();
   }
 
   void _insert(String value) {
-    FocusScope.of(context).unfocus();
-    if (_fractionBuilder) {
-      final controller = _fractionDenominatorSelected
-          ? _denominator
-          : _numerator;
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      controller.value = TextEditingValue(
-        text: controller.text.replaceRange(start, end, value),
-        selection: TextSelection.collapsed(offset: start + value.length),
-      );
-      setState(() {});
-      return;
-    }
     if (_answerShown) {
       final isOperator = const {'+', '-', '*', '/', '^'}.contains(value);
       _input.text = isOperator ? (_result ?? '') : '';
@@ -1594,125 +1372,28 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _insertFraction() {
     if (_numerator.text.trim().isEmpty || _denominator.text.trim().isEmpty) {
-      _showCalculationError('Enter both a numerator and denominator.');
+      setState(() => _error = 'Enter both a numerator and denominator.');
       return;
     }
+    _insert('(${_numerator.text})/(${_denominator.text})');
     setState(() {
       _fractionBuilder = false;
-    });
-    _insert('(${_numerator.text})/(${_denominator.text})');
-  }
-
-  void _showCalculationError(String message) {
-    if (!mounted || _errorDialogOpen) return;
-    _errorDialogOpen = true;
-    _error = message;
-    showDialog<void>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.error_outline_rounded),
-        title: const Text('Check the expression'),
-        content: Text(_error ?? message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
-    ).whenComplete(() {
       _error = null;
-      _errorDialogOpen = false;
     });
-  }
-
-  String _mathTexFromSource(String source) {
-    var tex = source.trim();
-    if (tex.isEmpty) return r'\square';
-    tex = tex.replaceAll('3.141592653589793', r'\pi');
-    tex = tex.replaceAllMapped(
-      RegExp(r'\(([^()]*)\)\s*/\s*\(([^()]*)\)'),
-      (m) => '\\frac{${m[1]}}{${m[2]}}',
-    );
-    tex = tex.replaceAllMapped(
-      RegExp(r'(?<![A-Za-z])([A-Za-z0-9.]+)\s*/\s*([A-Za-z0-9.]+)(?![A-Za-z])'),
-      (m) => '\\frac{${m[1]}}{${m[2]}}',
-    );
-    tex = tex.replaceAllMapped(
-      RegExp(r'\b(sqrt|cbrt)\(([^()]*)\)'),
-      (m) => m[1] == 'sqrt' ? '\\sqrt{${m[2]}}' : '\\sqrt[3]{${m[2]}}',
-    );
-    tex = tex.replaceAllMapped(
-      RegExp(r'\b(abs)\(([^()]*)\)'),
-      (m) => r'\left|' + m[2]! + r'\right|',
-    );
-    tex = tex.replaceAll('(', r'\left(').replaceAll(')', r'\right)');
-    tex = tex.replaceAllMapped(
-      RegExp(
-        r'\b(arcsin|arccos|arctan|sin|cos|tan|sec|csc|cot|log|ln)\\left\(',
-      ),
-      (m) => '\\${m[1]}\\left(',
-    );
-    tex = tex.replaceAllMapped(
-      RegExp(r'\^([A-Za-z0-9]+)'),
-      (m) => '^{${m[1]}}',
-    );
-    return tex
-        .replaceAll('*', r'\times ')
-        .replaceAll('/', r'\div ')
-        .replaceAll('<=', r'\leq ')
-        .replaceAll('>=', r'\geq ')
-        .replaceAll('!=', r'\neq ')
-        .replaceAll('≈', r'\approx ');
-  }
-
-  String get _expressionTex {
-    if (_mode == _CalculatorMode.geometry && _input.text.trim().isEmpty) {
-      return switch (_geometryOperation) {
-        'Circle area' => r'A=\pi r^2',
-        'Circle circumference' => r'C=2\pi r',
-        'Rectangle area' => r'A=wh',
-        'Rectangle perimeter' => r'P=2w+2h',
-        'Triangle area' => r'A=\frac{1}{2}bh',
-        'Pythagorean hypotenuse' => r'c=\sqrt{a^2+b^2}',
-        'Parallelogram area' => r'A=bh',
-        'Cylinder volume' => r'V=\pi r^2h',
-        'Cylinder surface area' => r'SA=2\pi rh+2\pi r^2',
-        'Cone volume' => r'V=\frac{1}{3}\pi r^2h',
-        'Cone surface area' => r'SA=\pi r(r+\sqrt{h^2+r^2})',
-        'Sphere volume' => r'V=\frac{4}{3}\pi r^3',
-        'Sphere surface area' => r'SA=4\pi r^2',
-        _ => r'\square',
-      };
-    }
-    final body = _mathTexFromSource(_input.text);
-    if (_mode != _CalculatorMode.calculus) return body;
-    return switch (_calculusOperation) {
-      'Derivative' => '\\frac{d}{dx}\\left($body\\right)',
-      'Indefinite integral' => '\\int $body\\,dx',
-      _ =>
-        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}} $body\\,dx',
-    };
   }
 
   void _updateResult() {
-    if (_mode == _CalculatorMode.algebra || _mode == _CalculatorMode.calculus) {
+    if (_mode == _CalculatorMode.graphing ||
+        _mode == _CalculatorMode.algebra ||
+        _mode == _CalculatorMode.calculus) {
       setState(() {
         _result = null;
         _error = null;
-        _answerShown = false;
       });
       return;
     }
     try {
-      final result = _mode == _CalculatorMode.graphing
-          ? MathResult(
-              input: _input.text,
-              value: _engine.evaluateAt(_input.text, _graphX),
-              kind: MathResultKind.approximate,
-              significantDigits: 12,
-            )
-          : _calculateExpression(_input.text);
+      final result = _engine.calculate(_input.text);
       final formatted = result.displayValue;
       setState(() {
         _result = formatted;
@@ -1725,130 +1406,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _error = _input.text.trim().isEmpty ? null : error.message;
         _result = null;
         _resultIsExact = false;
-        _answerShown = false;
       });
     }
   }
-
-  String _angleAdjustedExpression(String source) {
-    var result = source.replaceAllMapped(
-      RegExp(r'\b(sec|csc|cot)\(([^()]*)\)'),
-      (match) => switch (match[1]) {
-        'sec' => '(1/cos(${match[2]}))',
-        'csc' => '(1/sin(${match[2]}))',
-        _ => '(1/tan(${match[2]}))',
-      },
-    );
-    if (!_angleDegrees ||
-        !{
-          _CalculatorMode.scientific,
-          _CalculatorMode.trigonometry,
-          _CalculatorMode.geometry,
-        }.contains(_mode)) {
-      return result;
-    }
-    const toRadians = '0.017453292519943295';
-    const toDegrees = '57.29577951308232';
-    result = result.replaceAllMapped(
-      RegExp(r'\b(sin|cos|tan)\(([^()]*)\)'),
-      (match) => '${match[1]}((${match[2]})*$toRadians)',
-    );
-    result = result.replaceAllMapped(
-      RegExp(r'\b(arcsin|arccos|arctan)\(([^()]*)\)'),
-      (match) => '((${match[1]}(${match[2]}))*$toDegrees)',
-    );
-    return result;
-  }
-
-  MathResult _calculateExpression(String source) =>
-      _engine.calculate(_angleAdjustedExpression(source));
 
   void _evaluate() {
     FocusScope.of(context).unfocus();
     final expression = _input.text.trim();
     if (expression.isEmpty) return;
     try {
-      if (_mode == _CalculatorMode.geometry) {
-        _calculateGeometry(commit: true);
-        return;
-      }
-      if (_mode == _CalculatorMode.algebra) {
-        final answer = expression.contains(';')
-            ? _engine.solveLinearSystem(expression).display
-            : _engine.solveEquation(expression).display;
-        setState(() {
-          _result = answer;
-          _error = null;
-          _resultIsExact = false;
-          _answerShown = true;
-        });
-        _appendSessionEntry(expression, answer, exact: false);
-        return;
-      }
-      if (_mode == _CalculatorMode.calculus) {
-        if (_calculusOperation == 'Derivative') {
-          final derivative = _engine.differentiate(expression);
-          final answer = 'd/dx = $derivative';
-          setState(() {
-            _result = answer;
-            _error = null;
-            _resultIsExact = true;
-            _answerShown = true;
-          });
-          _appendSessionEntry('d/dx ($expression)', derivative, exact: true);
-          return;
-        }
-        if (_calculusOperation == 'Indefinite integral') {
-          final answer = _engine.integrateIndefinite(expression);
-          setState(() {
-            _result = answer;
-            _error = null;
-            _resultIsExact = true;
-            _answerShown = true;
-          });
-          _appendSessionEntry('Integral of $expression', answer, exact: true);
-          return;
-        }
-        final lower = double.parse(_integralLowerInput.text.trim());
-        final upper = double.parse(_integralUpperInput.text.trim());
-        final calculation = _engine.integrateDefinite(
-          expression,
-          lower: lower,
-          upper: upper,
-        );
-        final answer = '\u2248 ${calculation.displayValue}';
-        setState(() {
-          _result = answer;
-          _error = null;
-          _resultIsExact = false;
-          _answerShown = true;
-        });
-        _appendSessionEntry(
-          '\u222B[$lower,$upper] $expression dx',
-          answer,
-          exact: false,
-        );
-        return;
-      }
-      if (_mode == _CalculatorMode.graphing) {
-        final value = _engine.evaluateAt(expression, _graphX);
-        final answer =
-            'f(${_graphX.toStringAsFixed(2)}) = ${formatApproximateValue(value)}';
-        setState(() {
-          _result = answer;
-          _error = null;
-          _resultIsExact = false;
-          _answerShown = true;
-        });
-        _appendSessionEntry(
-          'f(x) = $expression; x = $_graphX',
-          answer,
-          exact: false,
-        );
-        return;
-      }
-      final calculation = _calculateExpression(expression);
-      final answer = '\u2248 ${calculation.displayValue}';
+      final calculation = _engine.calculate(expression);
+      final answer = calculation.displayValue;
       setState(() {
         _result = answer;
         _error = null;
@@ -1866,142 +1434,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _answerShown = false;
         _error = error.message;
       });
-      _showCalculationError(error.message);
-    } on Object {
-      final message = _mode == _CalculatorMode.calculus
-          ? 'Enter a valid expression and finite numeric bounds.'
-          : 'Check the equation and try again.';
-      setState(() {
-        _result = null;
-        _answerShown = false;
-        _error = message;
-      });
-      _showCalculationError(message);
     }
-  }
-
-  void _calculateGeometry({bool commit = false}) {
-    try {
-      final first = double.parse(_geometryFirst.text.trim());
-      final second = double.tryParse(_geometrySecond.text.trim()) ?? 0;
-      final needsSecond = const {
-        'Rectangle area',
-        'Rectangle perimeter',
-        'Triangle area',
-        'Pythagorean hypotenuse',
-        'Parallelogram area',
-        'Cylinder volume',
-        'Cylinder surface area',
-        'Cone volume',
-        'Cone surface area',
-      }.contains(_geometryOperation);
-      if (!first.isFinite || (needsSecond && !second.isFinite)) {
-        throw const FormatException();
-      }
-      if (first < 0 || (needsSecond && second < 0)) {
-        throw const MathInputException('Lengths cannot be negative.');
-      }
-      final result = switch (_geometryOperation) {
-        'Circle area' => math.pi * first * first,
-        'Circle circumference' => 2 * math.pi * first,
-        'Rectangle area' => first * second,
-        'Rectangle perimeter' => 2 * (first + second),
-        'Triangle area' => first * second / 2,
-        'Parallelogram area' => first * second,
-        'Pythagorean hypotenuse' => math.sqrt(first * first + second * second),
-        'Cylinder volume' => math.pi * first * first * second,
-        'Cylinder surface area' => 2 * math.pi * first * (first + second),
-        'Cone volume' => math.pi * first * first * second / 3,
-        'Cone surface area' =>
-          math.pi *
-              first *
-              (first + math.sqrt(first * first + second * second)),
-        'Sphere volume' => 4 / 3 * math.pi * first * first * first,
-        'Sphere surface area' => 4 * math.pi * first * first,
-        _ => throw const MathInputException('Select a geometry operation.'),
-      };
-      final answer = formatApproximateValue(result);
-      final expression = _geometryExpression(first, second);
-      setState(() {
-        _input.text = expression;
-        _result = answer;
-        _error = null;
-        _resultIsExact = false;
-        _answerShown = commit;
-      });
-      if (commit) _appendSessionEntry(expression, answer, exact: false);
-    } on MathInputException catch (error) {
-      setState(() {
-        _error = error.message;
-        _result = null;
-        _answerShown = false;
-      });
-      if (commit) _showCalculationError(error.message);
-    } on Object {
-      const message = 'Enter valid non-negative dimensions.';
-      setState(() {
-        _error = message;
-        _result = null;
-        _answerShown = false;
-      });
-      if (commit) _showCalculationError(message);
-    }
-  }
-
-  String _numberForExpression(double value) =>
-      value == value.roundToDouble() ? value.toInt().toString() : '$value';
-
-  String _geometryExpression(double first, double second) {
-    final a = _numberForExpression(first);
-    final b = _numberForExpression(second);
-    const pi = '3.141592653589793';
-    return switch (_geometryOperation) {
-      'Circle area' => '$pi*($a)^2',
-      'Circle circumference' => '2*$pi*$a',
-      'Rectangle area' => '$a*$b',
-      'Rectangle perimeter' => '2*$a+2*$b',
-      'Triangle area' => '($a*$b)/2',
-      'Pythagorean hypotenuse' => 'sqrt($a^2+$b^2)',
-      'Parallelogram area' => '$a*$b',
-      'Cylinder volume' => '$pi*($a)^2*$b',
-      'Cylinder surface area' => '2*$pi*$a*$b+2*$pi*($a)^2',
-      'Cone volume' => '($pi*($a)^2*$b)/3',
-      'Cone surface area' => '$pi*$a*($a+sqrt($b^2+$a^2))',
-      'Sphere volume' => '(4*$pi*($a)^3)/3',
-      'Sphere surface area' => '4*$pi*($a)^2',
-      _ => a,
-    };
-  }
-
-  void _pressGeometryDigit(String key) {
-    FocusScope.of(context).unfocus();
-    final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
-    if (key == 'C') {
-      controller.clear();
-      _input.clear();
-    } else {
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      final value = key == 'DEL'
-          ? controller.text.replaceRange(
-              start == end && start > 0 ? start - 1 : start,
-              end,
-              '',
-            )
-          : controller.text.replaceRange(start, end, key);
-      controller.value = TextEditingValue(
-        text: value,
-        selection: TextSelection.collapsed(
-          offset: key == 'DEL' && start == end && start > 0
-              ? start - 1
-              : start + key.length,
-        ),
-      );
-    }
-    _calculateGeometry();
   }
 
   void _appendSessionEntry(
@@ -2083,21 +1516,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
         expression =
             '${_numberA.text.trim()} $_numberOperator '
             '${_numberB.text.trim()} (base $_sourceBase)';
-        if ((_numberOperator == '<<' || _numberOperator == '>>') &&
-            (second.isNegative || second > BigInt.from(4096))) {
-          throw const FormatException('Shift amount must be from 0 to 4096.');
-        }
         answer = switch (_numberOperator) {
           '+' => first + second,
           '-' => first - second,
           '*' => first * second,
-          '&' => first & second,
-          '|' => first | second,
-          '^' => first ^ second,
-          '%' when second != BigInt.zero => first.remainder(second),
-          '%' => throw const FormatException('Cannot divide by zero.'),
-          '<<' => first << second.toInt(),
-          '>>' => first >> second.toInt(),
           '/' when second != BigInt.zero => first ~/ second,
           '/' => throw const FormatException('Cannot divide by zero.'),
           _ => first,
@@ -2119,17 +1541,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       });
       if (commit) _appendSessionEntry(expression, result, exact: true);
     } on FormatException catch (error) {
-      final message = error.message.toString().contains('divide')
-          ? 'Cannot divide by zero.'
-          : error.message.toString().contains('Shift amount')
-          ? error.message.toString()
-          : 'Use digits valid for base $_sourceBase.';
       setState(() {
         _result = null;
-        _error = message;
-        _answerShown = false;
+        _error = error.message.toString().contains('divide')
+            ? 'Cannot divide by zero.'
+            : 'Use digits valid for base $_sourceBase.';
       });
-      if (commit) _showCalculationError(message);
     }
   }
 
@@ -2160,23 +1577,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
       await file.writeAsBytes(
         bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
       );
-      final recognizer = _recognizer ??= TextRecognizer(
-        script: TextRecognitionScript.latin,
-      );
-      final recognized = await recognizer.processImage(
+      final recognized = await _recognizer.processImage(
         InputImage.fromFilePath(file.path),
       );
       final expression = recognized.text
-          .replaceAll(
-            RegExp(r'\b(times|multiply by)\b', caseSensitive: false),
-            '*',
-          )
-          .replaceAll(
-            RegExp(r'\b(divided by|over)\b', caseSensitive: false),
-            '/',
-          )
-          .replaceAll(RegExp(r'\b(plus)\b', caseSensitive: false), '+')
-          .replaceAll(RegExp(r'\b(minus)\b', caseSensitive: false), '-')
+          .replaceAll(RegExp(r'(?i)\b(times|multiply by)\b'), '*')
+          .replaceAll(RegExp(r'(?i)\b(divided by|over)\b'), '/')
+          .replaceAll(RegExp(r'(?i)\b(plus)\b'), '+')
+          .replaceAll(RegExp(r'(?i)\b(minus)\b'), '-')
           .replaceAll(String.fromCharCode(0x00D7), '*')
           .replaceAll('x', '*')
           .replaceAll('X', '*')
@@ -2193,13 +1601,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
           .replaceAll(RegExp(r'\s+'), '')
           .replaceAll(RegExp(r'[^0-9.+\-*/^()]'), '');
       if (expression.isEmpty) {
-        const message = 'No expression recognized. Write larger and clearer.';
         setState(() {
           _recognizedExpression = null;
           _result = null;
+          _error = 'No expression recognized. Write larger and clearer.';
           _drawingStatus = 'Could not read the handwriting.';
         });
-        _showCalculationError(message);
         return;
       }
       final result = _engine.calculate(expression);
@@ -2217,19 +1624,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         exact: result.kind == MathResultKind.exact,
       );
     } on MathInputException catch (error) {
-      final message = 'Recognized text could not be solved: ${error.message}';
       setState(() {
         _recognizedExpression = null;
         _result = null;
+        _error = 'Recognized text could not be solved: ${error.message}';
         _drawingStatus = 'Expression read, but unsupported.';
       });
-      _showCalculationError(message);
     } on Object {
-      const message = 'Could not read the drawing. Write larger and clearer.';
       setState(() {
+        _error = 'Could not read the drawing. Write larger and clearer.';
         _drawingStatus = 'Recognition failed.';
       });
-      _showCalculationError(message);
     } finally {
       if (tempDirectory != null) await tempDirectory.delete(recursive: true);
       if (mounted) setState(() => _recognizingDrawing = false);
@@ -2248,76 +1653,77 @@ class _CalculatorPageState extends State<CalculatorPage> {
     });
   }
 
-  void _undoDrawingStroke() {
-    _drawingDebounce?.cancel();
-    setState(() {
-      if (_activeStroke.isNotEmpty) {
-        _activeStroke = [];
-      } else if (_drawingStrokes.isNotEmpty) {
-        _drawingStrokes.removeLast();
-      }
-      _recognizedExpression = null;
-      _drawingStatus = null;
-      _result = null;
-    });
-  }
-
   void _pressFunction(String key) {
-    FocusScope.of(context).unfocus();
-    if (key.startsWith('CALC_')) {
-      setState(() {
-        _calculusOperation = switch (key) {
-          'CALC_DERIVATIVE' => 'Derivative',
-          'CALC_INTEGRAL' => 'Indefinite integral',
-          _ => 'Definite integral',
-        };
-        _result = null;
-        _answerShown = false;
-      });
-    } else if (_fractionBuilder && key == 'C') {
-      (_fractionDenominatorSelected ? _denominator : _numerator).clear();
-      setState(() {});
-    } else if (_fractionBuilder && key == 'DEL') {
-      final controller = _fractionDenominatorSelected
-          ? _denominator
-          : _numerator;
-      if (controller.text.isNotEmpty) {
-        controller.text = controller.text.substring(
-          0,
-          controller.text.length - 1,
-        );
-      }
-    } else if (key == 'C') {
+    if (key == 'C') {
       _input.clear();
       _updateResult();
     } else if (key == 'DEL') {
       final selection = _input.selection;
-      var start = selection.isValid
+      final start = selection.isValid
           ? selection.start
           : (_input.text.isEmpty ? 0 : _input.text.length - 1);
       final end = selection.isValid ? selection.end : _input.text.length;
-      if (selection.isValid && start == end && start > 0) start--;
       _input.value = TextEditingValue(
         text: _input.text.replaceRange(start, end, ''),
         selection: TextSelection.collapsed(offset: start),
       );
       _updateResult();
     } else if (key == 'a/b') {
-      FocusScope.of(context).unfocus();
-      setState(() {
-        _fractionBuilder = true;
-        _fractionDenominatorSelected = false;
-        _sourceEditorVisible = false;
-        _answerShown = false;
-        _result = null;
-        _numerator.clear();
-        _denominator.clear();
-      });
-    } else if (key == 'EVAL') {
-      _evaluate();
+      setState(() => _fractionBuilder = !_fractionBuilder);
     } else {
       _insert(key);
     }
+  }
+
+  Future<void> _openTrianglePlot() async {
+    final result = await Navigator.of(context).push<_TriangleParameters>(
+      MaterialPageRoute<_TriangleParameters>(
+        builder: (_) => _Triangle3DPage(
+          angle: _triangleAngle,
+          hypotenuse: _triangleHypotenuse,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _triangleAngle = result.angle;
+      _triangleHypotenuse = result.hypotenuse;
+      final radians = result.angle * math.pi / 180;
+      _result = math.sin(radians).toStringAsFixed(4);
+      _input.text = 'sin(${result.angle.toStringAsFixed(0)}°)';
+      _answerShown = true;
+    });
+  }
+
+  Widget _buildTrigonometryCalculator(BuildContext context) {
+    final radians = _triangleAngle * math.pi / 180;
+    final adjacent = _triangleHypotenuse * math.cos(radians);
+    final opposite = _triangleHypotenuse * math.sin(radians);
+    final area = adjacent * opposite / 2;
+    return _SectionCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text('Right triangle and trigonometry'),
+          const SizedBox(height: 8),
+          Text(
+            'sin(${_triangleAngle.toStringAsFixed(0)}°) = ${math.sin(radians).toStringAsFixed(4)}',
+            style: Theme.of(context).textTheme.headlineSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Adjacent ${adjacent.toStringAsFixed(2)}  •  Opposite ${opposite.toStringAsFixed(2)}  •  Area ${area.toStringAsFixed(2)}',
+          ),
+          const SizedBox(height: 14),
+          FilledButton.icon(
+            key: const Key('open-3d-triangle-plot'),
+            onPressed: _openTrianglePlot,
+            icon: const Icon(Icons.view_in_ar_rounded),
+            label: const Text('Open 3D triangle plot'),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -2325,216 +1731,127 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode == _CalculatorMode.drawing) {
       return _buildDrawingCalculator(context);
     }
-    final child = _showVisualization
-        ? _buildVisualization(context)
-        : _buildCalculator(context);
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 650),
-      switchInCurve: Curves.easeInOutCubic,
-      switchOutCurve: Curves.easeInOutCubic,
-      transitionBuilder: (child, animation) => AnimatedBuilder(
-        animation: animation,
-        child: child,
-        builder: (context, child) => Transform(
-          alignment: Alignment.center,
-          transform: Matrix4.identity()
-            ..setEntry(3, 2, .0015)
-            ..rotateY((1 - animation.value) * math.pi / 2),
-          child: child,
-        ),
-      ),
-      child: KeyedSubtree(
-        key: ValueKey(_showVisualization ? 'visualization' : 'calculator'),
-        child: child,
-      ),
-    );
-  }
-
-  Widget _buildCalculator(BuildContext context) {
     return _PageFrame(
-      title: '',
+      title: 'Calculator',
       subtitle: '',
       bottomPadding: widget.bottomPadding,
-      fillAvailable: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final mode in _CalculatorMode.values)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(switch (mode) {
-                              _CalculatorMode.basic => 'Basic',
-                              _CalculatorMode.scientific => 'Scientific',
-                              _CalculatorMode.geometry => 'Geometry',
-                              _CalculatorMode.trigonometry => 'Trigonometry',
-                              _CalculatorMode.graphing => 'Graphing',
-                              _CalculatorMode.algebra => 'Algebra',
-                              _CalculatorMode.calculus => 'Integral calculus',
-                              _CalculatorMode.numberSystem => 'Number systems',
-                              _CalculatorMode.drawing => 'Draw',
-                            }),
-                            selected: _mode == mode,
-                            onSelected: (_) {
-                              FocusScope.of(context).unfocus();
-                              setState(() {
-                                _mode = mode;
-                                _showVisualization = false;
-                                _sourceEditorVisible = false;
-                                _error = null;
-                                _result = null;
-                                _answerShown = false;
-                                _recognizedExpression = null;
-                                if (mode == _CalculatorMode.drawing) {
-                                  _drawingStrokes.clear();
-                                  _activeStroke = [];
-                                  _drawingStatus = null;
-                                }
-                              });
-                              widget.onFullscreenChanged(
-                                mode == _CalculatorMode.drawing,
-                              );
-                            },
-                          ),
-                        ),
-                    ],
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              children: [
+                for (final mode in _CalculatorMode.values)
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ChoiceChip(
+                      label: Text(switch (mode) {
+                        _CalculatorMode.basic => 'Basic',
+                        _CalculatorMode.scientific => 'Scientific',
+                        _CalculatorMode.graphing => 'Graphing',
+                        _CalculatorMode.trigonometry => 'Trigonometry',
+                        _CalculatorMode.algebra => 'Algebra',
+                        _CalculatorMode.calculus => 'Calculus',
+                        _CalculatorMode.numberSystem => 'Number systems',
+                        _CalculatorMode.drawing => 'Draw',
+                      }),
+                      selected: _mode == mode,
+                      onSelected: (_) {
+                        setState(() {
+                          _mode = mode;
+                          _error = null;
+                          _result = null;
+                          _answerShown = false;
+                          _recognizedExpression = null;
+                          if (mode == _CalculatorMode.drawing) {
+                            _drawingStrokes.clear();
+                            _activeStroke = [];
+                            _drawingStatus = null;
+                          }
+                        });
+                        widget.onFullscreenChanged(
+                          mode == _CalculatorMode.drawing,
+                        );
+                      },
+                    ),
                   ),
-                ),
-              ),
-              if (_mode != _CalculatorMode.numberSystem &&
-                  _mode != _CalculatorMode.drawing)
-                IconButton.filledTonal(
-                  tooltip: 'Flip to visualization',
-                  onPressed: _openVisualization,
-                  icon: const Icon(Icons.view_in_ar_rounded),
-                ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 5),
-          if ({
-            _CalculatorMode.scientific,
-            _CalculatorMode.trigonometry,
-          }.contains(_mode)) ...[
-            Align(
-              alignment: Alignment.centerRight,
-              child: SegmentedButton<bool>(
-                segments: const [
-                  ButtonSegment(value: true, label: Text('DEG')),
-                  ButtonSegment(value: false, label: Text('RAD')),
-                ],
-                selected: {_angleDegrees},
-                onSelectionChanged: (selection) {
-                  setState(() => _angleDegrees = selection.first);
-                  _updateResult();
-                },
-              ),
-            ),
-            const SizedBox(height: 4),
-          ],
           if (_mode == _CalculatorMode.numberSystem)
             _buildNumberSystemCalculator(context)
+          else if (_mode == _CalculatorMode.trigonometry)
+            _buildTrigonometryCalculator(context)
           else if (_mode == _CalculatorMode.drawing)
             _buildDrawingCalculator(context)
-          else if (_mode == _CalculatorMode.geometry)
-            Expanded(child: _buildGeometryCalculator(context, fill: true))
+          else if (_mode == _CalculatorMode.graphing ||
+              _mode == _CalculatorMode.algebra ||
+              _mode == _CalculatorMode.calculus)
+            _SectionCard(
+              child: Text(
+                '${_mode.name[0].toUpperCase()}${_mode.name.substring(1)} operations are not available yet. This build has no graphing, symbolic algebra, or calculus engine.',
+              ),
+            )
           else
-            Expanded(
+            _SectionCard(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (_mode == _CalculatorMode.algebra) ...[
-                    const Text(
-                      'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
-                    ),
-                    const SizedBox(height: 5),
-                  ],
-                  if (_mode == _CalculatorMode.calculus) ...[
-                    Wrap(
-                      spacing: 6,
+                  _buildExpressionAnswer(context),
+                  const SizedBox(height: 6),
+                  _buildFunctionRow(),
+                  const SizedBox(height: 5),
+                  _buildResponsiveKeypad(context),
+                  if (_fractionBuilder) ...[
+                    const SizedBox(height: 8),
+                    Row(
                       children: [
-                        ChoiceChip(
-                          label: const Text('Derivative'),
-                          selected: _calculusOperation == 'Derivative',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Derivative';
-                            _result = null;
-                            _answerShown = false;
-                          }),
+                        Expanded(
+                          child: TextField(
+                            controller: _numerator,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Numerator',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
                         ),
-                        ChoiceChip(
-                          label: const Text('Indefinite integral'),
-                          selected: _calculusOperation == 'Indefinite integral',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Indefinite integral';
-                            _result = null;
-                            _answerShown = false;
-                          }),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('/'),
                         ),
-                        ChoiceChip(
-                          label: const Text('Definite integral'),
-                          selected: _calculusOperation == 'Definite integral',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Definite integral';
-                            _result = null;
-                            _answerShown = false;
-                          }),
+                        Expanded(
+                          child: TextField(
+                            controller: _denominator,
+                            keyboardType: TextInputType.number,
+                            decoration: const InputDecoration(
+                              labelText: 'Denominator',
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          tooltip: 'Insert fraction',
+                          onPressed: _insertFraction,
+                          icon: const Icon(Icons.add_circle_outline_rounded),
                         ),
                       ],
                     ),
-                    if (_calculusOperation == 'Definite integral') ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _integralLowerInput,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                              decoration: const InputDecoration(
-                                labelText: 'Lower bound',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _integralUpperInput,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
-                              decoration: const InputDecoration(
-                                labelText: 'Upper bound',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 5),
                   ],
-                  Expanded(
-                    child: _buildExpressionAnswer(context, expand: true),
-                  ),
-                  const SizedBox(height: 5),
-                  _buildFunctionRow(),
-                  const SizedBox(height: 3),
-                  _buildResponsiveKeypad(context),
+                  if (_error != null) ...[
+                    const SizedBox(height: 6),
+                    Text(
+                      _error!,
+                      key: const Key('calculation-error'),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -2543,802 +1860,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  String get _visualizationTitle => switch (_mode) {
-    _CalculatorMode.geometry => 'Geometry workspace',
-    _CalculatorMode.trigonometry => 'Trigonometry: right triangle',
-    _CalculatorMode.algebra => 'Algebra: equations and systems',
-    _CalculatorMode.calculus => 'Calculus: function and area',
-    _ => 'Function graph',
-  };
-  double get _visualizationValue {
-    if (_mode == _CalculatorMode.geometry) {
-      final a = _geometryVisualFirst;
-      final b = _geometryVisualSecond;
-      return switch (_geometryOperation) {
-        'Circle area' => math.pi * a * a,
-        'Circle circumference' => 2 * math.pi * a,
-        'Rectangle area' => a * b,
-        'Rectangle perimeter' => 2 * (a + b),
-        'Triangle area' => a * b / 2,
-        'Pythagorean hypotenuse' => math.sqrt(a * a + b * b),
-        'Parallelogram area' => a * b,
-        'Cylinder volume' => math.pi * a * a * b,
-        'Cylinder surface area' => 2 * math.pi * a * (a + b),
-        'Cone volume' => math.pi * a * a * b / 3,
-        'Cone surface area' => math.pi * a * (a + math.sqrt(a * a + b * b)),
-        'Sphere volume' => 4 / 3 * math.pi * a * a * a,
-        'Sphere surface area' => 4 * math.pi * a * a,
-        _ => double.nan,
-      };
-    }
-    if (_mode == _CalculatorMode.trigonometry) {
-      final radians = _visualAngle * math.pi / 180;
-      return switch (_triangleFunction) {
-        'cos' =>
-          _triangleHasCoefficient
-              ? _visualHypotenuse * math.cos(radians)
-              : math.cos(radians),
-        'tan' =>
-          (_triangleHasCoefficient ? _visualHypotenuse : 1) * math.tan(radians),
-        _ =>
-          _triangleHasCoefficient
-              ? _visualHypotenuse * math.sin(radians)
-              : math.sin(radians),
-      };
-    }
-    if (_mode == _CalculatorMode.calculus) {
-      try {
-        final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
-        return switch (_calculusOperation) {
-          'Derivative' => _engine.evaluateAt(
-            _engine.differentiate(expression),
-            _graphX,
-          ),
-          'Indefinite integral' => _engine.evaluateAt(
-            _engine
-                .integrateIndefinite(expression)
-                .replaceFirst(RegExp(r'\s*\+\s*C$'), ''),
-            _graphX,
-          ),
-          _ =>
-            _engine
-                .integrateDefinite(
-                  expression,
-                  lower: _integralLower,
-                  upper: _integralUpper,
-                )
-                .value!,
-        };
-      } on Object {
-        return double.nan;
-      }
-    }
-    if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
-      try {
-        return _engine.evaluateAt(_input.text, _graphX);
-      } on Object {
-        return double.nan;
-      }
-    }
-    return _graphSlope * _graphX + _graphIntercept;
-  }
-
-  String get _visualizationFormula {
-    if (_mode == _CalculatorMode.geometry) {
-      return _geometryExpression(_geometryVisualFirst, _geometryVisualSecond);
-    }
-    if (_mode == _CalculatorMode.trigonometry) {
-      return switch (_triangleFunction) {
-        'cos' => _triangleHasCoefficient ? 'H * cos(theta)' : 'cos(theta)',
-        'tan' =>
-          _triangleHasCoefficient
-              ? 'H * tan(theta)'
-              : 'tan(theta) = opposite / adjacent',
-        _ => _triangleHasCoefficient ? 'H * sin(theta)' : 'sin(theta)',
-      };
-    }
-    if (_mode == _CalculatorMode.calculus) {
-      final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
-      return switch (_calculusOperation) {
-        'Derivative' =>
-          "Derivative of $expression at x=${_graphX.toStringAsFixed(1)}",
-        'Indefinite integral' => 'Antiderivative of $expression',
-        _ =>
-          'Integral of $expression from ${_integralLower.toStringAsFixed(1)} to ${_integralUpper.toStringAsFixed(1)}',
-      };
-    }
-    if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
-      return 'f(x) = ${_input.text}';
-    }
-    return 'f(${_graphX.toStringAsFixed(1)}) = ${_graphSlope.toStringAsFixed(1)} * ${_graphX.toStringAsFixed(1)} + ${_graphIntercept.toStringAsFixed(1)}';
-  }
-
-  String get _visualizationFormulaTex {
-    if (_mode == _CalculatorMode.calculus) {
-      final body = _mathTexFromSource(
-        _input.text.trim().isEmpty ? 'x^2' : _input.text,
-      );
-      return switch (_calculusOperation) {
-        'Derivative' =>
-          '\\left.\\frac{d}{dx}\\left($body\\right)\\right|_{x=${_numberForExpression(_graphX)}}',
-        'Indefinite integral' => '\\int $body\\,dx',
-        _ =>
-          '\\int_{${_numberForExpression(_integralLower)}}^{${_numberForExpression(_integralUpper)}} $body\\,dx',
-      };
-    }
-    return _mathTexFromSource(_visualizationFormula);
-  }
-
-  void _openVisualization() {
-    _showVisualizationDetails = false;
-    _showExpressionPlot = false;
-    final expression = _input.text.toLowerCase().replaceAll(' ', '');
-    if (_mode == _CalculatorMode.geometry) {
-      _geometryVisualFirst = double.tryParse(_geometryFirst.text) ?? 3;
-      _geometryVisualSecond = double.tryParse(_geometrySecond.text) ?? 4;
-      _visualIs3D = const {
-        'Cylinder volume',
-        'Cylinder surface area',
-        'Cone volume',
-        'Cone surface area',
-        'Sphere volume',
-        'Sphere surface area',
-      }.contains(_geometryOperation);
-    } else if (_mode == _CalculatorMode.trigonometry) {
-      final trig = RegExp(
-        r'^(\d+(?:\.\d+)?)\*?(?:sin|cos|tan)\((\d+(?:\.\d+)?)\)',
-      ).firstMatch(expression);
-      _triangleFunction =
-          RegExp(r'(sin|cos|tan)\(').firstMatch(expression)?.group(1) ?? 'sin';
-      _triangleHasCoefficient = trig != null;
-      if (trig != null) {
-        _visualHypotenuse =
-            double.tryParse(trig.group(1)!) ?? _visualHypotenuse;
-        final rawAngle = double.tryParse(trig.group(2)!) ?? _visualAngle;
-        _visualAngle = (_angleDegrees ? rawAngle : rawAngle * 180 / math.pi)
-            .clamp(5, 85)
-            .toDouble();
-      } else {
-        final angle = RegExp(
-          r'(?:theta|angle|θ|(?:sin|cos|tan)\()=?(-?\d+(?:\.\d+)?)',
-        ).firstMatch(expression);
-        if (angle != null) {
-          final rawAngle = double.tryParse(angle.group(1)!) ?? _visualAngle;
-          _visualAngle = (_angleDegrees ? rawAngle : rawAngle * 180 / math.pi)
-              .clamp(5, 85)
-              .toDouble();
-        }
-        final hypotenuse = RegExp(
-          r'(?:hyp|hypotenuse|h)=?(\d+(?:\.\d+)?)',
-        ).firstMatch(expression);
-        if (hypotenuse != null) {
-          _visualHypotenuse =
-              (double.tryParse(hypotenuse.group(1)!) ?? _visualHypotenuse)
-                  .clamp(1, 30)
-                  .toDouble();
-        }
-      }
-    } else if (_mode == _CalculatorMode.algebra ||
-        _mode == _CalculatorMode.graphing) {
-      final linear = RegExp(
-        r'^y=([-+]?(?:\d+(?:\.\d*)?|\.\d+))\*?x(?:([-+](?:\d+(?:\.\d*)?|\.\d+)))?$',
-      ).firstMatch(expression);
-      if (linear != null) {
-        _graphSlope = double.tryParse(linear.group(1)!) ?? _graphSlope;
-        _graphIntercept = double.tryParse(linear.group(2) ?? '0') ?? 0;
-      }
-    }
-    if (_mode == _CalculatorMode.calculus &&
-        _calculusOperation == 'Definite integral') {
-      _integralLower =
-          double.tryParse(_integralLowerInput.text) ?? _integralLower;
-      _integralUpper =
-          double.tryParse(_integralUpperInput.text) ?? _integralUpper;
-      if (_integralLower > _integralUpper) {
-        final swap = _integralLower;
-        _integralLower = _integralUpper;
-        _integralUpper = swap;
-      }
-    }
-    setState(() => _showVisualization = true);
-  }
-
-  void _returnFromVisualization() {
-    if (_mode == _CalculatorMode.geometry) {
-      _geometryFirst.text = _numberForExpression(_geometryVisualFirst);
-      _geometrySecond.text = _numberForExpression(_geometryVisualSecond);
-      final expression = _geometryExpression(
-        _geometryVisualFirst,
-        _geometryVisualSecond,
-      );
-      setState(() {
-        _input.text = expression;
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
-    }
-    if (_mode == _CalculatorMode.calculus) {
-      _integralLowerInput.text = _numberForExpression(_integralLower);
-      _integralUpperInput.text = _numberForExpression(_integralUpper);
-      setState(() {
-        _answerShown = false;
-        _result = null;
-        _showVisualization = false;
-      });
-      return;
-    }
-    if (_mode == _CalculatorMode.trigonometry) {
-      final angle = _angleDegrees ? _visualAngle : _visualAngle * math.pi / 180;
-      final factor = _triangleHasCoefficient
-          ? '${_numberForExpression(_visualHypotenuse)}*'
-          : '';
-      setState(() {
-        _input.text =
-            '$factor$_triangleFunction(${_numberForExpression(angle)})';
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
-    }
-    if (_mode == _CalculatorMode.graphing || _mode == _CalculatorMode.algebra) {
-      final expr =
-          '${_numberForExpression(_graphSlope)}*x${_graphIntercept < 0 ? '' : '+'}${_numberForExpression(_graphIntercept)}';
-      setState(() {
-        _input.text = _mode == _CalculatorMode.algebra ? '$expr=0' : expr;
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
-    }
-    final value = _visualizationValue;
-    if (!value.isFinite) {
-      _showCalculationError(
-        'This expression cannot be evaluated at the selected values.',
-      );
-      setState(() {
-        _showVisualization = false;
-      });
-      return;
-    }
-    final answer = value.toStringAsFixed(4);
-    _input.text = answer;
-    _input.selection = TextSelection.collapsed(offset: _input.text.length);
-    _result = answer;
-    _resultIsExact = false;
-    _answerShown = false;
-    setState(() => _showVisualization = false);
-  }
-
-  Widget _buildVisualization(BuildContext context) {
-    final isGeometry = _mode == _CalculatorMode.geometry;
-    final isTriangle = _mode == _CalculatorMode.trigonometry;
-    final colors = Theme.of(context).colorScheme;
-    return _PageFrame(
-      title: 'Visualization',
-      subtitle: _visualizationTitle,
-      bottomPadding: widget.bottomPadding,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Expanded(
-                child: TextButton.icon(
-                  onPressed: _returnFromVisualization,
-                  icon: const Icon(Icons.flip_to_back_rounded),
-                  label: const Text('Flip back to calculator'),
-                  style: TextButton.styleFrom(alignment: Alignment.centerLeft),
-                ),
-              ),
-              TextButton.icon(
-                key: const Key('visualization-plot-toggle'),
-                onPressed: () => setState(() {
-                  _showVisualizationDetails = false;
-                  _showExpressionPlot = !_showExpressionPlot;
-                }),
-                icon: Icon(
-                  _showExpressionPlot
-                      ? Icons.view_in_ar_rounded
-                      : Icons.show_chart_rounded,
-                ),
-                label: Text(_showExpressionPlot ? 'Model' : 'Plot'),
-              ),
-              TextButton.icon(
-                key: const Key('visualization-details-toggle'),
-                onPressed: () => setState(() {
-                  _showExpressionPlot = false;
-                  _showVisualizationDetails = !_showVisualizationDetails;
-                }),
-                icon: Icon(
-                  _showVisualizationDetails
-                      ? Icons.view_in_ar_rounded
-                      : Icons.flip_rounded,
-                ),
-                label: Text(_showVisualizationDetails ? 'Model' : 'Details'),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(value: false, label: Text('2D')),
-              ButtonSegment(value: true, label: Text('3D')),
-            ],
-            selected: {_visualIs3D},
-            onSelectionChanged: (selection) =>
-                setState(() => _visualIs3D = selection.first),
-          ),
-          const SizedBox(height: 10),
-          Container(
-            height: 270,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E2230),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            clipBehavior: Clip.antiAlias,
-            child: RawGestureDetector(
-              behavior: HitTestBehavior.opaque,
-              gestures: _visualIs3D && !_showVisualizationDetails
-                  ? {
-                      EagerGestureRecognizer:
-                          GestureRecognizerFactoryWithHandlers<
-                            EagerGestureRecognizer
-                          >(EagerGestureRecognizer.new, (recognizer) {}),
-                    }
-                  : const {},
-              child: Listener(
-                onPointerDown: (event) =>
-                    _lastVisualizationPointer = event.localPosition,
-                onPointerMove: (event) {
-                  final previous = _lastVisualizationPointer;
-                  if (!_visualIs3D ||
-                      _showVisualizationDetails ||
-                      previous == null) {
-                    return;
-                  }
-                  final delta = event.localPosition - previous;
-                  _lastVisualizationPointer = event.localPosition;
-                  setState(() {
-                    const fullTurn = 2 * math.pi;
-                    _visualRotationY =
-                        (_visualRotationY + delta.dx * .008) % fullTurn;
-                    _visualRotationX =
-                        (_visualRotationX + delta.dy * .008) % fullTurn;
-                  });
-                },
-                onPointerUp: (_) => _lastVisualizationPointer = null,
-                onPointerCancel: (_) => _lastVisualizationPointer = null,
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 420),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => AnimatedBuilder(
-                    animation: animation,
-                    child: child,
-                    builder: (context, child) => Transform(
-                      alignment: Alignment.center,
-                      transform: Matrix4.identity()
-                        ..setEntry(3, 2, .001)
-                        ..rotateY((1 - animation.value) * math.pi / 2),
-                      child: child,
-                    ),
-                  ),
-                  child: _showVisualizationDetails
-                      ? _buildVisualizationDetails(context)
-                      : CustomPaint(
-                          key: const Key('visualization-canvas'),
-                          painter: _MathVisualizationPainter(
-                            mode: _mode,
-                            is3D: _visualIs3D,
-                            expressionPlot: _showExpressionPlot,
-                            calculusOperation: _calculusOperation,
-                            rotationX: _visualRotationX,
-                            rotationY: _visualRotationY,
-                            angle: _visualAngle,
-                            hypotenuse: _visualHypotenuse,
-                            slope: _graphSlope,
-                            intercept: _graphIntercept,
-                            lower: _integralLower,
-                            upper: _integralUpper,
-                            selectedX: _graphX,
-                            expression: _input.text,
-                            geometryOperation: _geometryOperation,
-                            geometryFirst: _geometryVisualFirst,
-                            geometrySecond: _geometryVisualSecond,
-                          ),
-                          child: const SizedBox.expand(),
-                        ),
-                ),
-              ),
-            ),
-          ),
-          if (_visualIs3D) ...[
-            const SizedBox(height: 5),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    'Drag horizontally and vertically to orbit | yaw ${(_visualRotationY * 180 / math.pi).round()}° | pitch ${(_visualRotationX * 180 / math.pi).round()}°',
-                    key: const Key('visualization-orientation'),
-                    style: Theme.of(context).textTheme.bodySmall,
-                  ),
-                ),
-                IconButton(
-                  key: const Key('visualization-reset-view'),
-                  tooltip: 'Reset 3D view',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: () => setState(() {
-                    _visualRotationX = -.18;
-                    _visualRotationY = .28;
-                  }),
-                  icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: 10),
-          _SectionCard(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 34,
-                        width: double.infinity,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Math.tex(
-                            _visualizationFormulaTex,
-                            mathStyle: MathStyle.display,
-                            textStyle: const TextStyle(fontSize: 20),
-                            onErrorFallback: (_) => Text(_visualizationFormula),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        'Adjusted result',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _visualizationValue.isFinite
-                      ? _visualizationValue.toStringAsFixed(4)
-                      : 'Cannot evaluate',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-          if (isTriangle) ...[
-            _visualSlider(
-              context,
-              label: 'Angle θ',
-              value: _visualAngle,
-              min: 5,
-              max: 85,
-              divisions: 80,
-              display: '${_visualAngle.toStringAsFixed(0)}°',
-              onChanged: (value) => setState(() => _visualAngle = value),
-            ),
-            _visualSlider(
-              context,
-              label: 'Hypotenuse length',
-              value: _visualHypotenuse,
-              min: 1,
-              max: 30,
-              divisions: 58,
-              display: _visualHypotenuse.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _visualHypotenuse = value),
-            ),
-          ] else if (isGeometry) ...[
-            _visualSlider(
-              context,
-              label: _geometryOperation.contains('Rectangle')
-                  ? 'Width'
-                  : 'Radius / base',
-              value: _geometryVisualFirst,
-              min: .1,
-              max: 20,
-              divisions: 199,
-              display: _geometryVisualFirst.toStringAsFixed(1),
-              onChanged: (value) =>
-                  setState(() => _geometryVisualFirst = value),
-            ),
-            if (const {
-              'Rectangle area',
-              'Rectangle perimeter',
-              'Triangle area',
-              'Pythagorean hypotenuse',
-              'Parallelogram area',
-              'Cylinder volume',
-              'Cylinder surface area',
-              'Cone volume',
-              'Cone surface area',
-            }.contains(_geometryOperation))
-              _visualSlider(
-                context,
-                label: 'Height / second side',
-                value: _geometryVisualSecond,
-                min: .1,
-                max: 20,
-                divisions: 199,
-                display: _geometryVisualSecond.toStringAsFixed(1),
-                onChanged: (value) =>
-                    setState(() => _geometryVisualSecond = value),
-              ),
-          ] else if (_mode == _CalculatorMode.calculus &&
-              _calculusOperation == 'Definite integral') ...[
-            Text(
-              'Integration interval  [${_integralLower.toStringAsFixed(1)}, ${_integralUpper.toStringAsFixed(1)}]',
-            ),
-            RangeSlider(
-              values: RangeValues(_integralLower, _integralUpper),
-              min: -4,
-              max: 4,
-              divisions: 80,
-              labels: RangeLabels(
-                _integralLower.toStringAsFixed(1),
-                _integralUpper.toStringAsFixed(1),
-              ),
-              onChanged: (range) => setState(() {
-                _integralLower = range.start;
-                _integralUpper = range.end;
-              }),
-            ),
-          ] else if (_mode == _CalculatorMode.calculus) ...[
-            _visualSlider(
-              context,
-              label: 'Evaluate at x',
-              value: _graphX,
-              min: -5,
-              max: 5,
-              divisions: 100,
-              display: _graphX.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _graphX = value),
-            ),
-          ] else if (_mode == _CalculatorMode.graphing &&
-              _input.text.trim().isNotEmpty) ...[
-            _visualSlider(
-              context,
-              label: 'Evaluate at x',
-              value: _graphX,
-              min: -5,
-              max: 5,
-              divisions: 100,
-              display: _graphX.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _graphX = value),
-            ),
-          ] else ...[
-            _visualSlider(
-              context,
-              label: 'Slope m',
-              value: _graphSlope,
-              min: -5,
-              max: 5,
-              divisions: 100,
-              display: _graphSlope.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _graphSlope = value),
-            ),
-            _visualSlider(
-              context,
-              label: 'Intercept b',
-              value: _graphIntercept,
-              min: -10,
-              max: 10,
-              divisions: 100,
-              display: _graphIntercept.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _graphIntercept = value),
-            ),
-            _visualSlider(
-              context,
-              label: 'Evaluate at x',
-              value: _graphX,
-              min: -5,
-              max: 5,
-              divisions: 100,
-              display: _graphX.toStringAsFixed(1),
-              onChanged: (value) => setState(() => _graphX = value),
-            ),
-          ],
-          const SizedBox(height: 10),
-          FilledButton.icon(
-            onPressed: _returnFromVisualization,
-            icon: const Icon(Icons.flip_to_back_rounded),
-            label: const Text('Use adjusted expression in calculator'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildVisualizationDetails(BuildContext context) => Container(
-    key: const Key('visualization-details'),
-    width: double.infinity,
-    height: double.infinity,
-    padding: const EdgeInsets.all(18),
-    decoration: BoxDecoration(
-      color: const Color(0xFF1E2230),
-      borderRadius: BorderRadius.circular(18),
-    ),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          _mode == _CalculatorMode.geometry
-              ? _geometryOperation
-              : _visualizationTitle,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: Colors.white,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 10),
-        Expanded(
-          child: Center(
-            child: FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Math.tex(
-                _visualizationFormulaTex,
-                mathStyle: MathStyle.display,
-                textStyle: const TextStyle(
-                  color: Color(0xFF6DE4F2),
-                  fontSize: 30,
-                ),
-                onErrorFallback: (_) => Text(
-                  _visualizationFormula,
-                  style: const TextStyle(color: Colors.white, fontSize: 18),
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          _visualizationMeasureDescription,
-          style: Theme.of(
-            context,
-          ).textTheme.bodyMedium?.copyWith(color: Colors.white70, height: 1.35),
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                _visualizationMeasureLabel,
-                style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: const Color(0xFFFFC66D),
-                ),
-              ),
-            ),
-            Text(
-              _visualizationValue.isFinite
-                  ? _visualizationValue.toStringAsFixed(4)
-                  : 'Cannot evaluate',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  String get _visualizationMeasureLabel {
-    if (_mode == _CalculatorMode.geometry) {
-      if (_geometryOperation.contains('Volume')) return 'Volume';
-      if (_geometryOperation.contains('surface area')) return 'Surface area';
-      if (_geometryOperation.contains('circumference') ||
-          _geometryOperation.contains('hypotenuse') ||
-          _geometryOperation.contains('perimeter')) {
-        return 'Length';
-      }
-      return 'Area';
-    }
-    if (_mode == _CalculatorMode.calculus &&
-        _calculusOperation == 'Definite integral') {
-      return 'Signed area on [${_numberForExpression(_integralLower)}, ${_numberForExpression(_integralUpper)}]';
-    }
-    if (_mode == _CalculatorMode.trigonometry) return 'Computed side value';
-    return 'f(${_numberForExpression(_graphX)})';
-  }
-
-  String get _visualizationMeasureDescription {
-    if (_mode == _CalculatorMode.geometry) {
-      if (_geometryOperation.contains('Cylinder')) {
-        return 'The cyan mesh is the cylinder surface. Red, green, and blue axes show its 3D orientation.';
-      }
-      if (_geometryOperation.contains('Cone')) {
-        return 'The shaded cone surface follows the radius and height. The amber mesh edges make the solid depth visible.';
-      }
-      if (_geometryOperation.contains('Sphere')) {
-        return 'The cyan mesh wraps the sphere in latitude and longitude bands. Rotate it to inspect the surface from every side.';
-      }
-      if (_geometryOperation.contains('area')) {
-        return 'The shaded faces mark the region associated with this area formula; the axes identify its 3D orientation.';
-      }
-      return 'The solid is built from the selected dimensions. The colored axes show its position in three-dimensional space.';
-    }
-    if (_mode == _CalculatorMode.calculus &&
-        _calculusOperation == 'Definite integral') {
-      return 'The highlighted region represents the signed area between the curve and x-axis over the selected bounds.';
-    }
-    if (_mode == _CalculatorMode.trigonometry) {
-      return 'The colored sides identify the adjacent, opposite, and hypotenuse lengths for the selected angle.';
-    }
-    return 'The surface maps the expression over x and y. Use the colored axes to track each dimension.';
-  }
-
-  Widget _visualSlider(
-    BuildContext context, {
-    required String label,
-    required double value,
-    required double min,
-    required double max,
-    required int divisions,
-    required String display,
-    required ValueChanged<double> onChanged,
-  }) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Row(
-        children: [
-          Expanded(child: Text(label)),
-          Text(display, style: const TextStyle(fontWeight: FontWeight.w700)),
-        ],
-      ),
-      Slider(
-        value: value.clamp(min, max).toDouble(),
-        min: min,
-        max: max,
-        divisions: divisions,
-        onChanged: onChanged,
-      ),
-    ],
-  );
-
-  Widget _buildExpressionAnswer(
-    BuildContext context, {
-    double? height,
-    bool expand = false,
-  }) {
-    final cardHeight = expand
-        ? null
-        : height ??
-              (_mode == _CalculatorMode.calculus
-                  ? 120.0
-                  : _mode == _CalculatorMode.geometry
-                  ? 84.0
-                  : (MediaQuery.sizeOf(context).height * .18)
-                        .clamp(112.0, 142.0)
-                        .toDouble());
-    const panelColor = Colors.white;
+  Widget _buildExpressionAnswer(BuildContext context) {
+    final height = (MediaQuery.sizeOf(context).height * .13)
+        .clamp(76.0, 104.0)
+        .toDouble();
+    final panelColor = Theme.of(
+      context,
+    ).colorScheme.surfaceContainerHighest.withValues(alpha: .48);
     if (_answerShown) {
       return Container(
         key: const Key('calculation-result-panel'),
-        height: cardHeight,
+        height: height,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
         decoration: BoxDecoration(
           color: panelColor,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEFE9E5)),
+          borderRadius: BorderRadius.circular(15),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3352,21 +1889,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
             Expanded(
               child: Align(
                 alignment: Alignment.centerLeft,
-                child: Semantics(
-                  key: const Key('calculation-result'),
-                  label: _result ?? '--',
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Math.tex(
-                      _mathTexFromSource(_result ?? '--'),
-                      key: const Key('calculation-result-math'),
-                      mathStyle: MathStyle.display,
-                      textStyle: const TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
-                      ),
-                      onErrorFallback: (_) => Text(_result ?? '--'),
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: SelectableText(
+                    _result ?? '--',
+                    key: const Key('calculation-result'),
+                    style: const TextStyle(
+                      fontSize: 34,
+                      fontWeight: FontWeight.w800,
                     ),
                   ),
                 ),
@@ -3377,221 +1908,54 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
     }
     return Container(
-      height: cardHeight,
+      height: height,
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
       decoration: BoxDecoration(
         color: panelColor,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFEFE9E5)),
+        borderRadius: BorderRadius.circular(15),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Expression')),
-              TextButton.icon(
-                key: const Key('expression-edit-toggle'),
-                onPressed: () => setState(
-                  () => _sourceEditorVisible = !_sourceEditorVisible,
-                ),
-                icon: Icon(
-                  _sourceEditorVisible ? Icons.functions : Icons.edit,
-                  size: 16,
-                ),
-                label: Text(_sourceEditorVisible ? 'Math view' : 'Edit'),
-              ),
-            ],
-          ),
-          Expanded(
-            child: _sourceEditorVisible
-                ? TextField(
-                    key: const Key('expression-input'),
-                    controller: _input,
-                    autofocus: true,
-                    onChanged: (_) => _updateResult(),
-                    onSubmitted: (_) => _evaluate(),
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      hintText: '12 + 8',
-                      border: InputBorder.none,
-                    ),
-                  )
-                : _fractionBuilder
-                ? Row(
-                    children: [
-                      if (_input.text.isNotEmpty)
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Math.tex(
-                              _expressionTex,
-                              mathStyle: MathStyle.display,
-                              textStyle: const TextStyle(fontSize: 20),
-                            ),
-                          ),
-                        ),
-                      _inlineFractionEditor(),
-                    ],
-                  )
-                : _input.text.trim().isEmpty &&
-                      _mode != _CalculatorMode.geometry
-                ? const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Enter an expression',
-                      style: TextStyle(color: Colors.black45, fontSize: 18),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Math.tex(
-                        _expressionTex,
-                        mathStyle: MathStyle.display,
-                        textStyle: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        onErrorFallback: (_) =>
-                            const Text('Complete the expression'),
-                      ),
-                    ),
-                  ),
-          ),
-        ],
+      child: TextField(
+        key: const Key('expression-input'),
+        controller: _input,
+        onChanged: (_) => _updateResult(),
+        onSubmitted: (_) => _evaluate(),
+        keyboardType: const TextInputType.numberWithOptions(
+          decimal: true,
+          signed: true,
+        ),
+        maxLines: 2,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        decoration: const InputDecoration(
+          labelText: 'Expression',
+          hintText: '12 + 8',
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
       ),
     );
   }
 
-  Widget _inlineFractionEditor() => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      SizedBox(
-        width: 76,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(height: 32, child: _fractionField(_numerator, false)),
-            Container(height: 2, color: Theme.of(context).colorScheme.primary),
-            SizedBox(height: 32, child: _fractionField(_denominator, true)),
-          ],
-        ),
-      ),
-      IconButton(
-        key: const Key('fraction-insert'),
-        tooltip: 'Insert fraction into expression',
-        onPressed: _insertFraction,
-        icon: const Icon(Icons.check_circle_outline_rounded),
-      ),
-    ],
-  );
-
-  Widget _fractionField(TextEditingController controller, bool denominator) =>
-      TextField(
-        controller: controller,
-        readOnly: true,
-        textAlign: TextAlign.center,
-        onTap: () => setState(() => _fractionDenominatorSelected = denominator),
-        decoration: const InputDecoration(
-          hintText: '\u25A1',
-          border: OutlineInputBorder(),
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-      );
-
   Widget _buildFunctionRow() {
-    final List<(String, String)> functions = switch (_mode) {
-      _CalculatorMode.algebra => [
-        ('x', 'x'),
-        ('y', 'y'),
-        ('=', '='),
-        (';', ';'),
-        ('^', '^'),
-        ('(', '('),
-        (')', ')'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-      _CalculatorMode.calculus => [
-        ('x', 'x'),
-        ('^', '^'),
-        ('d/dx', 'CALC_DERIVATIVE'),
-        ('\u222B', 'CALC_INTEGRAL'),
-        ('\u222B\u2090\u1D47', 'CALC_DEFINITE_INTEGRAL'),
-        ('sin', 'sin('),
-        ('cos', 'cos('),
-        ('tan', 'tan('),
-        ('sqrt', 'sqrt('),
-        ('ln', 'ln('),
-        ('(', '('),
-        (')', ')'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-      _CalculatorMode.graphing => [
-        ('x', 'x'),
-        ('^', '^'),
-        ('sin', 'sin('),
-        ('cos', 'cos('),
-        ('tan', 'tan('),
-        ('sqrt', 'sqrt('),
-        ('(', '('),
-        (')', ')'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-      _CalculatorMode.geometry || _CalculatorMode.trigonometry => [
-        ('sin', 'sin('),
-        ('cos', 'cos('),
-        ('tan', 'tan('),
-        ('sec', 'sec('),
-        ('csc', 'csc('),
-        ('cot', 'cot('),
-        ('×', '*'),
-        ('a/b', 'a/b'),
-        ('(', '('),
-        (')', ')'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-      _CalculatorMode.scientific => [
-        ('sin', 'sin('),
-        ('cos', 'cos('),
-        ('tan', 'tan('),
-        ('sec', 'sec('),
-        ('csc', 'csc('),
-        ('cot', 'cot('),
-        ('asin', 'arcsin('),
-        ('acos', 'arccos('),
-        ('atan', 'arctan('),
-        ('sqrt', 'sqrt('),
-        ('log', 'log('),
-        ('ln', 'ln('),
-        ('x^y', '^'),
-        ('e^x', 'e^('),
-        ('!', '!'),
-        ('pi', '3.141592653589793'),
-        ('e', '2.718281828459045'),
-        ('abs', 'abs('),
-        ('(', '('),
-        (')', ')'),
-        ('a/b', 'a/b'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-      _ => [
-        ('(', '('),
-        (')', ')'),
-        ('^', '^'),
-        ('%', '%'),
-        ('a/b', 'a/b'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
-    };
+    final functions = _mode == _CalculatorMode.scientific
+        ? <(String, String)>[
+            ('sin', 'sin('),
+            ('cos', 'cos('),
+            ('√', 'sqrt('),
+            ('ln', 'log('),
+            ('^', '^'),
+            ('π', '3.141592653589793'),
+            ('C', 'C'),
+            ('DEL', 'DEL'),
+          ]
+        : <(String, String)>[
+            ('(', '('),
+            (')', ')'),
+            ('^', '^'),
+            ('a/b', 'a/b'),
+            ('C', 'C'),
+            ('DEL', 'DEL'),
+          ];
     return SizedBox(
       height: 34,
       child: SingleChildScrollView(
@@ -3604,57 +1968,19 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 child: SizedBox(
                   height: 32,
                   child: OutlinedButton(
-                    key: ValueKey('function-key-$key'),
                     onPressed: () => _pressFunction(key),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(horizontal: 10),
                       minimumSize: const Size(36, 32),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                     ),
-                    child: _functionKeyVisual(label, key),
+                    child: Text(label),
                   ),
                 ),
               ),
           ],
         ),
       ),
-    );
-  }
-
-  Widget _functionKeyVisual(String label, String key) {
-    if (key == 'DEL') return const Icon(Icons.backspace_outlined, size: 17);
-    final tex = switch (key) {
-      'sqrt(' => r'\sqrt{\square}',
-      'cbrt(' => r'\sqrt[3]{\square}',
-      'a/b' => r'\frac{\square}{\square}',
-      '^' => r'\square^{\square}',
-      'e^(' => r'e^x',
-      '3.141592653589793' => r'\pi',
-      'abs(' => r'|x|',
-      'sin(' => r'\sin(\square)',
-      'cos(' => r'\cos(\square)',
-      'tan(' => r'\tan(\square)',
-      'sec(' => r'\sec(\square)',
-      'csc(' => r'\csc(\square)',
-      'cot(' => r'\cot(\square)',
-      'arcsin(' => r'\arcsin(\square)',
-      'arccos(' => r'\arccos(\square)',
-      'arctan(' => r'\arctan(\square)',
-      'ln(' => r'\ln(\square)',
-      'log(' => r'\log(\square)',
-      '*' => r'\times',
-      '/' => r'\div',
-      'CALC_DERIVATIVE' => r'\frac{d}{dx}',
-      'CALC_INTEGRAL' => r'\int \square\,dx',
-      'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
-      _ => null,
-    };
-    if (tex == null) return Text(label);
-    return Math.tex(
-      tex,
-      mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 16),
-      onErrorFallback: (_) => Text(label),
     );
   }
 
@@ -3710,8 +2036,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 for (final (label, value) in const [
                   ('+', '+'),
                   ('-', '-'),
-                  ('×', '*'),
-                  ('÷', '/'),
+                  ('x', '*'),
+                  ('/', '/'),
                 ]) ...[
                   SizedBox(
                     height: keyHeight,
@@ -3756,7 +2082,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(child: _basicKeyVisual(label)),
+            child: FittedBox(child: Text(label)),
           )
         : OutlinedButton(
             onPressed: onPressed,
@@ -3773,7 +2099,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(child: _basicKeyVisual(label)),
+            child: FittedBox(
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: emphasized ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ),
           ),
   );
 
@@ -3896,7 +2230,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 hintText: _sourceBase == 16 ? 'FF' : '1010',
                 border: const OutlineInputBorder(),
                 isDense: true,
-                suffixIcon: _numberSystemEditActions(_numberA),
               ),
             ),
             if (!_conversionOnly) ...[
@@ -3904,28 +2237,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
               Wrap(
                 spacing: 4,
                 children: [
-                  for (final operation in [
-                    '+',
-                    '-',
-                    '*',
-                    '/',
-                    '%',
-                    '&',
-                    '|',
-                    '^',
-                    '<<',
-                    '>>',
-                  ])
+                  for (final operation in ['+', '-', '*', '/'])
                     ChoiceChip(
-                      label: Text(
-                        {
-                              '%': 'mod',
-                              '&': 'AND',
-                              '|': 'OR',
-                              '^': 'XOR',
-                            }[operation] ??
-                            operation,
-                      ),
+                      label: Text(operation),
                       selected: operation == _numberOperator,
                       onSelected: (_) {
                         setState(() => _numberOperator = operation);
@@ -3944,7 +2258,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   labelText: 'Second value in base $_sourceBase',
                   border: const OutlineInputBorder(),
                   isDense: true,
-                  suffixIcon: _numberSystemEditActions(_numberB),
                 ),
               ),
             ],
@@ -3957,238 +2270,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ),
             ),
           ],
+          if (_error != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              _error!,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
         ],
       ),
-    );
-  }
-
-  Widget _numberSystemEditActions(TextEditingController controller) => SizedBox(
-    width: 96,
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.end,
-      children: [
-        IconButton(
-          tooltip: 'Delete last digit',
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            final text = controller.text;
-            final selection = controller.selection;
-            final start = selection.isValid ? selection.start : text.length;
-            final end = selection.isValid ? selection.end : text.length;
-            final from = start == end && start > 0 ? start - 1 : start;
-            controller.value = TextEditingValue(
-              text: text.replaceRange(from, end, ''),
-              selection: TextSelection.collapsed(offset: from),
-            );
-            _calculateNumberSystem();
-          },
-          icon: const Icon(Icons.backspace_outlined, size: 17),
-        ),
-        IconButton(
-          tooltip: 'Clear value',
-          visualDensity: VisualDensity.compact,
-          constraints: const BoxConstraints.tightFor(width: 38, height: 38),
-          padding: EdgeInsets.zero,
-          onPressed: () {
-            controller.clear();
-            _calculateNumberSystem();
-          },
-          icon: const Icon(Icons.clear_rounded, size: 18),
-        ),
-      ],
-    ),
-  );
-
-  Widget _basicKeyVisual(String label) {
-    final tex = switch (label) {
-      '×' => r'\times',
-      '÷' => r'\div',
-      '−' => '-',
-      _ => null,
-    };
-    if (tex == null) return Text(label);
-    return Math.tex(
-      tex,
-      mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 19),
-    );
-  }
-
-  Widget _buildGeometryCalculator(BuildContext context, {bool fill = false}) {
-    const operations = [
-      'Circle area',
-      'Circle circumference',
-      'Rectangle area',
-      'Rectangle perimeter',
-      'Triangle area',
-      'Pythagorean hypotenuse',
-      'Parallelogram area',
-      'Cylinder volume',
-      'Cylinder surface area',
-      'Cone volume',
-      'Cone surface area',
-      'Sphere volume',
-      'Sphere surface area',
-    ];
-    final twoDimensions = const {
-      'Rectangle area',
-      'Rectangle perimeter',
-      'Triangle area',
-      'Pythagorean hypotenuse',
-      'Parallelogram area',
-      'Cylinder volume',
-      'Cylinder surface area',
-      'Cone volume',
-      'Cone surface area',
-    }.contains(_geometryOperation);
-    final geometryGridHeight =
-        (((MediaQuery.sizeOf(context).width - 44) / 4 / 2.1) * 4 + 12)
-            .clamp(156.0, 210.0)
-            .toDouble();
-    String firstLabel = switch (_geometryOperation) {
-      'Rectangle area' || 'Rectangle perimeter' => 'Length',
-      'Triangle area' => 'Base',
-      'Pythagorean hypotenuse' => 'First side',
-      'Cylinder volume' ||
-      'Cylinder surface area' ||
-      'Cone volume' ||
-      'Cone surface area' => 'Radius',
-      _ => 'Radius',
-    };
-    String secondLabel = switch (_geometryOperation) {
-      'Rectangle area' || 'Rectangle perimeter' => 'Width',
-      'Triangle area' => 'Height',
-      'Parallelogram area' => 'Height',
-      'Cylinder volume' ||
-      'Cylinder surface area' ||
-      'Cone volume' ||
-      'Cone surface area' => 'Height',
-      _ => 'Second side',
-    };
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (fill)
-          Expanded(child: _buildExpressionAnswer(context, expand: true))
-        else
-          _buildExpressionAnswer(context),
-        const SizedBox(height: 5),
-        DropdownButtonFormField<String>(
-          initialValue: _geometryOperation,
-          decoration: const InputDecoration(
-            labelText: 'Geometry operation',
-            isDense: true,
-            border: OutlineInputBorder(),
-          ),
-          items: [
-            for (final operation in operations)
-              DropdownMenuItem(value: operation, child: Text(operation)),
-          ],
-          onChanged: (value) {
-            if (value == null) return;
-            setState(() {
-              _geometryOperation = value;
-              _geometryFirst.clear();
-              _geometrySecond.clear();
-              _input.clear();
-              _geometryUsesSecond = false;
-              _result = null;
-              _answerShown = false;
-            });
-          },
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: TextField(
-                controller: _geometryFirst,
-                readOnly: true,
-                onTap: () => setState(() => _geometryUsesSecond = false),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) {
-                  if (_geometrySecond.text.isNotEmpty || !twoDimensions) {
-                    _calculateGeometry();
-                  }
-                },
-                decoration: InputDecoration(
-                  labelText: firstLabel,
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
-              ),
-            ),
-            if (twoDimensions) ...[
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _geometrySecond,
-                  readOnly: true,
-                  onTap: () => setState(() => _geometryUsesSecond = true),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: (_) => _calculateGeometry(),
-                  decoration: InputDecoration(
-                    labelText: secondLabel,
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                  ),
-                ),
-              ),
-            ],
-          ],
-        ),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: geometryGridHeight,
-          child: GridView.count(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            crossAxisCount: 4,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            childAspectRatio: 2.1,
-            children: [
-              for (final key in [
-                '7',
-                '8',
-                '9',
-                '4',
-                '5',
-                '6',
-                '1',
-                '2',
-                '3',
-                'C',
-                '0',
-                '.',
-                'DEL',
-              ])
-                OutlinedButton(
-                  key: ValueKey('geometry-key-$key'),
-                  onPressed: () => _pressGeometryDigit(key),
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(key),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: () => _calculateGeometry(commit: true),
-          icon: const Icon(Icons.calculate_outlined),
-          label: const Text('Calculate'),
-        ),
-      ],
     );
   }
 
@@ -4210,11 +2300,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
         title: const Text('Handwritten calculation'),
         actions: [
-          IconButton(
-            tooltip: 'Delete last stroke',
-            onPressed: _undoDrawingStroke,
-            icon: const Icon(Icons.undo_rounded),
-          ),
           IconButton(
             tooltip: 'Clear',
             onPressed: _clearDrawing,
@@ -4267,9 +2352,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       ],
                     ),
                     onPanEnd: (_) {
-                      if (_activeStroke.length > 1) {
+                      if (_activeStroke.length > 1)
                         _drawingStrokes.add(_activeStroke);
-                      }
                       setState(() => _activeStroke = []);
                       _scheduleDrawingRecognition();
                     },
@@ -4295,7 +2379,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
             ),
-            if (_recognizedExpression != null)
+            if (_recognizedExpression != null || _error != null)
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
                 child: Row(
@@ -4304,23 +2388,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          const Text('Recognized expression'),
-                          Math.tex(
-                            _mathTexFromSource(_recognizedExpression!),
-                            mathStyle: MathStyle.display,
-                            textStyle: Theme.of(context).textTheme.titleLarge,
-                            onErrorFallback: (_) =>
-                                Text(_recognizedExpression!),
+                          Text('Recognized: ${_recognizedExpression ?? '--'}'),
+                          Text(
+                            _result == null
+                                ? (_error ?? '--')
+                                : 'Answer: $_result',
+                            style: Theme.of(context).textTheme.titleMedium,
                           ),
-                          if (_result != null) ...[
-                            const Text('Answer'),
-                            Math.tex(
-                              _mathTexFromSource(_result!),
-                              mathStyle: MathStyle.display,
-                              textStyle: Theme.of(context).textTheme.titleLarge,
-                              onErrorFallback: (_) => Text(_result!),
-                            ),
-                          ],
                         ],
                       ),
                     ),
@@ -4342,6 +2416,690 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ),
     );
   }
+}
+
+class _TriangleParameters {
+  const _TriangleParameters({required this.angle, required this.hypotenuse});
+  final double angle;
+  final double hypotenuse;
+}
+
+class _Triangle3DPage extends StatefulWidget {
+  const _Triangle3DPage({required this.angle, required this.hypotenuse});
+  final double angle;
+  final double hypotenuse;
+
+  @override
+  State<_Triangle3DPage> createState() => _Triangle3DPageState();
+}
+
+class _Triangle3DPageState extends State<_Triangle3DPage> {
+  late double _angle = widget.angle;
+  late double _hypotenuse = widget.hypotenuse;
+  double _yaw = -.62;
+  double _pitch = .42;
+  double _zoom = 1.12;
+  int? _orbitPointer;
+  Offset? _lastOrbitPoint;
+
+  double get _radians => _angle * math.pi / 180;
+  double get _adjacent => _hypotenuse * math.cos(_radians);
+  double get _opposite => _hypotenuse * math.sin(_radians);
+  double get _triangleArea => _adjacent * _opposite / 2;
+  double get _depth => _hypotenuse * .34;
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('3D triangle plot'),
+        actions: [
+          IconButton(
+            tooltip: 'Reset view',
+            onPressed: () => setState(() {
+              _yaw = -.62;
+              _pitch = .42;
+              _zoom = 1.12;
+            }),
+            icon: const Icon(Icons.refresh_rounded),
+          ),
+        ],
+      ),
+      body: SafeArea(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final chartHeight = math.min(constraints.maxWidth, 390.0);
+            return SingleChildScrollView(
+              physics: _orbitPointer == null
+                  ? const ClampingScrollPhysics()
+                  : const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.fromLTRB(14, 4, 14, 20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: chartHeight,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(22),
+                      child: Stack(
+                        children: [
+                          Positioned.fill(
+                            child: Listener(
+                              key: const Key('triangle-3d-orbit-area'),
+                              behavior: HitTestBehavior.opaque,
+                              onPointerDown: (event) => setState(() {
+                                _orbitPointer = event.pointer;
+                                _lastOrbitPoint = event.localPosition;
+                              }),
+                              onPointerMove: (event) {
+                                if (event.pointer != _orbitPointer ||
+                                    _lastOrbitPoint == null) {
+                                  return;
+                                }
+                                final delta =
+                                    event.localPosition - _lastOrbitPoint!;
+                                _lastOrbitPoint = event.localPosition;
+                                setState(() {
+                                  _yaw =
+                                      (_yaw + delta.dx * .012) % (2 * math.pi);
+                                  _pitch = (_pitch + delta.dy * .012).clamp(
+                                    -1.48,
+                                    1.48,
+                                  );
+                                });
+                              },
+                              onPointerUp: (event) {
+                                if (event.pointer == _orbitPointer) {
+                                  setState(() {
+                                    _orbitPointer = null;
+                                    _lastOrbitPoint = null;
+                                  });
+                                }
+                              },
+                              onPointerCancel: (event) {
+                                if (event.pointer == _orbitPointer) {
+                                  setState(() {
+                                    _orbitPointer = null;
+                                    _lastOrbitPoint = null;
+                                  });
+                                }
+                              },
+                              child: CustomPaint(
+                                painter: _TrianglePrismPainter(
+                                  angle: _angle,
+                                  hypotenuse: _hypotenuse,
+                                  yaw: _yaw,
+                                  pitch: _pitch,
+                                  zoom: _zoom,
+                                ),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            right: 10,
+                            top: 10,
+                            child: Column(
+                              children: [
+                                _ZoomControl(
+                                  label: '+',
+                                  tooltip: 'Zoom in',
+                                  onPressed: () => setState(
+                                    () =>
+                                        _zoom = (_zoom * 1.18).clamp(.65, 2.8),
+                                  ),
+                                ),
+                                const SizedBox(height: 7),
+                                _ZoomControl(
+                                  label: '−',
+                                  tooltip: 'Zoom out',
+                                  onPressed: () => setState(
+                                    () =>
+                                        _zoom = (_zoom / 1.18).clamp(.65, 2.8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Positioned(
+                            left: 12,
+                            bottom: 10,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: const Color(0xD917233D),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 6,
+                                ),
+                                child: Text(
+                                  'Drag to orbit • + / − to zoom',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Yaw ${(_yaw * 180 / math.pi).round()}°  •  Pitch ${(_pitch * 180 / math.pi).round()}°  •  Zoom ${_zoom.toStringAsFixed(1)}×',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                  const SizedBox(height: 12),
+                  _SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Triangle sides',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 7),
+                        Wrap(
+                          spacing: 14,
+                          runSpacing: 7,
+                          children: [
+                            _SideValue(
+                              label: 'Hypotenuse',
+                              value: _hypotenuse,
+                              color: const Color(0xFF4A86FF),
+                            ),
+                            _SideValue(
+                              label: 'Opposite',
+                              value: _opposite,
+                              color: const Color(0xFFFF625A),
+                            ),
+                            _SideValue(
+                              label: 'Adjacent',
+                              value: _adjacent,
+                              color: const Color(0xFF35C46A),
+                            ),
+                            _SideValue(
+                              label: 'Angle θ',
+                              value: _angle,
+                              color: const Color(0xFFFFD54A),
+                              suffix: '°',
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _SectionCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Shaded face areas',
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        const SizedBox(height: 8),
+                        LayoutBuilder(
+                          builder: (context, box) {
+                            final width = (box.maxWidth - 8) / 2;
+                            return Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                _FaceAreaChip(
+                                  width: width,
+                                  color: const Color(0xFF24B8D0),
+                                  label: 'Front triangle',
+                                  formula: '½ × b × h',
+                                  area: _triangleArea,
+                                ),
+                                _FaceAreaChip(
+                                  width: width,
+                                  color: const Color(0xFF526DAB),
+                                  label: 'Back triangle',
+                                  formula: '½ × b × h',
+                                  area: _triangleArea,
+                                ),
+                                _FaceAreaChip(
+                                  width: width,
+                                  color: const Color(0xFF35C46A),
+                                  label: 'Adjacent wall',
+                                  formula: 'b × depth',
+                                  area: _adjacent * _depth,
+                                ),
+                                _FaceAreaChip(
+                                  width: width,
+                                  color: const Color(0xFFFF625A),
+                                  label: 'Opposite wall',
+                                  formula: 'h × depth',
+                                  area: _opposite * _depth,
+                                ),
+                                _FaceAreaChip(
+                                  width: width,
+                                  color: const Color(0xFF9B7EDE),
+                                  label: 'Hypotenuse wall',
+                                  formula: 'c × depth',
+                                  area: _hypotenuse * _depth,
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                        const Divider(height: 22),
+                        Text(
+                          'Total prism surface area  ${(2 * _triangleArea + _depth * (_adjacent + _opposite + _hypotenuse)).toStringAsFixed(2)} units²',
+                          style: Theme.of(context).textTheme.titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  _sliderCard(
+                    context,
+                    title: 'Angle θ',
+                    value: _angle,
+                    display: '${_angle.toStringAsFixed(0)}°',
+                    min: 10,
+                    max: 80,
+                    onChanged: (value) => setState(() => _angle = value),
+                  ),
+                  const SizedBox(height: 8),
+                  _sliderCard(
+                    context,
+                    title: 'Hypotenuse length',
+                    value: _hypotenuse,
+                    display: _hypotenuse.toStringAsFixed(1),
+                    min: 5,
+                    max: 35,
+                    onChanged: (value) => setState(() => _hypotenuse = value),
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => Navigator.pop(
+                      context,
+                      _TriangleParameters(
+                        angle: _angle,
+                        hypotenuse: _hypotenuse,
+                      ),
+                    ),
+                    icon: const Icon(Icons.calculate_outlined),
+                    label: Text(
+                      'Use sin(${_angle.toStringAsFixed(0)}°) in calculator',
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _sliderCard(
+    BuildContext context, {
+    required String title,
+    required double value,
+    required String display,
+    required double min,
+    required double max,
+    required ValueChanged<double> onChanged,
+  }) => _SectionCard(
+    child: Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(title),
+            Text(display, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+        Slider(
+          value: value.clamp(min, max),
+          min: min,
+          max: max,
+          onChanged: onChanged,
+        ),
+      ],
+    ),
+  );
+}
+
+class _ZoomControl extends StatelessWidget {
+  const _ZoomControl({
+    required this.label,
+    required this.tooltip,
+    required this.onPressed,
+  });
+  final String label;
+  final String tooltip;
+  final VoidCallback onPressed;
+  @override
+  Widget build(BuildContext context) => Material(
+    color: const Color(0xEEFFFFFF),
+    shape: const CircleBorder(),
+    child: IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: Text(
+        label,
+        style: const TextStyle(
+          fontSize: 23,
+          fontWeight: FontWeight.w700,
+          color: _navy,
+        ),
+      ),
+    ),
+  );
+}
+
+class _SideValue extends StatelessWidget {
+  const _SideValue({
+    required this.label,
+    required this.value,
+    required this.color,
+    this.suffix = '',
+  });
+  final String label;
+  final double value;
+  final Color color;
+  final String suffix;
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 9,
+        height: 9,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text('$label ${value.toStringAsFixed(2)}$suffix'),
+    ],
+  );
+}
+
+class _FaceAreaChip extends StatelessWidget {
+  const _FaceAreaChip({
+    required this.width,
+    required this.color,
+    required this.label,
+    required this.formula,
+    required this.area,
+  });
+  final double width;
+  final Color color;
+  final String label;
+  final String formula;
+  final double area;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    width: width,
+    child: Container(
+      padding: const EdgeInsets.all(9),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: .45)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '$formula = ${area.toStringAsFixed(2)} u²',
+            style: const TextStyle(fontSize: 11),
+          ),
+        ],
+      ),
+    ),
+  );
+}
+
+class _TrianglePrismPainter extends CustomPainter {
+  const _TrianglePrismPainter({
+    required this.angle,
+    required this.hypotenuse,
+    required this.yaw,
+    required this.pitch,
+    required this.zoom,
+  });
+  final double angle;
+  final double hypotenuse;
+  final double yaw;
+  final double pitch;
+  final double zoom;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    canvas.drawColor(const Color(0xFF1E2230), BlendMode.src);
+    final theta = angle * math.pi / 180;
+    final adjacent = hypotenuse * math.cos(theta);
+    final opposite = hypotenuse * math.sin(theta);
+    final depth = hypotenuse * .34;
+    final cx = math.cos(pitch),
+        sx = math.sin(pitch),
+        cy = math.cos(yaw),
+        sy = math.sin(yaw);
+    final scale =
+        math.min(size.width, size.height) *
+        .72 /
+        (hypotenuse + depth * .6) *
+        zoom;
+    (double, double, double) rotate((double, double, double) p) {
+      final x = p.$1 * cy + p.$3 * sy;
+      final z = -p.$1 * sy + p.$3 * cy;
+      return (x, p.$2 * cx - z * sx, p.$2 * sx + z * cx);
+    }
+
+    Offset rawProject((double, double, double) p) {
+      final q = rotate(p);
+      final perspective = 6 / (6 + q.$3 / hypotenuse);
+      return Offset(q.$1 * scale * perspective, -q.$2 * scale * perspective);
+    }
+
+    const a = (0.0, 0.0, 0.0);
+    final b = (adjacent, 0.0, 0.0);
+    final c = (adjacent, opposite, 0.0);
+    final backA = (0.0, 0.0, depth);
+    final backB = (adjacent, 0.0, depth);
+    final backC = (adjacent, opposite, depth);
+    final allVertices = [a, b, c, backA, backB, backC].map(rawProject).toList();
+    final left = allVertices.map((point) => point.dx).reduce(math.min);
+    final right = allVertices.map((point) => point.dx).reduce(math.max);
+    final top = allVertices.map((point) => point.dy).reduce(math.min);
+    final bottom = allVertices.map((point) => point.dy).reduce(math.max);
+    final sceneShift = Offset(
+      size.width * .5 - (left + right) * .5,
+      size.height * .49 - (top + bottom) * .5,
+    );
+    Offset project((double, double, double) point) =>
+        rawProject(point) + sceneShift;
+    final faces = <({List<(double, double, double)> points, Color color})>[
+      (points: [backA, backB, backC], color: const Color(0xFF526DAB)),
+      (points: [a, backA, backB, b], color: const Color(0xFF35C46A)),
+      (points: [b, backB, backC, c], color: const Color(0xFFFF625A)),
+      (points: [c, backC, backA, a], color: const Color(0xFF9B7EDE)),
+      (points: [a, b, c], color: const Color(0xFF24B8D0)),
+    ];
+    faces.sort((left, right) {
+      double depthOf(List<(double, double, double)> points) =>
+          points.map((p) => rotate(p).$3).reduce((x, y) => x + y) /
+          points.length;
+      return depthOf(left.points).compareTo(depthOf(right.points));
+    });
+    for (final face in faces) {
+      final projected = face.points.map(project).toList();
+      final path = Path()..moveTo(projected.first.dx, projected.first.dy);
+      for (final point in projected.skip(1)) {
+        path.lineTo(point.dx, point.dy);
+      }
+      path.close();
+      canvas.drawPath(path, Paint()..color = face.color.withValues(alpha: .88));
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = Colors.white.withValues(alpha: .76)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2,
+      );
+    }
+    void edge(
+      (double, double, double) p,
+      (double, double, double) q,
+      Color color,
+      String label,
+      Offset shift,
+    ) {
+      canvas.drawLine(
+        project(p),
+        project(q),
+        Paint()
+          ..color = color
+          ..strokeWidth = 3.2
+          ..strokeCap = StrokeCap.round,
+      );
+      final mid = (project(p) + project(q)) / 2 + shift;
+      _text(canvas, label, mid, color, fontSize: 10);
+    }
+
+    edge(
+      a,
+      c,
+      const Color(0xFF4A86FF),
+      'c ${hypotenuse.toStringAsFixed(1)}',
+      const Offset(-10, -14),
+    );
+    edge(
+      b,
+      c,
+      const Color(0xFFFF625A),
+      'h ${opposite.toStringAsFixed(1)}',
+      const Offset(8, 0),
+    );
+    edge(
+      a,
+      b,
+      const Color(0xFF35C46A),
+      'b ${adjacent.toStringAsFixed(1)}',
+      const Offset(0, 10),
+    );
+    for (final (p, q) in [(a, backA), (b, backB), (c, backC)]) {
+      canvas.drawLine(
+        project(p),
+        project(q),
+        Paint()
+          ..color = const Color(0xFF4A86FF).withValues(alpha: .75)
+          ..strokeWidth = 1.3,
+      );
+    }
+    final arcRadius = math.min(adjacent, opposite) * .22;
+    final arcPoints = <Offset>[];
+    for (var index = 0; index <= 16; index++) {
+      final t = theta * index / 16;
+      arcPoints.add(
+        project((arcRadius * math.cos(t), arcRadius * math.sin(t), 0)),
+      );
+    }
+    final arc = Path()..moveTo(arcPoints.first.dx, arcPoints.first.dy);
+    for (final point in arcPoints.skip(1)) {
+      arc.lineTo(point.dx, point.dy);
+    }
+    canvas.drawPath(
+      arc,
+      Paint()
+        ..color = const Color(0xFFFFD54A)
+        ..strokeWidth = 2.6
+        ..style = PaintingStyle.stroke,
+    );
+    _text(
+      canvas,
+      'θ ${angle.toStringAsFixed(0)}°',
+      project((arcRadius * 1.5, arcRadius * .6, 0)),
+      const Color(0xFFFFD54A),
+      fontSize: 10,
+    );
+    _drawAxes(canvas, size);
+  }
+
+  void _drawAxes(Canvas canvas, Size size) {
+    final origin = Offset(size.width - 58, size.height - 54);
+    for (final (vector, color, label) in <(Offset, Color, String)>[
+      (const Offset(28, 0), const Color(0xFFFF625A), 'x'),
+      (const Offset(0, -27), const Color(0xFF35C46A), 'y'),
+      (const Offset(-19, -17), const Color(0xFF4A86FF), 'z'),
+    ]) {
+      final finish = origin + vector;
+      canvas.drawLine(
+        origin,
+        finish,
+        Paint()
+          ..color = color
+          ..strokeWidth = 1.8,
+      );
+      _text(canvas, label, finish, color, fontSize: 9);
+    }
+  }
+
+  void _text(
+    Canvas canvas,
+    String text,
+    Offset center,
+    Color color, {
+    double fontSize = 11,
+  }) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          color: color,
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          shadows: const [Shadow(color: Colors.black, blurRadius: 3)],
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: 110);
+    painter.paint(
+      canvas,
+      center - Offset(painter.width / 2, painter.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _TrianglePrismPainter oldDelegate) =>
+      angle != oldDelegate.angle ||
+      hypotenuse != oldDelegate.hypotenuse ||
+      yaw != oldDelegate.yaw ||
+      pitch != oldDelegate.pitch ||
+      zoom != oldDelegate.zoom;
 }
 
 class _ExpressionDrawingPainter extends CustomPainter {
@@ -4375,1565 +3133,6 @@ class _ExpressionDrawingPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _ExpressionDrawingPainter oldDelegate) =>
       !identical(strokes, oldDelegate.strokes);
-}
-
-typedef _PlotPoint3 = (double, double, double);
-
-class _MathVisualizationPainter extends CustomPainter {
-  const _MathVisualizationPainter({
-    required this.mode,
-    required this.is3D,
-    required this.expressionPlot,
-    required this.calculusOperation,
-    required this.rotationX,
-    required this.rotationY,
-    required this.angle,
-    required this.hypotenuse,
-    required this.slope,
-    required this.intercept,
-    required this.lower,
-    required this.upper,
-    required this.selectedX,
-    required this.expression,
-    required this.geometryOperation,
-    required this.geometryFirst,
-    required this.geometrySecond,
-  });
-
-  final _CalculatorMode mode;
-  final bool is3D;
-  final bool expressionPlot;
-  final String calculusOperation;
-  final double rotationX, rotationY;
-  final double angle, hypotenuse, slope, intercept, lower, upper, selectedX;
-  final String expression;
-  final String geometryOperation;
-  final double geometryFirst, geometrySecond;
-
-  bool get _triangle => mode == _CalculatorMode.trigonometry;
-
-  String get _sourceExpression =>
-      _plotExpression.trim().isEmpty ? 'x^2' : _plotExpression.trim();
-
-  List<String> get _equationSides {
-    final cleaned = _sourceExpression.replaceAll('×', '*').replaceAll('÷', '/');
-    final sides = cleaned.split(RegExp(r'(?<![<>])=(?![=])'));
-    if (sides.length < 2) return [cleaned, '0'];
-    return [sides.first, sides.skip(1).join('=')];
-  }
-
-  bool get _hasXYVariables =>
-      RegExp(r'\bx\b').hasMatch(_sourceExpression) &&
-      RegExp(r'\by\b').hasMatch(_sourceExpression);
-
-  bool get _hasXYZVariables =>
-      _hasXYVariables && RegExp(r'\bz\b').hasMatch(_sourceExpression);
-
-  bool get _isExplicitZFunction =>
-      RegExp(r'^\s*z\s*=').hasMatch(_sourceExpression);
-
-  String get _explicitZFunction =>
-      RegExp(r'^\s*z\s*=\s*(.+)$').firstMatch(_sourceExpression)?.group(1) ??
-      _sourceExpression;
-
-  void _paintImplicitCurve(Canvas canvas, Size size) {
-    const cells = 84;
-    const minimum = -1.6;
-    const maximum = 1.6;
-    const margin = 30.0;
-    final plotWidth = size.width - margin * 2;
-    final plotHeight = size.height - margin * 2;
-    final plotSize = math.min(plotWidth, plotHeight);
-    final left = (size.width - plotSize) / 2;
-    final top = (size.height - plotSize) / 2;
-    const engine = MathEngine();
-    final (leftExpression, rightExpression) = (
-      _equationSides.first,
-      _equationSides.last,
-    );
-    double sample(double x, double y) {
-      try {
-        final variables = {'x': x, 'y': y};
-        return engine.evaluateAtVariables(leftExpression, variables) -
-            engine.evaluateAtVariables(rightExpression, variables);
-      } on Object {
-        return double.nan;
-      }
-    }
-
-    Offset point(double x, double y) => Offset(
-      left + (x - minimum) / (maximum - minimum) * plotSize,
-      top + (maximum - y) / (maximum - minimum) * plotSize,
-    );
-
-    final values = List<double>.filled((cells + 1) * (cells + 1), double.nan);
-    int index(int x, int y) => y * (cells + 1) + x;
-    double coordinate(int value) =>
-        minimum + (maximum - minimum) * value / cells;
-    for (var y = 0; y <= cells; y++) {
-      for (var x = 0; x <= cells; x++) {
-        values[index(x, y)] = sample(coordinate(x), coordinate(y));
-      }
-    }
-
-    final region = Path();
-    final contour = Path();
-    const edges = [(0, 1), (1, 2), (2, 3), (3, 0)];
-    for (var y = 0; y < cells; y++) {
-      for (var x = 0; x < cells; x++) {
-        final xs = [x, x + 1, x + 1, x];
-        final ys = [y, y, y + 1, y + 1];
-        final f = [
-          values[index(xs[0], ys[0])],
-          values[index(xs[1], ys[1])],
-          values[index(xs[2], ys[2])],
-          values[index(xs[3], ys[3])],
-        ];
-        if (f.any((value) => !value.isFinite)) continue;
-        final centerValue = sample(
-          (coordinate(x) + coordinate(x + 1)) / 2,
-          (coordinate(y) + coordinate(y + 1)) / 2,
-        );
-        if (centerValue.isFinite && centerValue <= 0) {
-          region.addRect(
-            Rect.fromLTRB(
-              point(coordinate(x), coordinate(y + 1)).dx,
-              point(coordinate(x), coordinate(y + 1)).dy,
-              point(coordinate(x + 1), coordinate(y)).dx,
-              point(coordinate(x + 1), coordinate(y)).dy,
-            ),
-          );
-        }
-        final crossings = <Offset>[];
-        for (final (a, b) in edges) {
-          if ((f[a] < 0) == (f[b] < 0)) continue;
-          final amount = (f[a] / (f[a] - f[b])).clamp(0.0, 1.0);
-          final px =
-              coordinate(xs[a]) +
-              (coordinate(xs[b]) - coordinate(xs[a])) * amount;
-          final py =
-              coordinate(ys[a]) +
-              (coordinate(ys[b]) - coordinate(ys[a])) * amount;
-          crossings.add(point(px, py));
-        }
-        for (var crossing = 0; crossing + 1 < crossings.length; crossing += 2) {
-          contour
-            ..moveTo(crossings[crossing].dx, crossings[crossing].dy)
-            ..lineTo(crossings[crossing + 1].dx, crossings[crossing + 1].dy);
-        }
-      }
-    }
-
-    final gridPaint = Paint()
-      ..color = Colors.white.withValues(alpha: .12)
-      ..strokeWidth = .7;
-    for (var tick = -1; tick <= 1; tick++) {
-      final x = point(tick.toDouble(), 0).dx;
-      final y = point(0, tick.toDouble()).dy;
-      canvas.drawLine(Offset(x, top), Offset(x, top + plotSize), gridPaint);
-      canvas.drawLine(Offset(left, y), Offset(left + plotSize, y), gridPaint);
-    }
-    canvas.drawPath(
-      region,
-      Paint()..color = const Color(0xFFAC5DEB).withValues(alpha: .34),
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(left, top, plotSize, plotSize),
-      Paint()
-        ..color = Colors.white.withValues(alpha: .68)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-    canvas.drawPath(
-      contour,
-      Paint()
-        ..color = const Color(0xFF75E5F2)
-        ..strokeWidth = 2
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke,
-    );
-    final origin = point(0, 0);
-    canvas.drawLine(
-      Offset(left, origin.dy),
-      Offset(left + plotSize, origin.dy),
-      Paint()..color = const Color(0xFF57D68D).withValues(alpha: .85),
-    );
-    canvas.drawLine(
-      Offset(origin.dx, top + plotSize),
-      Offset(origin.dx, top),
-      Paint()..color = const Color(0xFFFF625A).withValues(alpha: .85),
-    );
-    _label(
-      canvas,
-      'Implicit equation region',
-      const Offset(14, 12),
-      Colors.white,
-    );
-    _label(
-      canvas,
-      'Shaded side: F(x,y) ≤ 0',
-      Offset(14, size.height - 22),
-      const Color(0xFFFFC66D),
-    );
-  }
-
-  void _paintImplicitSurface(Canvas canvas, Size size) {
-    const cells = 12;
-    const minimum = -1.5;
-    const maximum = 1.5;
-    const engine = MathEngine();
-    final (leftExpression, rightExpression) = (
-      _equationSides.first,
-      _equationSides.last,
-    );
-    double coordinate(int value) =>
-        minimum + (maximum - minimum) * value / cells;
-    int index(int x, int y, int z) => (z * (cells + 1) + y) * (cells + 1) + x;
-    final values = List<double>.filled(
-      (cells + 1) * (cells + 1) * (cells + 1),
-      double.nan,
-    );
-    for (var z = 0; z <= cells; z++) {
-      for (var y = 0; y <= cells; y++) {
-        for (var x = 0; x <= cells; x++) {
-          try {
-            final variables = {
-              'x': coordinate(x),
-              'y': coordinate(y),
-              'z': coordinate(z),
-            };
-            values[index(x, y, z)] =
-                engine.evaluateAtVariables(leftExpression, variables) -
-                engine.evaluateAtVariables(rightExpression, variables);
-          } on Object {
-            values[index(x, y, z)] = double.nan;
-          }
-        }
-      }
-    }
-
-    final triangles = <(_PlotPoint3, _PlotPoint3, _PlotPoint3)>[];
-    const corners = <(int, int, int)>[
-      (0, 0, 0),
-      (1, 0, 0),
-      (1, 1, 0),
-      (0, 1, 0),
-      (0, 0, 1),
-      (1, 0, 1),
-      (1, 1, 1),
-      (0, 1, 1),
-    ];
-    const tetrahedra = [
-      (0, 5, 1, 6),
-      (0, 1, 2, 6),
-      (0, 2, 3, 6),
-      (0, 3, 7, 6),
-      (0, 7, 4, 6),
-      (0, 4, 5, 6),
-    ];
-    const tetraEdges = [(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-    for (var z = 0; z < cells; z++) {
-      for (var y = 0; y < cells; y++) {
-        for (var x = 0; x < cells; x++) {
-          final points = corners
-              .map(
-                (corner) => (
-                  coordinate(x + corner.$1),
-                  coordinate(y + corner.$2),
-                  coordinate(z + corner.$3),
-                ),
-              )
-              .toList(growable: false);
-          final field = corners
-              .map(
-                (corner) =>
-                    values[index(x + corner.$1, y + corner.$2, z + corner.$3)],
-              )
-              .toList(growable: false);
-          if (field.any((value) => !value.isFinite)) continue;
-          for (final tetra in tetrahedra) {
-            final ids = [tetra.$1, tetra.$2, tetra.$3, tetra.$4];
-            final intersections = <_PlotPoint3>[];
-            for (final (edgeA, edgeB) in tetraEdges) {
-              final a = ids[edgeA], b = ids[edgeB];
-              if ((field[a] < 0) == (field[b] < 0)) continue;
-              final t = (field[a] / (field[a] - field[b])).clamp(0.0, 1.0);
-              intersections.add((
-                points[a].$1 + (points[b].$1 - points[a].$1) * t,
-                points[a].$2 + (points[b].$2 - points[a].$2) * t,
-                points[a].$3 + (points[b].$3 - points[a].$3) * t,
-              ));
-            }
-            if (intersections.length == 3) {
-              triangles.add((
-                intersections[0],
-                intersections[1],
-                intersections[2],
-              ));
-            } else if (intersections.length == 4) {
-              triangles
-                ..add((intersections[0], intersections[1], intersections[2]))
-                ..add((intersections[0], intersections[2], intersections[3]));
-            }
-          }
-        }
-      }
-    }
-
-    final cx = math.cos(rotationX), sx = math.sin(rotationX);
-    final cy = math.cos(rotationY), sy = math.sin(rotationY);
-    _PlotPoint3 rotate(_PlotPoint3 point) {
-      final x = point.$1 * cy + point.$3 * sy;
-      final z1 = -point.$1 * sy + point.$3 * cy;
-      return (x, point.$2 * cx - z1 * sx, point.$2 * sx + z1 * cx);
-    }
-
-    Offset project(_PlotPoint3 point) {
-      final rotated = rotate(point);
-      final perspective = 4.2 / (4.2 + rotated.$3 / 1.5);
-      final scale = math.min(size.width, size.height) * .34 * perspective;
-      return Offset(
-        size.width / 2 + rotated.$1 * scale,
-        size.height / 2 - rotated.$2 * scale,
-      );
-    }
-
-    final sorted = [...triangles]
-      ..sort((a, b) {
-        double depth((_PlotPoint3, _PlotPoint3, _PlotPoint3) triangle) =>
-            (rotate(triangle.$1).$3 +
-                rotate(triangle.$2).$3 +
-                rotate(triangle.$3).$3) /
-            3;
-        return depth(a).compareTo(depth(b));
-      });
-    var totalSurfaceArea = 0.0;
-    var largestFaceArea = 0.0;
-    var largestFaceSides = (0.0, 0.0, 0.0);
-    double distance(_PlotPoint3 a, _PlotPoint3 b) => math.sqrt(
-      math.pow(a.$1 - b.$1, 2) +
-          math.pow(a.$2 - b.$2, 2) +
-          math.pow(a.$3 - b.$3, 2),
-    );
-    double faceArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
-      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
-      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
-      final cross = (
-        ab.$2 * ac.$3 - ab.$3 * ac.$2,
-        ab.$3 * ac.$1 - ab.$1 * ac.$3,
-        ab.$1 * ac.$2 - ab.$2 * ac.$1,
-      );
-      return math.sqrt(
-            cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3,
-          ) /
-          2;
-    }
-
-    for (final triangle in sorted) {
-      final area = faceArea(triangle.$1, triangle.$2, triangle.$3);
-      totalSurfaceArea += area;
-      if (area > largestFaceArea) {
-        largestFaceArea = area;
-        largestFaceSides = (
-          distance(triangle.$1, triangle.$2),
-          distance(triangle.$2, triangle.$3),
-          distance(triangle.$3, triangle.$1),
-        );
-      }
-      final points = [
-        project(triangle.$1),
-        project(triangle.$2),
-        project(triangle.$3),
-      ];
-      final path = Path()
-        ..moveTo(points[0].dx, points[0].dy)
-        ..lineTo(points[1].dx, points[1].dy)
-        ..lineTo(points[2].dx, points[2].dy)
-        ..close();
-      final centerZ = (triangle.$1.$3 + triangle.$2.$3 + triangle.$3.$3) / 3;
-      final tint = ((centerZ - minimum) / (maximum - minimum)).clamp(0.0, 1.0);
-      final color = Color.lerp(
-        const Color(0xFF7753D6),
-        const Color(0xFFFF8C9E),
-        tint,
-      )!;
-      canvas.drawPath(path, Paint()..color = color.withValues(alpha: .88));
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = const Color(0xFFE5D8FF).withValues(alpha: .27)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = .55,
-      );
-    }
-    _paint3DAxes(canvas, size, project);
-    _label(
-      canvas,
-      'Implicit surface F(x,y,z) = 0',
-      const Offset(14, 12),
-      Colors.white,
-    );
-    _label(
-      canvas,
-      'Expression surface - drag to orbit',
-      Offset(14, size.height - 22),
-      const Color(0xFFFFC66D),
-    );
-    _metricBadge(
-      canvas,
-      'Σ face area ≈ ${totalSurfaceArea.toStringAsFixed(2)} units²',
-      Offset(14, size.height - 56),
-      const Color(0xFF9BE7FF),
-      maxWidth: size.width - 28,
-    );
-    _metricBadge(
-      canvas,
-      'Face sides ${largestFaceSides.$1.toStringAsFixed(2)}, ${largestFaceSides.$2.toStringAsFixed(2)}, ${largestFaceSides.$3.toStringAsFixed(2)} | area ${largestFaceArea.toStringAsFixed(3)}',
-      const Offset(14, 38),
-      const Color(0xFFFFC66D),
-      maxWidth: size.width - 28,
-    );
-  }
-
-  void _paint3DAxes(
-    Canvas canvas,
-    Size size,
-    Offset Function((double, double, double)) project,
-  ) {
-    const axisDefinitions = <((double, double, double), Color, String)>[
-      ((1.65, 0, 0), Color(0xFFFF625A), 'x'),
-      ((0, 1.65, 0), Color(0xFF57D68D), 'y'),
-      ((0, 0, 1.65), Color(0xFF4A86FF), 'z'),
-    ];
-    final origin = project((0, 0, 0));
-    for (final (end, color, label) in axisDefinitions) {
-      final finish = project(end);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2.1,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
-    }
-  }
-
-  String get _plotExpression {
-    if (mode != _CalculatorMode.calculus) return expression;
-    final source = expression.trim().isEmpty ? 'x^2' : expression;
-    try {
-      if (calculusOperation == 'Derivative') {
-        return const MathEngine().differentiate(source);
-      }
-      if (calculusOperation == 'Indefinite integral') {
-        return const MathEngine()
-            .integrateIndefinite(source)
-            .replaceFirst(RegExp(r'\s*\+\s*C$'), '');
-      }
-    } on Object {
-      return source;
-    }
-    return source;
-  }
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    canvas.drawColor(const Color(0xFF1E2230), BlendMode.src);
-    if (expressionPlot) {
-      if (mode == _CalculatorMode.geometry) {
-        if (is3D) {
-          _paint3DGeometry(canvas, size);
-        } else {
-          _paintGeometry(canvas, size);
-        }
-      } else if (_triangle) {
-        _paintTriangle(canvas, size);
-      } else if (is3D) {
-        if (_hasXYZVariables && !_isExplicitZFunction) {
-          _paintImplicitSurface(canvas, size);
-        } else {
-          _paintSurface(canvas, size);
-        }
-      } else if (_hasXYVariables && !_isExplicitYFunction) {
-        _paintImplicitCurve(canvas, size);
-      } else if (_isExplicitYFunction) {
-        _paintGraph(canvas, size, functionExpression: _explicitYFunction);
-      } else if (mode == _CalculatorMode.calculus &&
-          calculusOperation == 'Definite integral') {
-        _paintIntegral(canvas, size);
-      } else {
-        _paintGraph(canvas, size);
-      }
-      return;
-    }
-    final transformCanvas =
-        is3D &&
-        mode != _CalculatorMode.geometry &&
-        mode != _CalculatorMode.trigonometry;
-    if (transformCanvas) {
-      final centerX = size.width / 2;
-      final centerY = size.height / 2;
-      final transform = Matrix4.identity()
-        ..setEntry(3, 2, .001)
-        ..translateByDouble(centerX, centerY, 0, 1)
-        ..rotateX(rotationX)
-        ..rotateY(rotationY)
-        ..translateByDouble(-centerX, -centerY, 0, 1);
-      canvas.save();
-      canvas.transform(transform.storage);
-    }
-    if (mode == _CalculatorMode.geometry) {
-      if (is3D) {
-        _paint3DGeometry(canvas, size);
-      } else {
-        _paintGeometry(canvas, size);
-      }
-    } else if (_triangle) {
-      _paintTriangle(canvas, size);
-    } else if (is3D) {
-      _paintSurface(canvas, size);
-    } else if (mode == _CalculatorMode.calculus &&
-        calculusOperation == 'Definite integral') {
-      _paintIntegral(canvas, size);
-    } else if (mode == _CalculatorMode.calculus &&
-        calculusOperation == 'Derivative') {
-      _paintDerivative(canvas, size);
-    } else if (mode == _CalculatorMode.calculus) {
-      _paintGraph(canvas, size);
-    } else {
-      _paintGraph(canvas, size);
-    }
-    if (transformCanvas) canvas.restore();
-  }
-
-  bool get _isExplicitYFunction {
-    final match = RegExp(r'^\s*y\s*=\s*(.+)$').firstMatch(_sourceExpression);
-    return match != null && !RegExp(r'\by\b').hasMatch(match.group(1)!);
-  }
-
-  String get _explicitYFunction =>
-      RegExp(r'^\s*y\s*=\s*(.+)$').firstMatch(_sourceExpression)?.group(1) ??
-      _sourceExpression;
-
-  void _paint3DGeometry(Canvas canvas, Size size) {
-    // Scientific convention: X red, Y green, Z blue. Solid surfaces use a
-    // cool cyan/blue fill with amber edge highlights for clear depth cues.
-    const xColor = Color(0xFFFF625A);
-    const yColor = Color(0xFF57D68D);
-    const zColor = Color(0xFF4A86FF);
-    const surfaceColor = Color(0xFF36C9E8);
-    const edgeColor = Color(0xFFFFC66D);
-    final radius = geometryFirst.clamp(.1, 20).toDouble();
-    final secondary = geometrySecond.clamp(.1, 20).toDouble();
-    final vertices = <(double, double, double)>[];
-    final faces = <(int, int, int)>[];
-
-    void face(int a, int b, int c) => faces.add((a, b, c));
-    void quad(int a, int b, int c, int d) {
-      face(a, b, c);
-      face(a, c, d);
-    }
-
-    final operation = geometryOperation;
-    if (operation.contains('Sphere')) {
-      const latitudes = 16;
-      const longitudes = 28;
-      for (var lat = 0; lat <= latitudes; lat++) {
-        final phi = -math.pi / 2 + math.pi * lat / latitudes;
-        for (var lon = 0; lon <= longitudes; lon++) {
-          final theta = 2 * math.pi * lon / longitudes;
-          vertices.add((
-            radius * math.cos(phi) * math.cos(theta),
-            radius * math.sin(phi),
-            radius * math.cos(phi) * math.sin(theta),
-          ));
-        }
-      }
-      for (var lat = 0; lat < latitudes; lat++) {
-        for (var lon = 0; lon < longitudes; lon++) {
-          final a = lat * (longitudes + 1) + lon;
-          final b = a + longitudes + 1;
-          quad(a, a + 1, b + 1, b);
-        }
-      }
-    } else if (operation.contains('Cone')) {
-      const sides = 40;
-      final h = secondary;
-      vertices.add((0, h / 2, 0));
-      for (var i = 0; i < sides; i++) {
-        final angle = 2 * math.pi * i / sides;
-        vertices.add((
-          radius * math.cos(angle),
-          -h / 2,
-          radius * math.sin(angle),
-        ));
-      }
-      final baseCenter = vertices.length;
-      vertices.add((0, -h / 2, 0));
-      for (var i = 0; i < sides; i++) {
-        final next = (i + 1) % sides;
-        face(0, i + 1, next + 1);
-        face(baseCenter, next + 1, i + 1);
-      }
-    } else if (operation.contains('Cylinder') ||
-        operation.startsWith('Circle')) {
-      const sides = 40;
-      final h = operation.startsWith('Circle')
-          ? math.max(radius * .32, .25)
-          : secondary;
-      for (var cap = 0; cap < 2; cap++) {
-        final y = cap == 0 ? -h / 2 : h / 2;
-        for (var i = 0; i < sides; i++) {
-          final angle = 2 * math.pi * i / sides;
-          vertices.add((radius * math.cos(angle), y, radius * math.sin(angle)));
-        }
-      }
-      final bottomCenter = vertices.length;
-      vertices.add((0, -h / 2, 0));
-      final topCenter = vertices.length;
-      vertices.add((0, h / 2, 0));
-      for (var i = 0; i < sides; i++) {
-        final next = (i + 1) % sides;
-        quad(i, next, sides + next, sides + i);
-        face(bottomCenter, next, i);
-        face(topCenter, sides + i, sides + next);
-      }
-    } else {
-      // Area/perimeter operations become a shallow prism. Right-triangle
-      // calculations use the same base/height in a triangular prism.
-      final length = radius;
-      final height = secondary;
-      final depth = math.min(length, height) * .62;
-      if (operation.contains('Triangle') || operation.contains('Pythagorean')) {
-        final points = <(double, double)>[
-          (-length / 2, -height / 2),
-          (length / 2, -height / 2),
-          (length * .1, height / 2),
-        ];
-        for (final z in [-depth / 2, depth / 2]) {
-          for (final point in points) {
-            vertices.add((point.$1, point.$2, z));
-          }
-        }
-        face(0, 1, 2);
-        face(3, 5, 4);
-        for (var i = 0; i < 3; i++) {
-          final next = (i + 1) % 3;
-          quad(i, next, 3 + next, 3 + i);
-        }
-      } else {
-        final x = length / 2, y = height / 2, z = depth / 2;
-        vertices.addAll([
-          (-x, -y, -z),
-          (x, -y, -z),
-          (x, y, -z),
-          (-x, y, -z),
-          (-x, -y, z),
-          (x, -y, z),
-          (x, y, z),
-          (-x, y, z),
-        ]);
-        quad(0, 3, 2, 1);
-        quad(4, 5, 6, 7);
-        quad(0, 1, 5, 4);
-        quad(1, 2, 6, 5);
-        quad(2, 3, 7, 6);
-        quad(3, 0, 4, 7);
-      }
-    }
-
-    final scale =
-        math.min(size.width, size.height) *
-        .31 /
-        math.max(radius, secondary).clamp(.1, 20);
-    (double, double, double) rotate((double, double, double) p) {
-      final cy = math.cos(rotationY), sy = math.sin(rotationY);
-      final cx = math.cos(rotationX), sx = math.sin(rotationX);
-      final x = p.$1 * cy + p.$3 * sy;
-      final z1 = -p.$1 * sy + p.$3 * cy;
-      final y = p.$2 * cx - z1 * sx;
-      final z = p.$2 * sx + z1 * cx;
-      return (x, y, z);
-    }
-
-    Offset project((double, double, double) p) {
-      final q = rotate(p);
-      final perspective = 4.2 / (4.2 + q.$3 / math.max(radius, secondary));
-      final s = scale * perspective;
-      return Offset(size.width * .5 + q.$1 * s, size.height * .52 - q.$2 * s);
-    }
-
-    final transformed = vertices.map(rotate).toList(growable: false);
-    final orderedFaces = [...faces]
-      ..sort((a, b) {
-        double depth((int, int, int) f) =>
-            (transformed[f.$1].$3 +
-                transformed[f.$2].$3 +
-                transformed[f.$3].$3) /
-            3;
-        return depth(a).compareTo(depth(b));
-      });
-    for (final f in orderedFaces) {
-      final a = transformed[f.$1], b = transformed[f.$2], c = transformed[f.$3];
-      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
-      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
-      final normal = (
-        ab.$2 * ac.$3 - ab.$3 * ac.$2,
-        ab.$3 * ac.$1 - ab.$1 * ac.$3,
-        ab.$1 * ac.$2 - ab.$2 * ac.$1,
-      );
-      final magnitude = math.sqrt(
-        normal.$1 * normal.$1 + normal.$2 * normal.$2 + normal.$3 * normal.$3,
-      );
-      final light = magnitude == 0
-          ? .45
-          : ((normal.$1 * -.35 + normal.$2 * .55 + normal.$3 * .76) / magnitude)
-                .abs();
-      final shade = (.34 + light * .62).clamp(.32, .94);
-      final path = Path()
-        ..moveTo(project(vertices[f.$1]).dx, project(vertices[f.$1]).dy)
-        ..lineTo(project(vertices[f.$2]).dx, project(vertices[f.$2]).dy)
-        ..lineTo(project(vertices[f.$3]).dx, project(vertices[f.$3]).dy)
-        ..close();
-      canvas.drawPath(
-        path,
-        Paint()..color = surfaceColor.withValues(alpha: shade),
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = const Color(0xFFB8F4FF).withValues(alpha: .54)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = .65,
-      );
-    }
-
-    void axis((double, double, double) end, Color color, String label) {
-      final start = project((0, 0, 0));
-      final finish = project(end);
-      final paint = Paint()
-        ..color = color
-        ..strokeWidth = 2.2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(start, finish, paint);
-      final direction = finish - start;
-      if (direction.distance > 0) {
-        final unit = direction / direction.distance;
-        final normal = Offset(-unit.dy, unit.dx);
-        final arrow = Path()
-          ..moveTo(finish.dx, finish.dy)
-          ..lineTo(
-            finish.dx - unit.dx * 8 + normal.dx * 4,
-            finish.dy - unit.dy * 8 + normal.dy * 4,
-          )
-          ..lineTo(
-            finish.dx - unit.dx * 8 - normal.dx * 4,
-            finish.dy - unit.dy * 8 - normal.dy * 4,
-          )
-          ..close();
-        canvas.drawPath(arrow, Paint()..color = color);
-      }
-      _label(canvas, label, finish + const Offset(3, -11), color);
-    }
-
-    axis((radius * 1.35, 0, 0), xColor, 'x');
-    axis((0, secondary * .75, 0), yColor, 'y');
-    axis((0, 0, radius * 1.35), zColor, 'z');
-    _label(canvas, geometryOperation, const Offset(14, 12), Colors.white);
-    _label(
-      canvas,
-      'Drag to rotate  •  3D solid',
-      Offset(14, size.height - 24),
-      edgeColor,
-    );
-  }
-
-  void _paintGeometry(Canvas canvas, Size size) {
-    final c = Offset(size.width * .5, size.height * .53);
-    final scale = math.min(size.width * .032, size.height * .032);
-    final a = geometryFirst.clamp(.1, 20) * scale;
-    final b = geometrySecond.clamp(.1, 20) * scale;
-    final stroke = Paint()
-      ..color = const Color(0xFF4A86FF)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    final green = Paint()
-      ..color = const Color(0xFF35C46A)
-      ..strokeWidth = 2
-      ..style = PaintingStyle.stroke;
-    final fill = Paint()
-      ..color = const Color(0xFF4A86FF).withValues(alpha: .18)
-      ..style = PaintingStyle.fill;
-    if (geometryOperation.startsWith('Circle')) {
-      final r = math.min(a, math.min(size.width * .3, size.height * .34));
-      if (geometryOperation == 'Circle area') {
-        canvas.drawCircle(c, r, fill);
-      }
-      canvas.drawCircle(c, r, stroke);
-      if (is3D) {
-        canvas.drawOval(
-          Rect.fromCenter(
-            center: c + const Offset(0, 12),
-            width: r * 2,
-            height: r * .55,
-          ),
-          green,
-        );
-      }
-    } else if (geometryOperation.startsWith('Rectangle') ||
-        geometryOperation == 'Parallelogram area') {
-      final w = math.min(a, size.width * .62),
-          h = math.min(b, size.height * .55);
-      final l = c.dx - w / 2, t = c.dy - h / 2;
-      final skew = geometryOperation == 'Parallelogram area' ? w * .2 : 0.0;
-      final p = Path()
-        ..moveTo(l + skew, t)
-        ..lineTo(l + w + skew, t)
-        ..lineTo(l + w, t + h)
-        ..lineTo(l, t + h)
-        ..close();
-      canvas.drawPath(p, fill);
-      canvas.drawPath(p, stroke);
-      if (is3D) {
-        const d = Offset(22, -16);
-        for (final point in [
-          Offset(l + skew, t),
-          Offset(l + w + skew, t),
-          Offset(l + w, t + h),
-          Offset(l, t + h),
-        ]) {
-          canvas.drawLine(point, point + d, green);
-        }
-      }
-    } else if (geometryOperation == 'Triangle area' ||
-        geometryOperation == 'Pythagorean hypotenuse') {
-      final w = math.min(a, size.width * .62),
-          h = math.min(b, size.height * .55);
-      final l = c.dx - w / 2, base = c.dy + h / 2;
-      final p = Path()
-        ..moveTo(l, base)
-        ..lineTo(l + w, base)
-        ..lineTo(l + w * .62, base - h)
-        ..close();
-      canvas.drawPath(p, fill);
-      canvas.drawPath(p, stroke);
-      if (geometryOperation == 'Pythagorean hypotenuse') {
-        canvas.drawLine(
-          Offset(l + w * .62, base - h),
-          Offset(l + w * .62, base),
-          green,
-        );
-      }
-    } else if (geometryOperation.contains('Cylinder')) {
-      final r = math.min(a, size.width * .25),
-          h = math.min(b, size.height * .48);
-      final rect = Rect.fromCenter(center: c, width: r * 2, height: h);
-      canvas.drawRect(rect, fill);
-      canvas.drawLine(
-        Offset(rect.left, rect.top),
-        Offset(rect.left, rect.bottom),
-        stroke,
-      );
-      canvas.drawLine(
-        Offset(rect.right, rect.top),
-        Offset(rect.right, rect.bottom),
-        stroke,
-      );
-      canvas.drawOval(
-        Rect.fromCenter(
-          center: Offset(c.dx, rect.top),
-          width: r * 2,
-          height: r * .55,
-        ),
-        stroke,
-      );
-      canvas.drawArc(
-        Rect.fromCenter(
-          center: Offset(c.dx, rect.bottom),
-          width: r * 2,
-          height: r * .55,
-        ),
-        0,
-        math.pi,
-        false,
-        stroke,
-      );
-      if (is3D) {
-        canvas.drawArc(
-          Rect.fromCenter(
-            center: Offset(c.dx, rect.bottom),
-            width: r * 2,
-            height: r * .55,
-          ),
-          math.pi,
-          math.pi,
-          false,
-          green,
-        );
-      }
-    } else if (geometryOperation.contains('Cone')) {
-      final r = math.min(a, size.width * .27),
-          h = math.min(b, size.height * .53);
-      final top = Offset(c.dx, c.dy - h / 2),
-          left = Offset(c.dx - r, c.dy + h / 2),
-          right = Offset(c.dx + r, c.dy + h / 2);
-      final p = Path()
-        ..moveTo(top.dx, top.dy)
-        ..lineTo(left.dx, left.dy)
-        ..lineTo(right.dx, right.dy)
-        ..close();
-      canvas.drawPath(p, fill);
-      canvas.drawPath(p, stroke);
-      final base = Rect.fromCenter(
-        center: Offset(c.dx, c.dy + h / 2),
-        width: r * 2,
-        height: r * .55,
-      );
-      canvas.drawArc(base, 0, math.pi, false, stroke);
-      if (is3D) canvas.drawArc(base, math.pi, math.pi, false, green);
-    } else {
-      final r = math.min(a, math.min(size.width * .28, size.height * .34));
-      canvas.drawCircle(c, r, fill);
-      canvas.drawCircle(c, r, stroke);
-      canvas.drawOval(
-        Rect.fromCenter(center: c, width: r * 2, height: r * .72),
-        green,
-      );
-    }
-    _label(canvas, geometryOperation, const Offset(16, 14), Colors.white);
-    _label(
-      canvas,
-      is3D ? '3D solid preview' : '2D shape preview',
-      Offset(16, size.height - 22),
-      const Color(0xFF78A5FF),
-    );
-  }
-
-  void _paintTriangle(Canvas canvas, Size size) {
-    if (is3D) {
-      _paintTriangleSolid(canvas, size);
-      return;
-    }
-    final baseY = size.height * .78;
-    final startX = size.width * .12;
-    final radians = angle * math.pi / 180;
-    final scale = math.min(
-      size.width * .68 / (hypotenuse * math.cos(radians)),
-      size.height * .54 / (hypotenuse * math.sin(radians)),
-    );
-    final start = Offset(startX, baseY);
-    final apex = Offset(
-      startX + hypotenuse * math.cos(radians) * scale,
-      baseY - hypotenuse * math.sin(radians) * scale,
-    );
-    final end = Offset(apex.dx, baseY);
-    final extrusion = is3D ? const Offset(24, -17) : Offset.zero;
-    if (is3D) {
-      final front = Path()
-        ..moveTo(start.dx, start.dy)
-        ..lineTo(end.dx, end.dy)
-        ..lineTo(apex.dx, apex.dy)
-        ..close();
-      final back = Path()
-        ..moveTo(start.dx + extrusion.dx, start.dy + extrusion.dy)
-        ..lineTo(end.dx + extrusion.dx, end.dy + extrusion.dy)
-        ..lineTo(apex.dx + extrusion.dx, apex.dy + extrusion.dy)
-        ..close();
-      final side = Path()
-        ..moveTo(start.dx, start.dy)
-        ..lineTo(end.dx, end.dy)
-        ..lineTo(end.dx + extrusion.dx, end.dy + extrusion.dy)
-        ..lineTo(start.dx + extrusion.dx, start.dy + extrusion.dy)
-        ..close();
-      canvas.drawPath(
-        side,
-        Paint()..color = const Color(0xFF36C9E8).withValues(alpha: .28),
-      );
-      canvas.drawPath(
-        back,
-        Paint()..color = const Color(0xFF286FA8).withValues(alpha: .22),
-      );
-      canvas.drawPath(
-        front,
-        Paint()..color = const Color(0xFF36C9E8).withValues(alpha: .22),
-      );
-    }
-    final blue = Paint()
-      ..color = const Color(0xFF4A86FF)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    final red = Paint()
-      ..color = const Color(0xFFFF594D)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    final green = Paint()
-      ..color = const Color(0xFF35C46A)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-    canvas.drawLine(start, apex, blue);
-    canvas.drawLine(apex, end, red);
-    canvas.drawLine(start, end, green);
-    if (is3D) {
-      canvas.drawLine(start, start + extrusion, blue..strokeWidth = 1.5);
-      canvas.drawLine(apex, apex + extrusion, blue..strokeWidth = 1.5);
-      canvas.drawLine(end, end + extrusion, blue..strokeWidth = 1.5);
-      canvas.drawLine(start + extrusion, apex + extrusion, blue);
-      canvas.drawLine(apex + extrusion, end + extrusion, red);
-      canvas.drawLine(start + extrusion, end + extrusion, green);
-    }
-    final adjacent = hypotenuse * math.cos(radians);
-    final opposite = hypotenuse * math.sin(radians);
-    _label(
-      canvas,
-      'Hypotenuse = ${hypotenuse.toStringAsFixed(1)}',
-      Offset(size.width * .07, size.height * .30),
-      const Color(0xFF4A86FF),
-    );
-    _label(
-      canvas,
-      'Opposite = ${opposite.toStringAsFixed(2)}',
-      Offset(size.width * .54, size.height * .34),
-      const Color(0xFFFF594D),
-    );
-    _label(
-      canvas,
-      'Adjacent = ${adjacent.toStringAsFixed(2)}',
-      Offset(size.width * .35, size.height * .83),
-      const Color(0xFF35C46A),
-    );
-    _label(
-      canvas,
-      'θ = ${angle.toStringAsFixed(0)}°',
-      Offset(start.dx + 12, baseY - 30),
-      const Color(0xFF78A5FF),
-    );
-    canvas.drawCircle(start, 4, Paint()..color = Colors.white);
-    canvas.drawCircle(end, 4, Paint()..color = Colors.white);
-    canvas.drawCircle(apex, 4, Paint()..color = const Color(0xFF4A86FF));
-  }
-
-  void _paintTriangleSolid(Canvas canvas, Size size) {
-    const xColor = Color(0xFFFF625A);
-    const yColor = Color(0xFF57D68D);
-    const zColor = Color(0xFF4A86FF);
-    const surfaceColor = Color(0xFF36C9E8);
-    final radians = angle * math.pi / 180;
-    final adjacent = hypotenuse * math.cos(radians);
-    final opposite = hypotenuse * math.sin(radians);
-    final triangleArea = adjacent * opposite / 2;
-    final depth = hypotenuse * .36;
-    final sceneScale = math.min(
-      size.width * .52 / (adjacent + depth),
-      size.height * .46 / (opposite + depth),
-    );
-    final cy = math.cos(rotationY), sy = math.sin(rotationY);
-    final cx = math.cos(rotationX), sx = math.sin(rotationX);
-    final originX = size.width * .45;
-    final originY = size.height * .64;
-
-    (double, double, double) rotate((double, double, double) p) {
-      final x = p.$1 * cy + p.$3 * sy;
-      final z1 = -p.$1 * sy + p.$3 * cy;
-      final y = p.$2 * cx - z1 * sx;
-      final z = p.$2 * sx + z1 * cx;
-      return (x, y, z);
-    }
-
-    Offset project((double, double, double) p) {
-      final q = rotate(p);
-      final perspective = 4.5 / (4.5 + q.$3 / hypotenuse);
-      return Offset(
-        originX + q.$1 * sceneScale * perspective,
-        originY - q.$2 * sceneScale * perspective,
-      );
-    }
-
-    const a = (0.0, 0.0, 0.0);
-    final b = (adjacent, 0.0, 0.0);
-    final c = (adjacent, opposite, 0.0);
-    final backA = (0.0, 0.0, depth);
-    final backB = (adjacent, 0.0, depth);
-    final backC = (adjacent, opposite, depth);
-    final faces = <(List<(double, double, double)>, Color, double)>[
-      ([a, b, c], surfaceColor, .86),
-      ([backA, backC, backB], const Color(0xFF286FA8), .32),
-      ([a, backA, backB, b], xColor, .3),
-      ([b, backB, backC, c], yColor, .4),
-      ([c, backC, backA, a], zColor, .25),
-    ];
-    faces.sort((left, right) {
-      double depthOf((List<(double, double, double)>, Color, double) face) =>
-          face.$1.map((p) => rotate(p).$3).reduce((x, y) => x + y) /
-          face.$1.length;
-      return depthOf(left).compareTo(depthOf(right));
-    });
-    for (final face in faces) {
-      final points = face.$1.map(project).toList(growable: false);
-      final path = Path()..moveTo(points.first.dx, points.first.dy);
-      for (final point in points.skip(1)) {
-        path.lineTo(point.dx, point.dy);
-      }
-      path.close();
-      canvas.drawPath(
-        path,
-        Paint()..color = face.$2.withValues(alpha: face.$3),
-      );
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = const Color(0xFFB8F4FF).withValues(alpha: .62)
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 1.1,
-      );
-    }
-
-    void edge(
-      (double, double, double) from,
-      (double, double, double) to,
-      Color color,
-    ) => canvas.drawLine(
-      project(from),
-      project(to),
-      Paint()
-        ..color = color
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke,
-    );
-    edge(a, b, yColor);
-    edge(b, c, xColor);
-    edge(c, a, zColor);
-    edge(backA, backB, yColor.withValues(alpha: .7));
-    edge(backB, backC, xColor.withValues(alpha: .7));
-    edge(backC, backA, zColor.withValues(alpha: .7));
-    edge(a, backA, zColor);
-    edge(b, backB, zColor);
-    edge(c, backC, zColor);
-
-    final hypotenuseLabel = project((adjacent * .5, opposite * .54, 0));
-    final adjacentLabel = project((adjacent * .5, 0, 0));
-    final oppositeLabel = project((adjacent, opposite * .5, 0));
-    _label(
-      canvas,
-      'Hypotenuse = ${hypotenuse.toStringAsFixed(1)}',
-      Offset(hypotenuseLabel.dx - 65, hypotenuseLabel.dy - 24),
-      zColor,
-    );
-    _label(
-      canvas,
-      'Adjacent = ${adjacent.toStringAsFixed(2)}',
-      Offset(adjacentLabel.dx - 25, adjacentLabel.dy + 8),
-      yColor,
-    );
-    _label(
-      canvas,
-      'Opposite = ${opposite.toStringAsFixed(2)}',
-      Offset(oppositeLabel.dx + 8, oppositeLabel.dy - 8),
-      xColor,
-    );
-    _metricBadge(
-      canvas,
-      'Shaded triangle | A = ½bh = ${triangleArea.toStringAsFixed(2)} units²',
-      const Offset(12, 12),
-      const Color(0xFFFFFFFF),
-      maxWidth: size.width - 24,
-    );
-    _label(
-      canvas,
-      'θ = ${angle.toStringAsFixed(0)}°',
-      project((.18 * adjacent, .05 * opposite, 0)) + const Offset(4, -18),
-      const Color(0xFFFFC66D),
-    );
-  }
-
-  void _paintAxes(Canvas canvas, Size size) {
-    final grid = Paint()
-      ..color = Colors.white.withValues(alpha: .09)
-      ..strokeWidth = 1;
-    for (var index = 1; index < 8; index++) {
-      final x = size.width * index / 8;
-      final y = size.height * index / 7;
-      canvas.drawLine(Offset(x, 20), Offset(x, size.height - 28), grid);
-      canvas.drawLine(Offset(24, y), Offset(size.width - 18, y), grid);
-    }
-    final axis = Paint()
-      ..color = Colors.white.withValues(alpha: .65)
-      ..strokeWidth = 1.4;
-    canvas.drawLine(
-      Offset(28, size.height * .72),
-      Offset(size.width - 18, size.height * .72),
-      axis,
-    );
-    canvas.drawLine(
-      Offset(size.width * .5, 16),
-      Offset(size.width * .5, size.height - 20),
-      axis,
-    );
-  }
-
-  void _paintGraph(Canvas canvas, Size size, {String? functionExpression}) {
-    _paintAxes(canvas, size);
-    final plottedExpression = functionExpression ?? _plotExpression;
-    Offset point(double x) {
-      var y = slope * x + intercept;
-      if (plottedExpression.trim().isNotEmpty &&
-          (mode == _CalculatorMode.graphing ||
-              mode == _CalculatorMode.calculus)) {
-        try {
-          y = const MathEngine().evaluateAt(plottedExpression, x);
-        } on Object {
-          y = double.nan;
-        }
-      }
-      return Offset(size.width * (.5 + x / 12), size.height * (.72 - y / 24));
-    }
-
-    final path = Path();
-    var connected = false;
-    for (var index = 0; index <= 80; index++) {
-      final x = -6 + index * 12 / 80;
-      final p = point(x);
-      if (!p.dy.isFinite) {
-        connected = false;
-      } else if (!connected) {
-        path.moveTo(p.dx, p.dy);
-        connected = true;
-      } else {
-        path.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(
-      path,
-      Paint()
-        ..color = const Color(0xFF4A86FF)
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke,
-    );
-    final selected = point(selectedX);
-    if (selected.dx.isFinite && selected.dy.isFinite) {
-      canvas.drawCircle(selected, 6, Paint()..color = const Color(0xFFFF594D));
-    }
-    _label(
-      canvas,
-      expression.trim().isEmpty
-          ? 'y = ${slope.toStringAsFixed(1)}x + ${intercept.toStringAsFixed(1)}'
-          : 'y = ${functionExpression ?? expression}',
-      const Offset(20, 16),
-      Colors.white,
-    );
-    _label(
-      canvas,
-      'x = ${selectedX.toStringAsFixed(1)}',
-      selected.dx.isFinite && selected.dy.isFinite
-          ? Offset(selected.dx + 8, selected.dy - 22)
-          : const Offset(20, 38),
-      const Color(0xFFFF8A7F),
-    );
-  }
-
-  void _paintDerivative(Canvas canvas, Size size) {
-    final source = expression.trim().isEmpty ? 'x^2' : expression;
-    _paintGraph(canvas, size, functionExpression: source);
-    try {
-      final derivative = const MathEngine().differentiate(source);
-      final slopeAtPoint = const MathEngine().evaluateAt(derivative, selectedX);
-      final yAtPoint = const MathEngine().evaluateAt(source, selectedX);
-      final point = Offset(
-        size.width * (.5 + selectedX / 12),
-        size.height * (.72 - yAtPoint / 24),
-      );
-      const leftX = -5.5;
-      const rightX = 5.5;
-      double tangentY(double x) => yAtPoint + slopeAtPoint * (x - selectedX);
-      canvas.drawLine(
-        Offset(
-          size.width * (.5 + leftX / 12),
-          size.height * (.72 - tangentY(leftX) / 24),
-        ),
-        Offset(
-          size.width * (.5 + rightX / 12),
-          size.height * (.72 - tangentY(rightX) / 24),
-        ),
-        Paint()
-          ..color = const Color(0xFFFF594D)
-          ..strokeWidth = 2.5,
-      );
-      canvas.drawCircle(point, 5, Paint()..color = const Color(0xFFFF594D));
-      _label(
-        canvas,
-        "f'(${selectedX.toStringAsFixed(1)}) = ${slopeAtPoint.toStringAsFixed(2)}",
-        Offset(point.dx + 8, point.dy - 18),
-        const Color(0xFFFF8A7F),
-      );
-    } on Object {
-      _label(
-        canvas,
-        'Enter a differentiable function',
-        const Offset(18, 18),
-        Colors.white,
-      );
-    }
-  }
-
-  void _paintIntegral(Canvas canvas, Size size) {
-    _paintAxes(canvas, size);
-    final integrand = expression.trim().isEmpty ? 'x^2' : expression;
-    double f(double x) {
-      try {
-        return const MathEngine().evaluateAt(integrand, x).clamp(-10, 10);
-      } on Object {
-        return 0;
-      }
-    }
-
-    Offset point(double x) =>
-        Offset(size.width * (.5 + x / 10), size.height * (.72 - f(x) / 28));
-    final fill = Path()..moveTo(point(lower).dx, size.height * .72);
-    for (var index = 0; index <= 60; index++) {
-      final x = lower + (upper - lower) * index / 60;
-      fill.lineTo(point(x).dx, point(x).dy);
-    }
-    fill.lineTo(point(upper).dx, size.height * .72);
-    fill.close();
-    canvas.drawPath(
-      fill,
-      Paint()
-        ..color = const Color(0xFF35C46A).withValues(alpha: .34)
-        ..style = PaintingStyle.fill,
-    );
-    final curve = Path();
-    for (var index = 0; index <= 80; index++) {
-      final x = -5 + index * 10 / 80;
-      final p = point(x);
-      if (index == 0) {
-        curve.moveTo(p.dx, p.dy);
-      } else {
-        curve.lineTo(p.dx, p.dy);
-      }
-    }
-    canvas.drawPath(
-      curve,
-      Paint()
-        ..color = const Color(0xFF4A86FF)
-        ..strokeWidth = 3
-        ..style = PaintingStyle.stroke,
-    );
-    _label(canvas, 'y = $integrand', const Offset(20, 16), Colors.white);
-    _label(
-      canvas,
-      'a = ${lower.toStringAsFixed(1)}',
-      Offset(point(lower).dx - 22, size.height * .76),
-      const Color(0xFF78A5FF),
-    );
-    _label(
-      canvas,
-      'b = ${upper.toStringAsFixed(1)}',
-      Offset(point(upper).dx - 22, size.height * .76),
-      const Color(0xFF78A5FF),
-    );
-  }
-
-  void _paintSurface(Canvas canvas, Size size) {
-    const cells = 18;
-    const min = -3.0;
-    const max = 3.0;
-    const engine = MathEngine();
-    final enteredExpression = _plotExpression.trim();
-    final source = _isExplicitZFunction
-        ? _explicitZFunction
-        : enteredExpression.isNotEmpty
-        ? enteredExpression
-        : mode == _CalculatorMode.calculus
-        ? 'x^2+y^2'
-        : '($slope)*x+($intercept)';
-    final values = List<double>.filled((cells + 1) * (cells + 1), 0);
-    int index(int x, int y) => y * (cells + 1) + x;
-    double coordinate(int step) => min + (max - min) * step / cells;
-    for (var y = 0; y <= cells; y++) {
-      for (var x = 0; x <= cells; x++) {
-        try {
-          final px = coordinate(x), py = coordinate(y);
-          values[index(x, y)] = engine.evaluateAtVariables(source, {
-            'x': px,
-            'y': py,
-          });
-        } on Object {
-          values[index(x, y)] = double.nan;
-        }
-      }
-    }
-    final cosX = math.cos(rotationX), sinX = math.sin(rotationX);
-    final cosY = math.cos(rotationY), sinY = math.sin(rotationY);
-    Offset project(double x, double y, double z) {
-      final rotatedX = x * cosY + z * sinY;
-      final rotatedZ = -x * sinY + z * cosY;
-      final rotatedY = y * cosX - rotatedZ * sinX;
-      final depth = y * sinX + rotatedZ * cosX;
-      final perspective = 4.2 / (4.2 + depth / 1.5);
-      final scale = math.min(size.width, size.height) * .13 * perspective;
-      return Offset(
-        size.width * .5 + rotatedX * scale,
-        size.height * .55 - rotatedY * scale,
-      );
-    }
-
-    double triangleArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
-      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
-      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
-      final cross = (
-        ab.$2 * ac.$3 - ab.$3 * ac.$2,
-        ab.$3 * ac.$1 - ab.$1 * ac.$3,
-        ab.$1 * ac.$2 - ab.$2 * ac.$1,
-      );
-      return math.sqrt(
-            cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3,
-          ) /
-          2;
-    }
-
-    var meshArea = 0.0;
-    var patchCount = 0;
-    for (var y = 0; y < cells; y++) {
-      for (var x = 0; x < cells; x++) {
-        final z = [
-          values[index(x, y)],
-          values[index(x + 1, y)],
-          values[index(x + 1, y + 1)],
-          values[index(x, y + 1)],
-        ];
-        if (z.any((value) => !value.isFinite)) continue;
-        final vertices = <_PlotPoint3>[
-          (coordinate(x), coordinate(y), z[0].clamp(-5, 5)),
-          (coordinate(x + 1), coordinate(y), z[1].clamp(-5, 5)),
-          (coordinate(x + 1), coordinate(y + 1), z[2].clamp(-5, 5)),
-          (coordinate(x), coordinate(y + 1), z[3].clamp(-5, 5)),
-        ];
-        final average = z.reduce((a, b) => a + b) / z.length;
-        final tint = ((average.clamp(-5, 5) + 5) / 10).toDouble();
-        final faceColor = Color.lerp(
-          const Color(0xFF7046C8),
-          const Color(0xFF42C7D5),
-          tint,
-        )!;
-        for (final face in [(0, 1, 2), (0, 2, 3)]) {
-          final a = vertices[face.$1],
-              b = vertices[face.$2],
-              c = vertices[face.$3];
-          final area = triangleArea(a, b, c);
-          meshArea += area;
-          patchCount++;
-          final p = [
-            project(a.$1, a.$2, a.$3),
-            project(b.$1, b.$2, b.$3),
-            project(c.$1, c.$2, c.$3),
-          ];
-          final triangle = Path()
-            ..moveTo(p[0].dx, p[0].dy)
-            ..lineTo(p[1].dx, p[1].dy)
-            ..lineTo(p[2].dx, p[2].dy)
-            ..close();
-          canvas.drawPath(
-            triangle,
-            Paint()..color = faceColor.withValues(alpha: .82),
-          );
-          canvas.drawPath(
-            triangle,
-            Paint()
-              ..color = const Color(0xFFE5F5FF).withValues(alpha: .58)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = .7,
-          );
-        }
-      }
-    }
-    final origin = project(0, 0, 0);
-    for (final (end, color, label) in <(_PlotPoint3, Color, String)>[
-      ((3.4, 0, 0), const Color(0xFFFF625A), 'x'),
-      ((0, 3.4, 0), const Color(0xFF57D68D), 'y'),
-      ((0, 0, 4), const Color(0xFF4A86FF), 'z'),
-    ]) {
-      final finish = project(end.$1, end.$2, end.$3);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
-    }
-    _label(canvas, 'z = $source', const Offset(14, 12), Colors.white);
-    _metricBadge(
-      canvas,
-      '$patchCount shaded faces | surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
-      Offset(12, size.height - 38),
-      const Color(0xFF9BE7FF),
-      maxWidth: size.width - 24,
-    );
-  }
-
-  void _label(Canvas canvas, String text, Offset offset, Color color) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: 210);
-    painter.paint(canvas, offset);
-  }
-
-  void _metricBadge(
-    Canvas canvas,
-    String text,
-    Offset offset,
-    Color color, {
-    required double maxWidth,
-  }) {
-    final painter = TextPainter(
-      text: TextSpan(
-        text: text,
-        style: TextStyle(
-          color: color,
-          fontSize: 10,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-      textDirection: TextDirection.ltr,
-      maxLines: 1,
-      ellipsis: '…',
-    )..layout(maxWidth: math.max(1, maxWidth - 16));
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        offset.dx,
-        offset.dy,
-        painter.width + 16,
-        painter.height + 10,
-      ),
-      const Radius.circular(9),
-    );
-    canvas.drawRRect(
-      rect,
-      Paint()..color = const Color(0xFF111827).withValues(alpha: .82),
-    );
-    canvas.drawRRect(
-      rect,
-      Paint()
-        ..color = color.withValues(alpha: .42)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1,
-    );
-    painter.paint(canvas, offset + const Offset(8, 5));
-  }
-
-  @override
-  bool shouldRepaint(covariant _MathVisualizationPainter oldDelegate) => true;
 }
 
 class LessonsPage extends StatelessWidget {
@@ -6012,20 +3211,14 @@ class _LessonsContentState extends State<_LessonsContent> {
         Row(
           children: [
             Expanded(
-              child: SizedBox(
-                height: 36,
-                child: TextField(
-                  controller: _search,
-                  onChanged: (value) => setState(() => _query = value.trim()),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search, size: 19),
-                    hintText: 'Search lessons',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                  ),
+              child: TextField(
+                controller: _search,
+                onChanged: (value) => setState(() => _query = value.trim()),
+                decoration: const InputDecoration(
+                  prefixIcon: Icon(Icons.search),
+                  hintText: 'Search lessons',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
               ),
             ),
@@ -6037,7 +3230,7 @@ class _LessonsContentState extends State<_LessonsContent> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 14),
         SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Row(
@@ -6057,29 +3250,26 @@ class _LessonsContentState extends State<_LessonsContent> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
         const Text(
           'Continue learning',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         _SectionCard(
           child: ListTile(
             contentPadding: EdgeInsets.zero,
-            dense: true,
-            visualDensity: VisualDensity.compact,
             leading: const CircleAvatar(
-              radius: 15,
-              backgroundColor: Color(0xFFFFE7EC),
-              child: Icon(Icons.functions_rounded, color: _accent, size: 16),
+              backgroundColor: Color(0xFFE8EFFF),
+              child: Icon(Icons.functions_rounded, color: _blue),
             ),
             title: const Text('Order of Operations'),
             subtitle: Text(
               widget.progress.completedLearningIds.contains(
                     _orderOfOperationsId,
                   )
-                  ? 'Completed - +20 XP earned'
-                  : 'Learn operation order - +5 XP to start, +20 XP to finish',
+                  ? 'Completed ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· +20 XP earned'
+                  : 'Learn operation order ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· +5 XP to start, +20 XP to finish',
             ),
             trailing: IconButton(
               tooltip: 'Open Order of Operations lesson',
@@ -6089,15 +3279,15 @@ class _LessonsContentState extends State<_LessonsContent> {
             onTap: _openOrderOfOperations,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 18),
         const Text(
           'Popular topics',
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 8),
         _SectionCard(
           child: Text(
-            'Topic popularity requires shared, privacy-safe learner activity. No shared usage counts are available yet${_query.isEmpty ? '' : ' matching "$_query"'}${_category == 'All' ? '' : ' in $_category'}.',
+            'Topic popularity requires shared, privacy-safe learner activity. No shared usage counts are available yet${_query.isEmpty ? '' : ' matching ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“$_queryÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â'}${_category == 'All' ? '' : ' in $_category'}.',
           ),
         ),
       ],
@@ -6161,10 +3351,10 @@ class _OrderOfOperationsLessonState extends State<_OrderOfOperationsLesson> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'Do multiplication before addition. In 6 + 2 * 5, solve 2 * 5 first, then add 6.',
+          'Do multiplication before addition. In 6 + 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5, solve 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5 first, then add 6.',
         ),
         const SizedBox(height: 14),
-        const Text('What is 6 + 2 * 5?'),
+        const Text('What is 6 + 2 ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â 5?'),
         const SizedBox(height: 8),
         TextField(
           key: const Key('lesson-answer-input'),
@@ -6232,10 +3422,38 @@ class _CommunityPageState extends State<CommunityPage> {
   }
 
   Future<void> _createPost() async {
+    final controller = TextEditingController();
     final content = await showDialog<String>(
       context: context,
-      builder: (_) => const _CreatePostDialog(),
+      builder: (context) => AlertDialog(
+        title: const Text('Create a post'),
+        content: TextField(
+          controller: controller,
+          autofocus: true,
+          minLines: 3,
+          maxLines: 7,
+          maxLength: 1000,
+          decoration: const InputDecoration(
+            hintText: 'Ask a math question or share what you learned?',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () {
+              final value = controller.text.trim();
+              if (value.isNotEmpty) Navigator.pop(context, value);
+            },
+            child: const Text('Post'),
+          ),
+        ],
+      ),
     );
+    controller.dispose();
     if (content == null || !mounted) return;
     final updated = [
       _CommunityPost(
@@ -6282,21 +3500,15 @@ class _CommunityPageState extends State<CommunityPage> {
         Row(
           children: [
             Expanded(
-              child: SizedBox(
-                height: 36,
-                child: TextField(
-                  controller: _search,
-                  onChanged: (_) => setState(() {}),
-                  decoration: InputDecoration(
-                    prefixIcon: const Icon(Icons.search, size: 19),
-                    hintText: 'Search posts or users',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(22),
-                    ),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 8),
-                    suffixText: _searchIn,
-                  ),
+              child: TextField(
+                controller: _search,
+                onChanged: (_) => setState(() {}),
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(Icons.search),
+                  hintText: 'Search posts or users',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixText: _searchIn,
                 ),
               ),
             ),
@@ -6306,14 +3518,18 @@ class _CommunityPageState extends State<CommunityPage> {
               onPressed: _chooseSearchFilter,
               icon: const Icon(Icons.tune_rounded),
             ),
-            IconButton.filled(
-              tooltip: 'Create post',
-              onPressed: _createPost,
-              icon: const Icon(Icons.add_comment_outlined),
-            ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 10),
+        Align(
+          alignment: Alignment.centerRight,
+          child: FilledButton.icon(
+            onPressed: _createPost,
+            icon: const Icon(Icons.edit_rounded),
+            label: const Text('Create post'),
+          ),
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             for (final tab in ['For you', 'Recent', 'Top'])
@@ -6329,13 +3545,13 @@ class _CommunityPageState extends State<CommunityPage> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
         if (_visiblePosts.isEmpty)
           _SectionCard(
             child: Text(
               _search.text.isEmpty
                   ? 'No posts yet. Start the conversation with a question or math idea.'
-                  : 'No posts found matching: ${_search.text}',
+                  : 'No posts found for ?${_search.text}?.',
             ),
           )
         else
@@ -6373,7 +3589,7 @@ class _CommunityPageState extends State<CommunityPage> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   SelectableText(post.content),
                 ],
               ),
@@ -6401,52 +3617,6 @@ class _CommunityPageState extends State<CommunityPage> {
     );
     if (result != null && mounted) setState(() => _searchIn = result);
   }
-}
-
-class _CreatePostDialog extends StatefulWidget {
-  const _CreatePostDialog();
-
-  @override
-  State<_CreatePostDialog> createState() => _CreatePostDialogState();
-}
-
-class _CreatePostDialogState extends State<_CreatePostDialog> {
-  final _controller = TextEditingController();
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => AlertDialog(
-    title: const Text('Create a post'),
-    content: TextField(
-      controller: _controller,
-      autofocus: true,
-      minLines: 3,
-      maxLines: 7,
-      maxLength: 1000,
-      decoration: const InputDecoration(
-        hintText: 'Ask a math question or share what you learned.',
-        border: OutlineInputBorder(),
-      ),
-    ),
-    actions: [
-      TextButton(
-        onPressed: () => Navigator.pop(context),
-        child: const Text('Cancel'),
-      ),
-      FilledButton(
-        onPressed: () {
-          final value = _controller.text.trim();
-          if (value.isNotEmpty) Navigator.pop(context, value);
-        },
-        child: const Text('Post'),
-      ),
-    ],
-  );
 }
 
 class _CommunityPost {
@@ -6633,9 +3803,9 @@ class SettingsPage extends StatelessWidget {
             const ListTile(
               contentPadding: EdgeInsets.zero,
               leading: Icon(Icons.info_outline),
-              title: Text('About Mathevo'),
+              title: Text('About MathVerse'),
               subtitle: Text(
-                'Version 1.0.0+1 | Offline mathematics foundation',
+                'Version 1.0.0+1 ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· Offline mathematics foundation',
               ),
             ),
             ListTile(
@@ -6750,9 +3920,9 @@ class _SettingsSection extends StatelessWidget {
     children: [
       Text(
         title,
-        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 13),
+        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 17),
       ),
-      const SizedBox(height: 6),
+      const SizedBox(height: 8),
       _SectionCard(child: Column(children: children)),
     ],
   );
@@ -6763,15 +3933,13 @@ class _PageFrame extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.child,
-    this.bottomPadding = 96,
-    this.fillAvailable = false,
+    this.bottomPadding = 110,
   });
   final String title;
   final String subtitle;
   final Widget child;
   final double bottomPadding;
-  final bool fillAvailable;
-
+  // THIS IS MY COMMENT LOL NVM THIS HAHAHAHAH
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
@@ -6780,84 +3948,37 @@ class _PageFrame extends StatelessWidget {
         alignment: Alignment.topCenter,
         child: SizedBox(
           width: width,
-          height: fillAvailable ? constraints.maxHeight : null,
-          child: fillAvailable
-              ? Padding(
-                  padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title.isNotEmpty || subtitle.isNotEmpty) ...[
-                        if (title.isNotEmpty)
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(22, 22, 22, bottomPadding),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (title.isNotEmpty || subtitle.isNotEmpty) ...[
+                  if (title.isNotEmpty)
+                    Text(
+                      title,
+                      style: Theme.of(context).textTheme.headlineSmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: Theme.of(context).colorScheme.onSurface,
                           ),
-                        if (subtitle.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: title.isNotEmpty ? 5 : 0,
-                            ),
-                            child: Text(
-                              subtitle,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                      ],
-                      Expanded(child: child),
-                    ],
-                  ),
-                )
-              : SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPadding),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (title.isNotEmpty || subtitle.isNotEmpty) ...[
-                        if (title.isNotEmpty)
-                          Text(
-                            title,
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                ),
-                          ),
-                        if (subtitle.isNotEmpty)
-                          Padding(
-                            padding: EdgeInsets.only(
-                              top: title.isNotEmpty ? 5 : 0,
-                            ),
-                            child: Text(
-                              subtitle,
-                              style: Theme.of(context).textTheme.bodyMedium
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
-                          ),
-                        const SizedBox(height: 16),
-                      ],
-                      child,
-                    ],
-                  ),
-                ),
+                    ),
+                  if (subtitle.isNotEmpty)
+                    Padding(
+                      padding: EdgeInsets.only(top: title.isNotEmpty ? 5 : 0),
+                      child: Text(
+                        subtitle,
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  const SizedBox(height: 24),
+                ],
+                child,
+              ],
+            ),
+          ),
         ),
       );
     },
@@ -6865,30 +3986,24 @@ class _PageFrame extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({
-    required this.child,
-    this.backgroundColor,
-    this.borderColor,
-    this.padding = 14,
-  });
+  const _SectionCard({required this.child});
   final Widget child;
-  final Color? backgroundColor;
-  final Color? borderColor;
-  final double padding;
 
   @override
   Widget build(BuildContext context) => Container(
     width: double.infinity,
-    padding: EdgeInsets.all(padding),
+    padding: const EdgeInsets.all(18),
     decoration: BoxDecoration(
-      color: backgroundColor ?? Theme.of(context).colorScheme.surface,
-      borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: borderColor ?? const Color(0xFFEFEAE6)),
+      color: Theme.of(context).colorScheme.surface,
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(
+        color: Theme.of(context).dividerColor.withValues(alpha: .35),
+      ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withValues(alpha: .018),
-          blurRadius: 10,
-          offset: const Offset(0, 3),
+          color: Colors.black.withValues(alpha: .025),
+          blurRadius: 14,
+          offset: const Offset(0, 4),
         ),
       ],
     ),
@@ -6918,9 +4033,8 @@ class _ContinuedCalculatorPageState extends State<_ContinuedCalculatorPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted)
         _calculatorKey.currentState?.continueWithHistory(widget.record);
-      }
     });
   }
 
@@ -6928,9 +4042,7 @@ class _ContinuedCalculatorPageState extends State<_ContinuedCalculatorPage> {
   Widget build(BuildContext context) => PopScope(
     canPop: true,
     onPopInvokedWithResult: (didPop, _) {
-      if (didPop) {
-        _calculatorKey.currentState?.finishSession();
-      }
+      if (didPop) _calculatorKey.currentState?.finishSession();
     },
     child: Scaffold(
       appBar: AppBar(title: const Text('Continue calculation')),
@@ -6997,111 +4109,6 @@ class _HistoryPage extends StatelessWidget {
   );
 }
 
-class _CalculationDetailPage extends StatelessWidget {
-  const _CalculationDetailPage({
-    required this.record,
-    required this.onContinue,
-  });
-  final CalculationRecord record;
-  final ValueChanged<CalculationRecord> onContinue;
-
-  @override
-  Widget build(BuildContext context) {
-    final steps = record.expression
-        .split('\n')
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
-    final localDate = record.createdAt.toLocal();
-    return Scaffold(
-      appBar: AppBar(title: const Text('Calculation details')),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-        children: [
-          Text(
-            'Calculation session',
-            style: Theme.of(
-              context,
-            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            '${localDate.year}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')} at ${TimeOfDay.fromDateTime(localDate).format(context)}',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 22),
-          Text(
-            'Calculation breakdown',
-            style: Theme.of(
-              context,
-            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: 10),
-          for (var index = 0; index < steps.length; index++)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: _SectionCard(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SizedBox(
-                      width: 32,
-                      child: Text(
-                        '${index + 1}.',
-                        style: Theme.of(context).textTheme.labelLarge,
-                      ),
-                    ),
-                    Expanded(
-                      child: SelectableText(
-                        steps[index],
-                        style: Theme.of(context).textTheme.bodyLarge,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          const SizedBox(height: 10),
-          _SectionCard(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'Final answer',
-                  style: Theme.of(context).textTheme.labelLarge,
-                ),
-                const SizedBox(height: 6),
-                SelectableText(
-                  record.result,
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(record.isExact ? 'Exact result' : 'Approximate result'),
-                if (record.calculationCount > 1)
-                  Text(
-                    '${record.calculationCount} calculations in this session',
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          FilledButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              onContinue(record);
-            },
-            icon: const Icon(Icons.play_arrow_rounded),
-            label: const Text('Continue working'),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _HistoryTile extends StatelessWidget {
   const _HistoryTile({required this.record, required this.onContinue});
   final CalculationRecord record;
@@ -7116,12 +4123,42 @@ class _HistoryTile extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(20),
-          onTap: () => Navigator.of(context).push<void>(
-            MaterialPageRoute<void>(
-              builder: (_) => _CalculationDetailPage(
-                record: record,
-                onContinue: onContinue,
+          onTap: () => showDialog<void>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: const Text('Calculation details'),
+              content: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SelectableText(record.expression),
+                    const SizedBox(height: 12),
+                    Text(
+                      'Final answer: ${record.result}',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                    if (record.calculationCount > 1)
+                      Text(
+                        '${record.calculationCount} calculations in this session',
+                      ),
+                  ],
+                ),
               ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Close'),
+                ),
+                FilledButton.icon(
+                  onPressed: () {
+                    Navigator.pop(dialogContext);
+                    onContinue(record);
+                  },
+                  icon: const Icon(Icons.play_arrow_rounded),
+                  label: const Text('Continue working'),
+                ),
+              ],
             ),
           ),
           child: _SectionCard(
@@ -7145,7 +4182,7 @@ class _HistoryTile extends StatelessWidget {
                       ),
                       Text(
                         record.calculationCount > 1
-                            ? '${record.calculationCount} calculations - tap to view breakdown'
+                            ? '${record.calculationCount} calculations ? tap to view breakdown'
                             : 'Tap to view calculation',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: Theme.of(context).colorScheme.onSurfaceVariant,

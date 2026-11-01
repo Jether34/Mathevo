@@ -12,3 +12,12 @@
 - Added a default plane for 3D graph mode when no expression has been entered.
 
 Surface area values for plotted equations are mesh approximations over the displayed domain. Increasing mesh resolution can improve precision at additional rendering cost.
+
+## 2026-11-01
+
+### Interactive triangle visualization
+
+- Reworked the right-triangle plot as a shaded 3D triangular prism with x, y, and z axes, distinct side colors, and a matching yellow angle marker.
+- Added orbit controls that support vertical and horizontal touch drags, zoom in/out buttons, and a reset view action.
+- Added side-by-side shaded face area cards with formulas and values for both triangular ends and each rectangular side, plus total prism surface area.
+- Wired the angle and hypotenuse sliders to update the plot, side lengths, face areas, total surface area, and the expression returned to the calculator.
