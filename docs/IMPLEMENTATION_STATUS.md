@@ -9,7 +9,7 @@ This document distinguishes working app flows from planned features. Test covera
 | App shell | Five compact floating navigation destinations, with active-page color and transparent space around the navigation island. |
 | Onboarding and accounts | Welcome, onboarding, signup, login, and logout flows. Cloud signup and login use the separate backend service. The calculator and local app data remain available without an account. |
 | Dashboard | Daily challenge, local streak and XP, feature shortcuts, and ten newest activities. History opens the saved calculation list. |
-| Calculator | Basic and scientific expression evaluation, geometry calculations, trigonometric calculations, graph plotting and function evaluation, selected algebra equation solving, selected differentiation and integration, and number-system conversions and operations. Keys and available operations change by calculator mode. |
+| Calculator | Basic and scientific expression evaluation; common geometry calculations; circular and selected hyperbolic trigonometric functions; graph plotting; selected algebra equations; selected differentiation and integration; base conversion with a base-aware on-screen digit keypad; and selected discrete-math commands. Scientific functions include cube root, arbitrary and base-10 logarithms, hyperbolic functions, and floor/ceiling. Keys and available operations change by calculator mode. |
 | Calculator workflow | Live expression evaluation, explicit equals action for committing a result, continuation after a result, calculation sessions, local history, calculation detail, and a continue action. |
 | Visualization | Selected geometry and trigonometry visualizations, with interactive parameters for supported views. Graphing supports the implemented function and plot types only. |
 | Lessons | Search, category navigation, a starter lesson, local progress, and XP awards for supported lesson actions. |
@@ -36,15 +36,16 @@ Calculation results are limited to the operations implemented by the app's math 
 ## Verification record
 
 - `flutter analyze --no-pub`: passed with no issues.
-- `flutter test --reporter expanded`: 23 unit and widget tests passed.
-- `flutter test integration_test/calculator_e2e_test.dart -d emulator-5554`: passed for the included onboarding, in-memory signup, representative calculator modes, and drawing-route smoke check.
-- Emulator was cleared of stale app form/session state, rebuilt from this workspace, and left on the welcome screen. No cloud account was created during this verification.
+- `flutter test test/discrete_math_test.dart`: passed for selected operations, edge cases, and invalid inputs.
+- `flutter test integration_test/discrete_math_e2e_test.dart -d emulator-5554`: passed on Android emulator for keypad entry and results for GCD, modular exponentiation, finite set union, tautology, and truth table.
+- Cold launch via Android launcher: reached the Mathevo Welcome screen after rebuilding and installing the current debug build with Flutter. A prior stale installed build remained on its native splash screen; the rebuilt debug install cold-launched successfully.
+- The Android integration test uses local in-memory auth and seeded app preferences. It does not validate live cloud signup, handwriting recognition, every discrete-math operation through the UI, or all mathematical edge cases.
 
 The integration test uses an in-memory authentication service. It does not test the live VPS backend, recognition accuracy, or all operation combinations.
 
 ## Next work in order
 
-1. Expand the math engine into separate tested modules for exact arithmetic, algebra, geometry, trigonometry, graphing, calculus, number systems, linear algebra, probability, and statistics. Define domain rules, precision, and unsupported cases for each operation.
+1. Expand the math engine into separate tested modules for the requested domains, starting with exact arithmetic, algebra, geometry, trigonometry, graphing, calculus, number systems, linear algebra, probability, and statistics. Define domain rules, precision, and unsupported cases for each operation. Use [`MATH_IMPLEMENTATION_CHECKLIST.md`](MATH_IMPLEMENTATION_CHECKLIST.md) to track coverage; no broad field should be marked complete based on a few commands.
 2. Add broad property-based and reference-based numerical tests, edge cases, and independent checks for calculations and transformations.
 3. Improve the math editor with structured fractions, exponents, matrices, LaTeX input, keyboard navigation, validation, and editing at arbitrary expression positions.
 4. Complete responsive and accessibility review across screen sizes, orientations, text scaling, themes, and assistive technologies.

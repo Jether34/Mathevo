@@ -753,14 +753,14 @@ class _DashboardHeader extends StatelessWidget {
               children: [
                 Image.asset(
                   'assets/brand/mathevo-logo.png',
-                  width: 20,
-                  height: 20,
+                  width: 28,
+                  height: 28,
                   fit: BoxFit.contain,
                 ),
-                const SizedBox(width: 5),
+                const SizedBox(width: 7),
                 const Text(
                   'Mathevo',
-                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
                 ),
               ],
             ),
@@ -777,21 +777,21 @@ class _DashboardHeader extends StatelessWidget {
       ),
       IconButton(
         style: _headerActionStyle,
-        iconSize: 17,
+        iconSize: 23,
         onPressed: onHistory,
         tooltip: 'History',
         icon: const Icon(Icons.history_rounded),
       ),
       IconButton(
         style: _headerActionStyle,
-        iconSize: 17,
+        iconSize: 23,
         onPressed: onNotifications,
         tooltip: 'Notifications',
         icon: const Icon(Icons.notifications_none_rounded),
       ),
       IconButton(
         style: _headerActionStyle,
-        iconSize: 17,
+        iconSize: 23,
         onPressed: onLeaderboards,
         tooltip: 'Leaderboards',
         icon: const Icon(Icons.leaderboard_outlined),
@@ -802,11 +802,9 @@ class _DashboardHeader extends StatelessWidget {
 
 final _headerActionStyle = IconButton.styleFrom(
   foregroundColor: const Color(0xFF625B58),
-  backgroundColor: Colors.white,
-  minimumSize: const Size(32, 32),
-  maximumSize: const Size(32, 32),
+  minimumSize: const Size(44, 44),
+  maximumSize: const Size(44, 44),
   padding: EdgeInsets.zero,
-  side: const BorderSide(color: Color(0xFFF0EAE6)),
   shape: const CircleBorder(),
 );
 
@@ -1277,7 +1275,7 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
           children: [
             Expanded(
               child: SizedBox(
-                height: 36,
+                height: 44,
                 child: TextField(
                   controller: _answer,
                   enabled: !_completed,
@@ -1285,7 +1283,10 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
                   decoration: const InputDecoration(
                     isDense: true,
                     hintText: 'Answer...',
-                    contentPadding: EdgeInsets.symmetric(horizontal: 12),
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 12,
+                    ),
                     border: OutlineInputBorder(),
                   ),
                   onSubmitted: (_) => _check(),
@@ -1294,12 +1295,14 @@ class _DailyChallengeCardState extends State<_DailyChallengeCard> {
             ),
             const SizedBox(width: 8),
             SizedBox(
-              height: 36,
+              height: 44,
+              width: 78,
               child: FilledButton(
                 onPressed: _completed || _busy ? null : _check,
                 style: FilledButton.styleFrom(
                   padding: const EdgeInsets.symmetric(horizontal: 14),
-                  minimumSize: const Size(0, 36),
+                  minimumSize: const Size(78, 44),
+                  maximumSize: const Size(78, 44),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
                 child: Text(
@@ -1461,6 +1464,7 @@ enum _CalculatorMode {
   algebra,
   calculus,
   numberSystem,
+  discreteMath,
   drawing,
 }
 
@@ -1500,6 +1504,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _sourceEditorVisible = false;
   bool _errorDialogOpen = false;
   bool _conversionOnly = true;
+  bool _numberBSelected = false;
   bool _recognizingDrawing = false;
   bool _answerShown = false;
   bool _showVisualization = false;
@@ -1706,6 +1711,30 @@ class _CalculatorPageState extends State<CalculatorPage> {
       return;
     }
     try {
+      if (_mode == _CalculatorMode.graphing) {
+        final graphLabel = _graphEquationLabel(_input.text);
+        if (graphLabel != null) {
+          setState(() {
+            _result = graphLabel;
+            _error = null;
+            _resultIsExact = false;
+            _answerShown = false;
+          });
+          return;
+        }
+      }
+      if (_mode == _CalculatorMode.discreteMath) {
+        final discrete = _engine.calculateDiscrete(_input.text);
+        if (discrete != null) {
+          setState(() {
+            _result = discrete;
+            _resultIsExact = false;
+            _error = null;
+            _answerShown = false;
+          });
+          return;
+        }
+      }
       final result = _mode == _CalculatorMode.graphing
           ? MathResult(
               input: _input.text,
@@ -1763,6 +1792,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   MathResult _calculateExpression(String source) =>
       _engine.calculate(_angleAdjustedExpression(source));
+
+  String? _graphEquationLabel(String source) {
+    final match = RegExp(
+      r'^\s*([yz])\s*=\s*(.+)$',
+      dotAll: true,
+    ).firstMatch(source);
+    if (match == null) return null;
+    return '${match.group(1)} = ${match.group(2)}';
+  }
 
   void _evaluate() {
     FocusScope.of(context).unfocus();
@@ -1832,6 +1870,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return;
       }
       if (_mode == _CalculatorMode.graphing) {
+        final graphLabel = _graphEquationLabel(expression);
+        if (graphLabel != null) {
+          setState(() {
+            _result = graphLabel;
+            _error = null;
+            _resultIsExact = false;
+            _answerShown = true;
+          });
+          _appendSessionEntry(expression, graphLabel, exact: false);
+          return;
+        }
         final value = _engine.evaluateAt(expression, _graphX);
         final answer =
             'f(${_graphX.toStringAsFixed(2)}) = ${formatApproximateValue(value)}';
@@ -1846,6 +1895,19 @@ class _CalculatorPageState extends State<CalculatorPage> {
           answer,
           exact: false,
         );
+        return;
+      }
+      if (_mode == _CalculatorMode.discreteMath) {
+        final answer =
+            _engine.calculateDiscrete(expression) ??
+            _calculateExpression(expression).displayValue;
+        setState(() {
+          _result = answer;
+          _error = null;
+          _resultIsExact = false;
+          _answerShown = true;
+        });
+        _appendSessionEntry(expression, answer, exact: false);
         return;
       }
       final calculation = _calculateExpression(expression);
@@ -2275,6 +2337,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _result = null;
         _answerShown = false;
       });
+    } else if (key == 'PERCENT') {
+      _insert('/100');
     } else if (_fractionBuilder && key == 'C') {
       (_fractionDenominatorSelected ? _denominator : _numerator).clear();
       setState(() {});
@@ -2380,6 +2444,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               _CalculatorMode.algebra => 'Algebra',
                               _CalculatorMode.calculus => 'Integral calculus',
                               _CalculatorMode.numberSystem => 'Number systems',
+                              _CalculatorMode.discreteMath => 'Discrete math',
                               _CalculatorMode.drawing => 'Draw',
                             }),
                             selected: _mode == mode,
@@ -2410,6 +2475,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
               if (_mode != _CalculatorMode.numberSystem &&
+                  _mode != _CalculatorMode.discreteMath &&
                   _mode != _CalculatorMode.drawing)
                 IconButton.filledTonal(
                   tooltip: 'Flip to visualization',
@@ -2616,6 +2682,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
       try {
+        final equation = RegExp(
+          r'^\s*([yz])\s*=\s*(.+)$',
+          dotAll: true,
+        ).firstMatch(_input.text);
+        if (equation != null) {
+          return _engine.evaluateAtVariables(equation.group(2)!, {
+            'x': _graphX,
+            'y': 0,
+          });
+        }
         return _engine.evaluateAt(_input.text, _graphX);
       } on Object {
         return double.nan;
@@ -2649,7 +2725,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       };
     }
     if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
-      return 'f(x) = ${_input.text}';
+      return _graphEquationLabel(_input.text) ?? 'f(x) = ${_input.text}';
     }
     return 'f(${_graphX.toStringAsFixed(1)}) = ${_graphSlope.toStringAsFixed(1)} * ${_graphX.toStringAsFixed(1)} + ${_graphIntercept.toStringAsFixed(1)}';
   }
@@ -2720,8 +2796,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   .toDouble();
         }
       }
-    } else if (_mode == _CalculatorMode.algebra ||
-        _mode == _CalculatorMode.graphing) {
+    } else if (_mode == _CalculatorMode.graphing) {
+      _visualIs3D =
+          _input.text.trimLeft().startsWith('z=') ||
+          (_input.text.contains('x') && _input.text.contains('y'));
+      final linear = RegExp(
+        r'^y=([-+]?(?:\d+(?:\.\d*)?|\.\d+))\*?x(?:([-+](?:\d+(?:\.\d*)?|\.\d+)))?$',
+      ).firstMatch(expression);
+      if (linear != null) {
+        _graphSlope = double.tryParse(linear.group(1)!) ?? _graphSlope;
+        _graphIntercept = double.tryParse(linear.group(2) ?? '0') ?? 0;
+      }
+    } else if (_mode == _CalculatorMode.algebra) {
       final linear = RegExp(
         r'^y=([-+]?(?:\d+(?:\.\d*)?|\.\d+))\*?x(?:([-+](?:\d+(?:\.\d*)?|\.\d+)))?$',
       ).firstMatch(expression);
@@ -2732,10 +2818,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.calculus &&
         _calculusOperation == 'Definite integral') {
-      _integralLower =
-          double.tryParse(_integralLowerInput.text) ?? _integralLower;
-      _integralUpper =
-          double.tryParse(_integralUpperInput.text) ?? _integralUpper;
+      final parsedLower = double.tryParse(_integralLowerInput.text);
+      final parsedUpper = double.tryParse(_integralUpperInput.text);
+      _integralLower = parsedLower != null && parsedLower.isFinite
+          ? parsedLower
+          : 0;
+      _integralUpper = parsedUpper != null && parsedUpper.isFinite
+          ? parsedUpper
+          : 2;
       if (_integralLower > _integralUpper) {
         final swap = _integralLower;
         _integralLower = _integralUpper;
@@ -2819,6 +2909,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final isGeometry = _mode == _CalculatorMode.geometry;
     final isTriangle = _mode == _CalculatorMode.trigonometry;
     final colors = Theme.of(context).colorScheme;
+    final lower = _integralLower.isFinite ? _integralLower : 0.0;
+    final upper = _integralUpper.isFinite ? _integralUpper : 2.0;
+    final integralStart = math.min(lower, upper);
+    final integralEnd = math.max(lower, upper);
+    final integralRangeMin = math.min(-4.0, integralStart);
+    final integralRangeMax = math.max(4.0, integralEnd);
     return _PageFrame(
       title: 'Visualization',
       subtitle: _visualizationTitle,
@@ -3131,16 +3227,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ] else if (_mode == _CalculatorMode.calculus &&
               _calculusOperation == 'Definite integral') ...[
             Text(
-              'Integration interval  [${_integralLower.toStringAsFixed(1)}, ${_integralUpper.toStringAsFixed(1)}]',
+              'Integration interval  [${integralStart.toStringAsFixed(1)}, ${integralEnd.toStringAsFixed(1)}]',
             ),
             RangeSlider(
-              values: RangeValues(_integralLower, _integralUpper),
-              min: -4,
-              max: 4,
+              values: RangeValues(integralStart, integralEnd),
+              min: integralRangeMin,
+              max: integralRangeMax,
               divisions: 80,
               labels: RangeLabels(
-                _integralLower.toStringAsFixed(1),
-                _integralUpper.toStringAsFixed(1),
+                integralStart.toStringAsFixed(1),
+                integralEnd.toStringAsFixed(1),
               ),
               onChanged: (range) => setState(() {
                 _integralLower = range.start;
@@ -3852,6 +3948,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _CalculatorMode.algebra => [
         ('x', 'x'),
         ('y', 'y'),
+        ('\u03C0', 'pi'),
+        ('e', 'e'),
         ('=', '='),
         (';', ';'),
         ('^', '^'),
@@ -3862,6 +3960,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ],
       _CalculatorMode.calculus => [
         ('x', 'x'),
+        ('\u03C0', 'pi'),
+        ('e', 'e'),
         ('^', '^'),
         ('d/dx', 'CALC_DERIVATIVE'),
         ('\u222B', 'CALC_INTEGRAL'),
@@ -3878,24 +3978,107 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ],
       _CalculatorMode.graphing => [
         ('x', 'x'),
+        ('y', 'y'),
+        ('z', 'z'),
+        ('=', '='),
+        ('\u03C0', 'pi'),
+        ('e', 'e'),
         ('^', '^'),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
+        ('sinh', 'sinh('),
+        ('cosh', 'cosh('),
+        ('tanh', 'tanh('),
+        ('asinh', 'asinh('),
+        ('acosh', 'acosh('),
+        ('atanh', 'atanh('),
         ('sqrt', 'sqrt('),
+        ('\u221B', 'cbrt('),
+        ('log\u2081\u2080', 'log10('),
+        ('floor', 'floor('),
+        ('ceil', 'ceil('),
+        ('abs', 'abs('),
+        ('log', 'log('),
+        ('root', 'nrt('),
+        (',', ','),
+        ('%', 'PERCENT'),
         ('(', '('),
         (')', ')'),
         ('C', 'C'),
         ('DEL', 'DEL'),
       ],
+      _CalculatorMode.discreteMath => [
+        ('gcd(', 'gcd('),
+        ('lcm(', 'lcm('),
+        ('prime?', 'isPrime('),
+        ('factors(', 'factors('),
+        ('mod(', 'mod('),
+        ('modPow(', 'modPow('),
+        ('modInverse(', 'modInverse('),
+        ('nCr(', 'nCr('),
+        ('nPr(', 'nPr('),
+        ('ratio(', 'ratio('),
+        ('percent(', 'percent('),
+        ('\u222A', 'union('),
+        ('\u2229', 'intersection('),
+        ('\u2216', 'difference('),
+        ('\u25B3', 'symmetricDifference('),
+        ('truthTable(', 'truthTable('),
+        ('tautology(', 'tautology('),
+        ('satisfiable(', 'satisfiable('),
+        ('contradiction(', 'contradiction('),
+        (',', ','),
+        ('{', '{'),
+        ('}', '}'),
+        ('!', '!'),
+        ('\u2227', '&&'),
+        ('\u2228', '||'),
+        ('\u2295', '^'),
+        ('\u2192', '->'),
+        ('\u2194', '<->'),
+        ('A', 'A'),
+        ('B', 'B'),
+        ('C', 'C'),
+        ('D', 'D'),
+        ('E', 'E'),
+        ('F', 'F'),
+        ('G', 'G'),
+        ('H', 'H'),
+        ('(', '('),
+        (')', ')'),
+        ('DEL', 'DEL'),
+        ('Clear', 'C'),
+      ],
       _CalculatorMode.geometry || _CalculatorMode.trigonometry => [
+        ('\u03C0', 'pi'),
+        ('e', 'e'),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
+        ('asin', 'arcsin('),
+        ('acos', 'arccos('),
+        ('atan', 'arctan('),
+        ('sinh', 'sinh('),
+        ('cosh', 'cosh('),
+        ('tanh', 'tanh('),
+        ('asinh', 'asinh('),
+        ('acosh', 'acosh('),
+        ('atanh', 'atanh('),
         ('sec', 'sec('),
         ('csc', 'csc('),
         ('cot', 'cot('),
-        ('×', '*'),
+        ('sqrt', 'sqrt('),
+        ('\u221B', 'cbrt('),
+        ('log\u2081\u2080', 'log10('),
+        ('ln', 'ln('),
+        ('floor', 'floor('),
+        ('ceil', 'ceil('),
+        ('log', 'log('),
+        ('root', 'nrt('),
+        (',', ','),
+        ('%', 'PERCENT'),
+        ('\u00D7', '*'),
         ('a/b', 'a/b'),
         ('(', '('),
         (')', ')'),
@@ -3903,9 +4086,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('DEL', 'DEL'),
       ],
       _CalculatorMode.scientific => [
+        ('\u03C0', 'pi'),
+        ('e', 'e'),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
+        ('sinh', 'sinh('),
+        ('cosh', 'cosh('),
+        ('tanh', 'tanh('),
+        ('asinh', 'asinh('),
+        ('acosh', 'acosh('),
+        ('atanh', 'atanh('),
         ('sec', 'sec('),
         ('csc', 'csc('),
         ('cot', 'cot('),
@@ -3913,13 +4104,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('acos', 'arccos('),
         ('atan', 'arctan('),
         ('sqrt', 'sqrt('),
-        ('log', 'log('),
+        ('\u221B', 'cbrt('),
+        ('log\u2081\u2080', 'log10('),
         ('ln', 'ln('),
+        ('floor', 'floor('),
+        ('ceil', 'ceil('),
+        ('log', 'log('),
+        ('root', 'nrt('),
+        (',', ','),
+        ('%', 'PERCENT'),
         ('x^y', '^'),
         ('e^x', 'e^('),
         ('!', '!'),
-        ('pi', '3.141592653589793'),
-        ('e', '2.718281828459045'),
         ('abs', 'abs('),
         ('(', '('),
         (')', ')'),
@@ -3928,10 +4124,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('DEL', 'DEL'),
       ],
       _ => [
+        ('π', 'pi'),
+        ('e', 'e'),
         ('(', '('),
         (')', ')'),
         ('^', '^'),
-        ('%', '%'),
+        ('%', 'PERCENT'),
         ('a/b', 'a/b'),
         ('C', 'C'),
         ('DEL', 'DEL'),
@@ -3969,12 +4167,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
   Widget _functionKeyVisual(String label, String key) {
     if (key == 'DEL') return const Icon(Icons.backspace_outlined, size: 17);
     final tex = switch (key) {
+      'pi' => r'\pi',
       'sqrt(' => r'\sqrt{\square}',
       'cbrt(' => r'\sqrt[3]{\square}',
       'a/b' => r'\frac{\square}{\square}',
+      '^' when _mode == _CalculatorMode.discreteMath => r'\oplus',
       '^' => r'\square^{\square}',
       'e^(' => r'e^x',
-      '3.141592653589793' => r'\pi',
+      'pi' || '3.141592653589793' => r'\pi',
       'abs(' => r'|x|',
       'sin(' => r'\sin(\square)',
       'cos(' => r'\cos(\square)',
@@ -3986,12 +4186,30 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'arccos(' => r'\arccos(\square)',
       'arctan(' => r'\arctan(\square)',
       'ln(' => r'\ln(\square)',
-      'log(' => r'\log(\square)',
+      'log10(' => r'\log_{10}(\square)',
+      'log(' => r'\log_{\square}(\square)',
+      'nrt(' => r'\sqrt[\square]{\square}',
+      'union(' => r'\cup',
+      'intersection(' => r'\cap',
+      'difference(' => r'\setminus',
+      'symmetricDifference(' => r'\triangle',
+      'sinh(' => r'\sinh(\square)',
+      'cosh(' => r'\cosh(\square)',
+      'tanh(' => r'\tanh(\square)',
+      'asinh(' => r'\operatorname{asinh}(\square)',
+      'acosh(' => r'\operatorname{acosh}(\square)',
+      'atanh(' => r'\operatorname{atanh}(\square)',
+      'floor(' => r'\lfloor\square\rfloor',
+      'ceil(' => r'\lceil\square\rceil',
       '*' => r'\times',
       '/' => r'\div',
       'CALC_DERIVATIVE' => r'\frac{d}{dx}',
       'CALC_INTEGRAL' => r'\int \square\,dx',
       'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
+      '&&' => r'\land',
+      '||' => r'\lor',
+      '->' => r'\to',
+      '<->' => r'\leftrightarrow',
       _ => null,
     };
     if (tex == null) return Text(label);
@@ -4124,6 +4342,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _buildNumberSystemCalculator(BuildContext context) {
     const bases = [2, 8, 10, 16];
+    final inputDigitKeys = List.generate(
+      _sourceBase,
+      (digit) => digit.toRadixString(16).toUpperCase(),
+    );
     Widget picker(String label, int value, ValueChanged<int?> onChanged) =>
         Expanded(
           child: InputDecorator(
@@ -4187,6 +4409,42 @@ class _CalculatorPageState extends State<CalculatorPage> {
               }),
             ],
           ),
+          if (!_answerShown) ...[
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final digit in inputDigitKeys)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: SizedBox(
+                        width: 40,
+                        height: 38,
+                        child: _calculatorKey(
+                          context,
+                          digit,
+                          () => _insertNumberSystemKey(digit),
+                        ),
+                      ),
+                    ),
+                  for (final key in const ['\u00B1', 'DEL', 'C'])
+                    Padding(
+                      padding: const EdgeInsets.only(right: 4),
+                      child: SizedBox(
+                        width: 44,
+                        height: 38,
+                        child: _calculatorKey(
+                          context,
+                          key,
+                          () => _insertNumberSystemKey(key),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ],
           if (_answerShown) ...[
             const SizedBox(height: 14),
             Container(
@@ -4231,6 +4489,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             const SizedBox(height: 10),
             TextField(
               controller: _numberA,
+              onTap: () => setState(() => _numberBSelected = false),
               onChanged: (_) => _calculateNumberSystem(),
               keyboardType: TextInputType.text,
               style: Theme.of(context).textTheme.titleMedium,
@@ -4282,6 +4541,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               const SizedBox(height: 8),
               TextField(
                 controller: _numberB,
+                onTap: () => setState(() => _numberBSelected = true),
                 onChanged: (_) => _calculateNumberSystem(),
                 keyboardType: TextInputType.text,
                 style: Theme.of(context).textTheme.titleMedium,
@@ -4305,6 +4565,42 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ],
       ),
     );
+  }
+
+  void _insertNumberSystemKey(String key) {
+    final controller = !_conversionOnly && _numberBSelected
+        ? _numberB
+        : _numberA;
+    if (key == 'C') {
+      controller.clear();
+    } else if (key == 'DEL') {
+      final text = controller.text;
+      final selection = controller.selection;
+      final start = selection.isValid ? selection.start : text.length;
+      final end = selection.isValid ? selection.end : text.length;
+      final from = start == end && start > 0 ? start - 1 : start;
+      controller.value = TextEditingValue(
+        text: text.replaceRange(from, end, ''),
+        selection: TextSelection.collapsed(offset: from),
+      );
+    } else if (key == '\u00B1') {
+      final text = controller.text;
+      controller.text = text.startsWith('-') ? text.substring(1) : '-$text';
+      controller.selection = TextSelection.collapsed(
+        offset: controller.text.length,
+      );
+    } else {
+      final selection = controller.selection;
+      final start = selection.isValid
+          ? selection.start
+          : controller.text.length;
+      final end = selection.isValid ? selection.end : controller.text.length;
+      controller.value = TextEditingValue(
+        text: controller.text.replaceRange(start, end, key),
+        selection: TextSelection.collapsed(offset: start + key.length),
+      );
+    }
+    _calculateNumberSystem();
   }
 
   Widget _numberSystemEditActions(TextEditingController controller) => SizedBox(
@@ -4348,8 +4644,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _basicKeyVisual(String label) {
     final tex = switch (label) {
-      '×' => r'\times',
-      '÷' => r'\div',
+      '\u00D7' => r'\times',
+      '\u00F7' => r'\div',
       '−' => '-',
       _ => null,
     };

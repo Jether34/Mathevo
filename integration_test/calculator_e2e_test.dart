@@ -204,6 +204,24 @@ void main() {
     await _pressEquals(tester);
     expect(_answer(tester), contains('1000'));
 
+    // Discrete mathematics: verify a visible command key and solve several
+    // number-theory, set-theory, and propositional-logic problems in the app.
+    await _selectMode(tester, 'Discrete math');
+    expect(find.byKey(const ValueKey('function-key-gcd(')), findsOneWidget);
+    expect(find.byKey(const ValueKey('function-key-truthTable(')), findsOneWidget);
+    await _enterExpression(tester, 'gcd(84,30)');
+    await _pressEquals(tester);
+    expect(_answer(tester), '6');
+    await _enterExpression(tester, 'modPow(2,10,1000)');
+    await _pressEquals(tester);
+    expect(_answer(tester), '24');
+    await _enterExpression(tester, 'union({1,2},{2,3})');
+    await _pressEquals(tester);
+    expect(_answer(tester), '{1, 2, 3}');
+    await _enterExpression(tester, 'tautology(A || !A)');
+    await _pressEquals(tester);
+    expect(_answer(tester), 'true');
+
     // Every graph-capable domain opens both visualization modes. Dragging
     // the 3D view exercises its orbit interaction before returning input.
     for (final mode in [
