@@ -54,13 +54,20 @@ The Android emulator has the current debug build installed. A dashboard session 
 
 ## Project map
 
-- `lib/`: Flutter app, authentication flow, math engine, and local data.
+- `lib/main.dart`: app startup, authentication/session wiring, and shared library imports.
+- `lib/ui/app_pages.dart`: calculator, dashboard, lessons, community, settings, and related page widgets.
+- `lib/math_engine.dart`: expression evaluation and symbolic/numeric math operations.
+- `lib/visualization/plot_formula.dart`: plot-expression classification and central-difference recognition.
+- `lib/visualization/math_visualization_painter.dart`: visualization dispatch and existing geometry/surface renderers.
+- `lib/visualization/plot_2d_renderer.dart` and `lib/visualization/plot_3d_renderer.dart`: dimension-specific finite-difference/scalar plot rendering.
 - `test/`: unit and widget tests.
-- `integration_test/`: Android app-flow and calculator tests.
+- `integration_test/`: Android app-flow, calculator, and visualization tests.
 - `backend/`: isolated account API, database schema, and deployment files.
 - `docs/IMPLEMENTATION_STATUS.md`: implemented scope, known limitations, and ordered next work.
 - `docs/MATH_IMPLEMENTATION_CHECKLIST.md`: requested mathematics domains and their current implementation status.
 - `Animated/`: app animation assets.
+
+For the central-difference expression `((3+0.01)^2-(3-0.01)^2)/(2*0.01)`, the plot recognizes the underlying `f(x)=x²`, marks the samples around `x=3`, and reports a derivative of 6. The 3D view renders the curve and secant in the coordinate frame. It does not present a curve as a shaded surface or report a surface area.
 
 ## License
 
