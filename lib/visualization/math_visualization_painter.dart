@@ -190,7 +190,7 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     _label(
       canvas,
-      'Shaded side: F(x,y) â‰¤ 0',
+      'Shaded side: F(x,y) ≤ 0',
       Offset(14, size.height - 22),
       const Color(0xFFFFC66D),
     );
@@ -400,7 +400,7 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     _metricBadge(
       canvas,
-      'Î£ face area â‰ˆ ${totalSurfaceArea.toStringAsFixed(2)} unitsÂ²',
+      'Σ face area ≈ ${totalSurfaceArea.toStringAsFixed(2)} units²',
       Offset(14, size.height - 56),
       const Color(0xFF9BE7FF),
       maxWidth: size.width - 28,
@@ -1056,7 +1056,7 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     _label(
       canvas,
-      'Î¸ = ${angle.toStringAsFixed(0)}Â°',
+      'θ = ${angle.toStringAsFixed(0)}°',
       Offset(start.dx + 12, baseY - 30),
       const Color(0xFF78A5FF),
     );
@@ -1228,14 +1228,14 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     _metricBadge(
       canvas,
-      'Shaded triangle | A = Â½bh = ${triangleArea.toStringAsFixed(2)} unitsÂ²',
+      'Shaded triangle | A = ½bh = ${triangleArea.toStringAsFixed(2)} units²',
       const Offset(12, 12),
       const Color(0xFFFFFFFF),
       maxWidth: size.width - 24,
     );
     _label(
       canvas,
-      'Î¸ = ${angle.toStringAsFixed(0)}Â°',
+      'θ = ${angle.toStringAsFixed(0)}°',
       project((.18 * adjacent, .05 * opposite, 0)) + const Offset(4, -18),
       const Color(0xFFFFC66D),
     );
@@ -1563,7 +1563,7 @@ class _MathVisualizationPainter extends CustomPainter {
     _label(canvas, 'z = $source', const Offset(14, 12), Colors.white);
     _metricBadge(
       canvas,
-      '$patchCount shaded faces | surface area â‰ˆ ${meshArea.toStringAsFixed(2)} unitsÂ²',
+      '$patchCount shaded faces | surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
       Offset(12, size.height - 38),
       const Color(0xFF9BE7FF),
       maxWidth: size.width - 24,
@@ -1582,7 +1582,7 @@ class _MathVisualizationPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
-      ellipsis: 'â€¦',
+      ellipsis: '…',
     )..layout(maxWidth: 210);
     final bounds = canvas.getLocalClipBounds();
     final safeOffset = Offset(
@@ -1616,7 +1616,7 @@ class _MathVisualizationPainter extends CustomPainter {
       ),
       textDirection: TextDirection.ltr,
       maxLines: 1,
-      ellipsis: 'â€¦',
+      ellipsis: '…',
     )..layout(maxWidth: math.max(1, maxWidth - 16));
     final rect = RRect.fromRectAndRadius(
       Rect.fromLTWH(

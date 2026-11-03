@@ -117,7 +117,7 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
 
     _label(
       canvas,
-      'f(x) = x?',
+      'f(x) = x²',
       Offset(plot.left + 4, plot.top + 4),
       Colors.white,
     );
@@ -129,14 +129,14 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
     );
     _metricBadge(
       canvas,
-      'Central difference at x = ${_short(formula.center)}, h = ${_short(formula.step)}  |  f? ? ${_short(formula.approximateDerivative)}',
+      'Central difference at x = ${_short(formula.center)}, h = ${_short(formula.step)}  |  f′(x) ≈ ${_short(formula.approximateDerivative)}',
       const Offset(12, 10),
       const Color(0xFF9BE7FF),
       maxWidth: size.width - 24,
     );
     _label(
       canvas,
-      'secant through x ? h and x + h',
+      'secant through x − h and x + h',
       Offset(plot.left + 6, plot.bottom - 18),
       const Color(0xFF6EF0C2),
     );

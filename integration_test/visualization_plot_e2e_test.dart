@@ -58,6 +58,15 @@ void main() {
     await tester.tap(find.byKey(const Key('visualization-plot-toggle')));
     await tester.pumpAndSettle();
 
+    final plotFrame = find.byKey(const Key('visualization-plot-frame'));
+    final navigation = find.byKey(const Key('floating-navigation-capsule'));
+    expect(tester.getSize(plotFrame).height, lessThanOrEqualTo(260));
+    expect(
+      tester.getRect(plotFrame).bottom,
+      lessThan(tester.getRect(navigation).top),
+      reason: 'The plot must remain above the floating navigation island.',
+    );
+
     final chartSemantics = tester.widget<Semantics>(
       find.byKey(const Key('visualization-chart-semantics')),
     );
@@ -86,6 +95,8 @@ void main() {
         .widget<Text>(find.byKey(const Key('visualization-orientation')))
         .data;
     expect(after, isNot(before));
+    expect(after, contains('°'));
+    expect(after, isNot(contains('Â')));
   });
 }
 

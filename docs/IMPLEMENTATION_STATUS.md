@@ -33,6 +33,14 @@ Calculation results are limited to the operations implemented by the app's math 
 - Settings do not yet provide complete account recovery, biometrics, notification delivery controls, broad localization, or all accessibility and math-input preferences.
 - Android emulator use was verified. iOS device builds and releases require verification on a supported macOS host.
 
+## Immediate action priorities
+
+1. **Protect calculation data and validate cloud identity.** The current mobile UI uses local calculation history and progress, while the backend integration test path uses an in-memory auth service. Verify signup, login, verification, password reset, and session expiry against the deployed service, then add account-scoped sync, export, and deletion before users rely on cross-device recovery.
+2. **Fix the visualization viewport on-device.** The prior phone capture showed the plot consuming too much vertical space and competing with the floating navigation. This patch caps plot height on small screens, repairs visible Unicode labels, and adds a regression assertion for plot/navigation overlap. Run the visualization integration test on a connected Android device before release.
+3. **Keep math support explicitly scoped.** This is a selected-operation calculator, not a general-purpose symbolic solver. The large requested domain list remains substantially unimplemented. Add domains incrementally with explicit supported syntax, numerical precision rules, reference cases, and unsupported-input behavior.
+4. **Connect social features only with server state.** Community content, messaging, and global rankings are not connected. Local XP and streaks are editable device data and must not be presented as verified global achievements.
+5. **Validate recognition and accessibility.** Handwriting recognition, broad localization, accessibility preferences, and iOS behavior remain unverified and need real-device coverage.
+
 ## Verification record
 
 - `flutter analyze --no-pub`: passed with no issues.
@@ -40,6 +48,7 @@ Calculation results are limited to the operations implemented by the app's math 
 - `flutter test integration_test/discrete_math_e2e_test.dart -d emulator-5554`: passed on Android emulator for keypad entry and results for GCD, modular exponentiation, finite set union, tautology, and truth table.
 - Cold launch via Android launcher: reached the Mathevo Welcome screen after rebuilding and installing the current debug build with Flutter. A prior stale installed build remained on its native splash screen; the rebuilt debug install cold-launched successfully.
 - The Android integration test uses local in-memory auth and seeded app preferences. It does not validate live cloud signup, handwriting recognition, every discrete-math operation through the UI, or all mathematical edge cases.
+- The visualization regression now asserts a bounded plot viewport above the floating navigation and checks degree-symbol rendering after 3D rotation. An Android device was not connected during this patch session, so this new device assertion has not yet been run here.
 
 The integration test uses an in-memory authentication service. It does not test the live VPS backend, recognition accuracy, or all operation combinations.
 

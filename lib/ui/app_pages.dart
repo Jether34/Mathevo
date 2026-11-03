@@ -653,7 +653,7 @@ class _RecentActivity extends StatelessWidget {
                           const SizedBox(height: 2),
                           Text(
                             item.detail.length > 52
-                                ? '${item.detail.substring(0, 52)}â€¦'
+                                ? '${item.detail.substring(0, 52)}…'
                                 : item.detail,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
@@ -1318,7 +1318,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         .replaceAll('<=', r'\leq ')
         .replaceAll('>=', r'\geq ')
         .replaceAll('!=', r'\neq ')
-        .replaceAll('â‰ˆ', r'\approx ');
+        .replaceAll('≈', r'\approx ');
   }
 
   String get _expressionTex {
@@ -2167,7 +2167,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 children: [
                   if (_mode == _CalculatorMode.algebra) ...[
                     const Text(
-                      'Solve linear/quadratic equations in x, or enter a 2Ã—2 system separated by ;.',
+                      'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
                     ),
                     const SizedBox(height: 5),
                   ],
@@ -2440,7 +2440,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             .toDouble();
       } else {
         final angle = RegExp(
-          r'(?:theta|angle|Î¸|(?:sin|cos|tan)\()=?(-?\d+(?:\.\d+)?)',
+          r'(?:theta|angle|θ|(?:sin|cos|tan)\()=?(-?\d+(?:\.\d+)?)',
         ).firstMatch(expression);
         if (angle != null) {
           final rawAngle = double.tryParse(angle.group(1)!) ?? _visualAngle;
@@ -2634,7 +2634,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ),
           const SizedBox(height: 10),
           Container(
-            height: 310,
+            key: const Key('visualization-plot-frame'),
+            height: (MediaQuery.sizeOf(context).height * .27)
+                .clamp(190.0, 260.0)
+                .toDouble(),
             decoration: BoxDecoration(
               color: const Color(0xFF1E2230),
               borderRadius: BorderRadius.circular(18),
@@ -2763,7 +2766,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               children: [
                 Expanded(
                   child: Text(
-                    'Drag horizontally and vertically to orbit | yaw ${(_visualRotationY * 180 / math.pi).round()}Â° | pitch ${(_visualRotationX * 180 / math.pi).round()}Â°',
+                    'Drag horizontally and vertically to orbit | yaw ${(_visualRotationY * 180 / math.pi).round()}° | pitch ${(_visualRotationX * 180 / math.pi).round()}°',
                     key: const Key('visualization-orientation'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -2836,12 +2839,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
           if (isTriangle) ...[
             _visualSlider(
               context,
-              label: 'Angle Î¸',
+              label: 'Angle θ',
               value: _visualAngle,
               min: 5,
               max: 85,
               divisions: 80,
-              display: '${_visualAngle.toStringAsFixed(0)}Â°',
+              display: '${_visualAngle.toStringAsFixed(0)}°',
               onChanged: (value) => setState(() => _visualAngle = value),
             ),
             _visualSlider(
@@ -3790,7 +3793,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('DEL', 'DEL'),
       ],
       _ => [
-        ('Ï€', 'pi'),
+        ('π', 'pi'),
         ('e', 'e'),
         ('(', '('),
         (')', ')'),
@@ -3939,8 +3942,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 for (final (label, value) in const [
                   ('+', '+'),
                   ('-', '-'),
-                  ('Ã—', '*'),
-                  ('Ã·', '/'),
+                  ('×', '*'),
+                  ('÷', '/'),
                 ]) ...[
                   SizedBox(
                     height: keyHeight,
@@ -4312,7 +4315,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final tex = switch (label) {
       '\u00D7' => r'\times',
       '\u00F7' => r'\div',
-      'âˆ’' => '-',
+      '−' => '-',
       _ => null,
     };
     if (tex == null) return Text(label);
@@ -5700,7 +5703,7 @@ class _FaceAreaCard extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          '${area.area.toStringAsFixed(2)} unitsÂ²',
+          '${area.area.toStringAsFixed(2)} units²',
           style: Theme.of(
             context,
           ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),

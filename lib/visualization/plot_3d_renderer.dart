@@ -138,7 +138,7 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
     canvas.drawCircle(centerPoint, 5.5, Paint()..color = curveColor);
     _metricBadge(
       canvas,
-      'z = x?  |  secant slope ? ${_short(formula.approximateDerivative)} at x = ${_short(formula.center)}',
+      'z = x²  |  secant slope ≈ ${_short(formula.approximateDerivative)} at x = ${_short(formula.center)}',
       const Offset(12, 10),
       const Color(0xFF9BE7FF),
       maxWidth: size.width - 24,

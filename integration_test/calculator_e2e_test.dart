@@ -21,11 +21,11 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('GET STARTED'));
+    await tester.tap(find.text('Get Started'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CONTINUE'));
+    await tester.tap(find.text('Continue'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('CREATE YOUR ACCOUNT'));
+    await tester.tap(find.text('Create your account'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextFormField).at(0), 'Emulator Tester');
     await tester.enterText(
@@ -34,13 +34,13 @@ void main() {
     );
     await tester.enterText(find.byType(TextFormField).at(2), 'e2e-pass-123');
     await tester.tap(find.byKey(const Key('policy-checkbox')));
-    await tester.tap(find.text('CREATE ACCOUNT'));
+    await tester.tap(find.text('Create account').first);
     await _pumpUntil(tester, find.text('Verify your email'));
     await tester.enterText(
       find.byKey(const Key('verification-digit-0')),
       '123456',
     );
-    await tester.tap(find.text('VERIFY EMAIL'));
+    await tester.tap(find.text('Verify email'));
     await _pumpUntil(tester, find.byKey(const Key('nav-calculator')));
 
     await tester.tap(find.byKey(const Key('nav-calculator')));
@@ -208,7 +208,10 @@ void main() {
     // number-theory, set-theory, and propositional-logic problems in the app.
     await _selectMode(tester, 'Discrete math');
     expect(find.byKey(const ValueKey('function-key-gcd(')), findsOneWidget);
-    expect(find.byKey(const ValueKey('function-key-truthTable(')), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('function-key-truthTable(')),
+      findsOneWidget,
+    );
     await _enterExpression(tester, 'gcd(84,30)');
     await _pressEquals(tester);
     expect(_answer(tester), '6');
