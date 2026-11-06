@@ -16,7 +16,12 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(320, 720));
     await tester.pumpWidget(_testApp());
     await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
+    final compactViewportError = tester.takeException();
+    expect(
+      compactViewportError,
+      isNull,
+      reason: compactViewportError?.toString(),
+    );
 
     await tester.binding.setSurfaceSize(const Size(1200, 900));
     await tester.pumpWidget(_testApp());

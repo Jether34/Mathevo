@@ -407,9 +407,13 @@ class _DashboardHeader extends StatelessWidget {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(width: 7),
-                const Text(
-                  'Mathevo',
-                  style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                const Flexible(
+                  child: Text(
+                    'Mathevo',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 21, fontWeight: FontWeight.w800),
+                  ),
                 ),
               ],
             ),
@@ -476,7 +480,7 @@ class _DashboardGrid extends StatelessWidget {
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 8,
       crossAxisSpacing: 8,
-      childAspectRatio: constraints.maxWidth < 350 ? 1.35 : 1.65,
+      childAspectRatio: constraints.maxWidth < 350 ? 1.15 : 1.65,
       children: [
         _WorkspaceTile(
           title: 'Calculator',

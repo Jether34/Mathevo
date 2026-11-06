@@ -20,13 +20,13 @@ void main() {
         tokenStore: MemoryAuthTokenStore(),
       ),
     );
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.tap(find.text('Get Started'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.tap(find.text('Create your account'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.enterText(find.byType(TextFormField).at(0), 'Alex Carter');
     await tester.enterText(
       find.byType(TextFormField).at(1),
@@ -57,23 +57,23 @@ void main() {
     await tester.pumpWidget(
       MathevoApp(authApi: authApi, tokenStore: tokenStore),
     );
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Get Started'), findsOneWidget);
     expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
 
     await tester.tap(find.text('Get Started'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Welcome to Mathevo'), findsOneWidget);
     expect(find.text('Solve with purpose'), findsOneWidget);
     expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.textContaining('What you'), findsOneWidget);
     expect(find.text('Calculate and visualize'), findsOneWidget);
     expect(find.text('Review your work'), findsOneWidget);
     expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
     await tester.tap(find.text('Create your account'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Create your account'), findsOneWidget);
     expect(tester.getRect(find.byType(FilledButton)).bottom, greaterThan(820));
 
@@ -84,17 +84,17 @@ void main() {
     );
     await tester.enterText(find.byType(TextFormField).at(2), 'mathpass123');
     await tester.tap(find.text('Privacy Policy'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.textContaining('one-way hash'), findsOneWidget);
-    await tester.tap(find.text('Close'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('Got it'));
+    await _pumpForUi(tester);
     await tester.tap(find.text('Terms of Use'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.textContaining('personal learning'), findsOneWidget);
-    await tester.tap(find.text('Close'));
-    await tester.pumpAndSettle();
+    await tester.tap(find.text('Got it'));
+    await _pumpForUi(tester);
     await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.byKey(const Key('policy-required-error')), findsOneWidget);
     await tester.tap(find.byKey(const Key('policy-checkbox')));
     await tester.tap(find.text('Create account'));
@@ -113,38 +113,38 @@ void main() {
     expect(prefs.getString('mathverse.auth.passwordHash'), isNull);
 
     await tester.tap(find.byKey(const Key('nav-settings')));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.tap(find.text('Log out'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Welcome to Mathevo'), findsOneWidget);
     expect(await tokenStore.readRefreshToken(), isNull);
 
     await tester.tap(find.text('Continue'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     await tester.tap(find.text('Log in'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Welcome back'), findsOneWidget);
     await tester.enterText(
       find.byType(TextFormField).at(0),
       'alex@example.com',
     );
     await tester.tap(find.text('Forgot password?'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Reset password'), findsOneWidget);
     await tester.tap(find.text('Send reset code'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Verify reset code'), findsOneWidget);
     await tester.enterText(
       find.byKey(const Key('verification-digit-0')),
       '654321',
     );
     await tester.tap(find.text('Verify code'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Choose a new password'), findsOneWidget);
     await tester.enterText(find.byType(TextFormField).at(0), 'mathpass456');
     await tester.enterText(find.byType(TextFormField).at(1), 'mathpass456');
     await tester.tap(find.text('Update password'));
-    await tester.pumpAndSettle();
+    await _pumpForUi(tester);
     expect(find.text('Welcome back'), findsOneWidget);
     await tester.enterText(
       find.byType(TextFormField).at(0),
@@ -161,6 +161,12 @@ void main() {
 
     await tester.binding.setSurfaceSize(null);
   });
+}
+
+Future<void> _pumpForUi(WidgetTester tester) async {
+  for (var frame = 0; frame < 8; frame++) {
+    await tester.pump(const Duration(milliseconds: 100));
+  }
 }
 
 Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
