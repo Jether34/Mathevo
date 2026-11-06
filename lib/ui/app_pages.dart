@@ -1124,6 +1124,24 @@ enum _CalculatorMode {
   drawing,
 }
 
+enum _DrawingResultMode { automatic, suggest, off }
+
+enum _DrawingTool { pen, highlighter, eraser }
+
+class _InkStroke {
+  const _InkStroke({
+    required this.points,
+    required this.color,
+    required this.width,
+    this.isEraser = false,
+  });
+
+  final List<Offset> points;
+  final Color color;
+  final double width;
+  final bool isEraser;
+}
+
 class CalculatorPage extends StatefulWidget {
   const CalculatorPage({
     super.key,
@@ -1151,6 +1169,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _geometrySecond = TextEditingController();
   final _integralLowerInput = TextEditingController(text: '0');
   final _integralUpperInput = TextEditingController(text: '2');
+  final _drawingExpressionInput = TextEditingController();
   final _drawingBoundaryKey = GlobalKey();
   final _engine = const MathEngine();
   final _dataMathEngine = const StatisticsProbabilityEngine();
@@ -1163,6 +1182,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _conversionOnly = true;
   bool _numberBSelected = false;
   bool _recognizingDrawing = false;
+  bool _drawingSolveSuggested = false;
   bool _answerShown = false;
   bool _showVisualization = false;
   bool _showVisualizationDetails = false;
@@ -1186,8 +1206,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
   String _numberOperator = '+';
   String _geometryOperation = 'Circle area';
   bool _geometryUsesSecond = false;
-  final List<List<Offset>> _drawingStrokes = [];
+  final List<_InkStroke> _drawingStrokes = [];
+  final List<_InkStroke> _redoDrawingStrokes = [];
   List<Offset> _activeStroke = [];
+  _DrawingTool _drawingTool = _DrawingTool.pen;
+  _DrawingResultMode _drawingResultMode = _DrawingResultMode.automatic;
+  Color _drawingInk = const Color(0xFF17233D);
+  double _drawingInkWidth = 3.2;
+  double _drawingPressure = 1;
+  final Map<String, double> _drawingVariables = {};
   String? _recognizedExpression;
   String? _drawingStatus;
   String? _result;
@@ -1214,6 +1241,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _geometrySecond.dispose();
     _integralLowerInput.dispose();
     _integralUpperInput.dispose();
+    _drawingExpressionInput.dispose();
     final recognizer = _recognizer;
     if (recognizer != null) unawaited(recognizer.close());
     super.dispose();
@@ -1908,9 +1936,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
       .replaceAll(RegExp(r'\s+'), ' ')
       .trim();
 
-  void _exitDrawingMode() {
+  void _exitDrawingMode({_CalculatorMode destination = _CalculatorMode.basic}) {
     setState(() {
-      _mode = _CalculatorMode.basic;
+      _mode = destination;
       _answerShown = false;
     });
     widget.onFullscreenChanged(false);
@@ -2026,50 +2054,167 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final recognized = await recognizer.processImage(
         InputImage.fromFilePath(file.path),
       );
-      final expression = recognized.text
-          .replaceAll(
-            RegExp(r'\b(times|multiply by)\b', caseSensitive: false),
-            '*',
-          )
-          .replaceAll(
-            RegExp(r'\b(divided by|over)\b', caseSensitive: false),
-            '/',
-          )
-          .replaceAll(RegExp(r'\b(plus)\b', caseSensitive: false), '+')
-          .replaceAll(RegExp(r'\b(minus)\b', caseSensitive: false), '-')
-          .replaceAll(String.fromCharCode(0x00D7), '*')
-          .replaceAll('x', '*')
-          .replaceAll('X', '*')
-          .replaceAll(String.fromCharCode(0x00F7), '/')
-          .replaceAll(String.fromCharCode(0x2212), '-')
-          .replaceAll(String.fromCharCode(0x2013), '-')
-          .replaceAll(String.fromCharCode(0x03C0), '3.141592653589793')
-          .replaceAll(RegExp(r'(?<=\d)[oO](?=\d|\b)'), '0')
-          .replaceAll(RegExp(r'(?<=\d)[Il|](?=\d|\b)'), '1')
-          .replaceAll(
-            RegExp(r'\bpi\b', caseSensitive: false),
-            '3.141592653589793',
-          )
-          .replaceAll(RegExp(r'\s+'), '')
-          .replaceAll(RegExp(r'[^0-9.+\-*/^()]'), '');
+      final expression = _normalizeHandwrittenMath(recognized.text);
       if (expression.isEmpty) {
         const message = 'No expression recognized. Write larger and clearer.';
         setState(() {
           _recognizedExpression = null;
+          _drawingExpressionInput.clear();
           _result = null;
-          _drawingStatus = 'Could not read the handwriting.';
+          _drawingSolveSuggested = false;
+          _drawingStatus = message;
         });
-        _showCalculationError(message);
         return;
       }
-      final result = _engine.calculate(expression);
+      setState(() {
+        _recognizedExpression = expression;
+        _drawingExpressionInput.text = expression;
+        _result = null;
+        _answerShown = false;
+        _error = null;
+        _drawingSolveSuggested = false;
+        _drawingStatus =
+            'Review the expression, then solve or continue editing.';
+      });
+      if (_drawingResultMode == _DrawingResultMode.automatic) {
+        _solveRecognizedDrawing();
+      } else if (_drawingResultMode == _DrawingResultMode.suggest) {
+        setState(() {
+          _drawingSolveSuggested = true;
+          _drawingStatus = 'Expression recognized. Tap Solve to calculate it.';
+        });
+      } else {
+        setState(
+          () => _drawingStatus = 'Expression recognized. Results are off.',
+        );
+      }
+    } on MathInputException catch (error) {
+      final message = 'Recognized text could not be solved: ${error.message}';
+      setState(() {
+        _recognizedExpression = null;
+        _drawingExpressionInput.clear();
+        _result = null;
+        _drawingSolveSuggested = false;
+        _drawingStatus = message;
+      });
+    } on Object {
+      const message = 'Could not read the drawing. Write larger and clearer.';
+      setState(() {
+        _recognizedExpression = null;
+        _drawingStatus = message;
+        _drawingSolveSuggested = false;
+      });
+    } finally {
+      if (tempDirectory != null) await tempDirectory.delete(recursive: true);
+      if (mounted) setState(() => _recognizingDrawing = false);
+    }
+  }
+
+  String _normalizeHandwrittenMath(String handwriting) {
+    final stacked = _verticalStackExpression(handwriting);
+    if (stacked != null) return stacked;
+    return handwriting
+        .replaceAll(
+          RegExp(r'\b(times|multiply by)\b', caseSensitive: false),
+          '*',
+        )
+        .replaceAll(RegExp(r'\b(divided by|over)\b', caseSensitive: false), '/')
+        .replaceAll(RegExp(r'\bplus\b', caseSensitive: false), '+')
+        .replaceAll(RegExp(r'\bminus\b', caseSensitive: false), '-')
+        .replaceAll(String.fromCharCode(0x00D7), '*')
+        .replaceAll(String.fromCharCode(0x00F7), '/')
+        .replaceAll(String.fromCharCode(0x2212), '-')
+        .replaceAll(String.fromCharCode(0x2013), '-')
+        .replaceAll(String.fromCharCode(0x03C0), 'pi')
+        .replaceAllMapped(RegExp(r'(?<=\d)\s*[xX]\s*(?=[\d.(])'), (_) => '*')
+        .replaceAll(RegExp(r'(?<=\d)[oO](?=\d|\b)'), '0')
+        .replaceAll(RegExp(r'(?<=\d)[Il|](?=\d|\b)'), '1')
+        .replaceAll(RegExp(r'\s+'), '')
+        .replaceAll(RegExp(r'[^0-9a-zA-Z.+\-*/^()=]'), '');
+  }
+
+  String? _verticalStackExpression(String handwriting) {
+    final normalizedHandwriting = handwriting
+        .replaceAll(String.fromCharCode(0x2014), '-')
+        .replaceAll(String.fromCharCode(0x00D7), '*')
+        .replaceAll(String.fromCharCode(0x00F7), '/');
+    final lines = normalizedHandwriting
+        .split(RegExp(r'[\r\n]+'))
+        .map((line) => line.trim().replaceAll(',', '.'))
+        .where((line) => line.isNotEmpty)
+        .toList();
+    if (lines.length < 2) return null;
+    final numberRows = <(String, String)>[];
+    for (final line in lines) {
+      if (RegExp(r'^[-_=|.]{2,}$').hasMatch(line)) continue;
+      final match = RegExp(
+        r'^([+\-*/xX]?)\s*(\d+(?:\.\d+)?)$',
+      ).firstMatch(line);
+      if (match == null) return null;
+      var operator = match.group(1)!;
+      if (operator.toLowerCase() == 'x') operator = '*';
+      numberRows.add((operator, match.group(2)!));
+    }
+    if (numberRows.length < 2) return null;
+    final expression = StringBuffer(numberRows.first.$2);
+    for (final row in numberRows.skip(1)) {
+      expression.write(row.$1.isEmpty ? '+' : row.$1);
+      expression.write(row.$2);
+    }
+    return expression.toString();
+  }
+
+  void _solveRecognizedDrawing() {
+    final source = _drawingExpressionInput.text.trim();
+    if (source.isEmpty) return;
+    final symbols = RegExp(
+      r'[a-zA-Z]+',
+    ).allMatches(source).map((match) => match.group(0)!).toSet();
+    final assignment = RegExp(r'^([a-zA-Z])\s*=\s*(.+)$').firstMatch(source);
+    try {
+      if (symbols.contains('y') &&
+          symbols.contains('x') &&
+          RegExp(r'^\s*y\s*=', caseSensitive: false).hasMatch(source)) {
+        setState(() {
+          _recognizedExpression = source;
+          _drawingStatus = 'Equation ready. Continue in Graphing to plot it.';
+          _drawingSolveSuggested = false;
+        });
+        return;
+      }
+      if (assignment != null) {
+        final name = assignment.group(1)!;
+        final value = _engine.evaluateAtVariables(
+          assignment.group(2)!,
+          _drawingVariables,
+        );
+        _drawingVariables[name] = value;
+        final formatted = _formatDrawingNumber(value);
+        setState(() {
+          _recognizedExpression = '$name = ${assignment.group(2)}';
+          _result = '$name = $formatted';
+          _drawingSolveSuggested = false;
+          _drawingStatus = 'Saved $name for this drawing session.';
+        });
+        _appendSessionEntry(
+          'Handwritten: $source',
+          '$name = $formatted',
+          exact: false,
+        );
+        return;
+      }
+      final expression = source.replaceFirst(RegExp(r'=+$'), '');
+      final result = symbols.isEmpty
+          ? _engine.calculate(expression)
+          : _mathResultFromVariables(expression);
       setState(() {
         _recognizedExpression = expression;
         _result = result.displayValue;
         _resultIsExact = result.kind == MathResultKind.exact;
         _answerShown = true;
         _error = null;
-        _drawingStatus = 'Solved automatically';
+        _drawingSolveSuggested = false;
+        _drawingStatus = 'Solved. Check the transcription before continuing.';
       });
       _appendSessionEntry(
         'Handwritten: ${_prettyExpression(expression)}',
@@ -2077,32 +2222,46 @@ class _CalculatorPageState extends State<CalculatorPage> {
         exact: result.kind == MathResultKind.exact,
       );
     } on MathInputException catch (error) {
-      final message = 'Recognized text could not be solved: ${error.message}';
       setState(() {
-        _recognizedExpression = null;
         _result = null;
-        _drawingStatus = 'Expression read, but unsupported.';
+        _drawingSolveSuggested = false;
+        _drawingStatus = symbols.any(_drawingVariables.containsKey)
+            ? 'Could not solve this expression: ${error.message}'
+            : 'Unknown variable or unclear symbol. Edit the expression before solving.';
       });
-      _showCalculationError(message);
     } on Object {
-      const message = 'Could not read the drawing. Write larger and clearer.';
       setState(() {
-        _drawingStatus = 'Recognition failed.';
+        _result = null;
+        _drawingSolveSuggested = false;
+        _drawingStatus =
+            'Could not solve this expression. Edit the transcription and try again.';
       });
-      _showCalculationError(message);
-    } finally {
-      if (tempDirectory != null) await tempDirectory.delete(recursive: true);
-      if (mounted) setState(() => _recognizingDrawing = false);
     }
   }
+
+  MathResult _mathResultFromVariables(String expression) {
+    final value = _engine.evaluateAtVariables(expression, _drawingVariables);
+    return MathResult(
+      input: expression,
+      value: value,
+      kind: MathResultKind.approximate,
+      significantDigits: 12,
+    );
+  }
+
+  String _formatDrawingNumber(double value) =>
+      formatApproximateValue(value, 10);
 
   void _clearDrawing() {
     _drawingDebounce?.cancel();
     setState(() {
       _drawingStrokes.clear();
+      _redoDrawingStrokes.clear();
       _activeStroke = [];
       _recognizedExpression = null;
+      _drawingExpressionInput.clear();
       _drawingStatus = null;
+      _drawingSolveSuggested = false;
       _result = null;
       _error = null;
     });
@@ -2114,12 +2273,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
       if (_activeStroke.isNotEmpty) {
         _activeStroke = [];
       } else if (_drawingStrokes.isNotEmpty) {
-        _drawingStrokes.removeLast();
+        _redoDrawingStrokes.add(_drawingStrokes.removeLast());
       }
       _recognizedExpression = null;
+      _drawingExpressionInput.clear();
       _drawingStatus = null;
+      _drawingSolveSuggested = false;
       _result = null;
     });
+    if (_drawingTool != _DrawingTool.eraser) _scheduleDrawingRecognition();
+  }
+
+  void _redoDrawingStroke() {
+    if (_redoDrawingStrokes.isEmpty) return;
+    setState(() {
+      _drawingStrokes.add(_redoDrawingStrokes.removeLast());
+      _drawingStatus = null;
+    });
+    _scheduleDrawingRecognition();
   }
 
   void _pressFunction(String key) {
@@ -2259,11 +2430,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 _error = null;
                                 _result = null;
                                 _answerShown = false;
-                                _recognizedExpression = null;
-                                if (mode == _CalculatorMode.drawing) {
-                                  _drawingStrokes.clear();
-                                  _activeStroke = [];
-                                  _drawingStatus = null;
+                                if (mode != _CalculatorMode.drawing) {
+                                  _drawingSolveSuggested = false;
                                 }
                               });
                               widget.onFullscreenChanged(
@@ -4852,9 +5020,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
         title: const Text('Handwritten calculation'),
         actions: [
           IconButton(
-            tooltip: 'Delete last stroke',
+            tooltip: 'Undo stroke',
             onPressed: _undoDrawingStroke,
             icon: const Icon(Icons.undo_rounded),
+          ),
+          IconButton(
+            tooltip: 'Redo stroke',
+            onPressed: _redoDrawingStrokes.isEmpty ? null : _redoDrawingStroke,
+            icon: const Icon(Icons.redo_rounded),
           ),
           IconButton(
             tooltip: 'Clear',
@@ -4871,22 +5044,134 @@ class _CalculatorPageState extends State<CalculatorPage> {
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Row(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 6),
+              child: Column(
                 children: [
-                  Expanded(
-                    child: Text(
-                      _drawingStatus ??
-                          'Write a math expression anywhere on the canvas.',
-                      style: Theme.of(context).textTheme.bodySmall,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          _drawingStatus ??
+                              'Write an expression or stack numbers on the page.',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ),
+                      if (_recognizingDrawing)
+                        const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                    ],
+                  ),
+                  const SizedBox(height: 5),
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        for (final tool in _DrawingTool.values)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 4),
+                            child: IconButton.filledTonal(
+                              tooltip: switch (tool) {
+                                _DrawingTool.pen => 'Pen',
+                                _DrawingTool.highlighter => 'Highlighter',
+                                _DrawingTool.eraser => 'Stroke eraser',
+                              },
+                              isSelected: _drawingTool == tool,
+                              onPressed: () =>
+                                  setState(() => _drawingTool = tool),
+                              icon: Icon(switch (tool) {
+                                _DrawingTool.pen => Icons.edit_rounded,
+                                _DrawingTool.highlighter => Icons.brush_rounded,
+                                _DrawingTool.eraser =>
+                                  Icons.auto_fix_normal_rounded,
+                              }),
+                            ),
+                          ),
+                        const SizedBox(width: 4),
+                        for (final color in const [
+                          Color(0xFF17233D),
+                          Color(0xFF246BFD),
+                          Color(0xFFE44758),
+                          Color(0xFF169B79),
+                        ])
+                          IconButton(
+                            tooltip: 'Ink color',
+                            onPressed: () =>
+                                setState(() => _drawingInk = color),
+                            icon: Icon(
+                              Icons.circle,
+                              color: color,
+                              size: _drawingInk == color ? 23 : 18,
+                            ),
+                          ),
+                        const SizedBox(width: 6),
+                        const Text('Width'),
+                        SizedBox(
+                          width: 74,
+                          child: DropdownButton<double>(
+                            value: _drawingInkWidth,
+                            isExpanded: true,
+                            underline: const SizedBox.shrink(),
+                            items: const [2.0, 3.2, 5.0, 8.0]
+                                .map(
+                                  (width) => DropdownMenuItem(
+                                    value: width,
+                                    child: Text('${width.toInt()} px'),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (width) {
+                              if (width != null) {
+                                setState(() => _drawingInkWidth = width);
+                              }
+                            },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  if (_recognizingDrawing)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
+                  const SizedBox(height: 5),
+                  SizedBox(
+                    width: double.infinity,
+                    child: SegmentedButton<_DrawingResultMode>(
+                      segments: const [
+                        ButtonSegment(
+                          value: _DrawingResultMode.automatic,
+                          label: Text('Automatic'),
+                        ),
+                        ButtonSegment(
+                          value: _DrawingResultMode.suggest,
+                          label: Text('Suggest'),
+                        ),
+                        ButtonSegment(
+                          value: _DrawingResultMode.off,
+                          label: Text('Off'),
+                        ),
+                      ],
+                      selected: {_drawingResultMode},
+                      onSelectionChanged: (selection) {
+                        setState(() => _drawingResultMode = selection.first);
+                        if (_recognizedExpression != null &&
+                            selection.first == _DrawingResultMode.automatic) {
+                          _solveRecognizedDrawing();
+                        } else if (_recognizedExpression != null &&
+                            selection.first == _DrawingResultMode.suggest) {
+                          setState(() => _drawingSolveSuggested = true);
+                        } else if (selection.first == _DrawingResultMode.off) {
+                          setState(() {
+                            _result = null;
+                            _answerShown = false;
+                            _drawingSolveSuggested = false;
+                            _drawingStatus = 'Math results are off.';
+                          });
+                        }
+                      },
                     ),
+                  ),
                 ],
               ),
             ),
@@ -4895,40 +5180,83 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
                 child: RepaintBoundary(
                   key: _drawingBoundaryKey,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onPanStart: (details) => setState(() {
-                      _drawingDebounce?.cancel();
-                      _activeStroke = [details.localPosition];
-                    }),
-                    onPanUpdate: (details) => setState(
-                      () => _activeStroke = [
-                        ..._activeStroke,
-                        details.localPosition,
-                      ],
-                    ),
-                    onPanEnd: (_) {
-                      if (_activeStroke.length > 1) {
-                        _drawingStrokes.add(_activeStroke);
-                      }
-                      setState(() => _activeStroke = []);
-                      _scheduleDrawingRecognition();
+                  child: Listener(
+                    onPointerDown: (event) {
+                      _drawingPressure = event.pressure.clamp(.6, 1.5);
                     },
-                    child: Container(
-                      width: double.infinity,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: colors.outlineVariant),
+                    onPointerMove: (event) {
+                      _drawingPressure = event.pressure.clamp(.6, 1.5);
+                    },
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onPanStart: (details) => setState(() {
+                        _drawingDebounce?.cancel();
+                        _drawingSolveSuggested = false;
+                        _recognizedExpression = null;
+                        _drawingExpressionInput.clear();
+                        _result = null;
+                        _drawingStatus = null;
+                        _activeStroke = [details.localPosition];
+                      }),
+                      onPanUpdate: (details) => setState(
+                        () => _activeStroke = [
+                          ..._activeStroke,
+                          details.localPosition,
+                        ],
                       ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(16),
-                        child: CustomPaint(
-                          painter: _ExpressionDrawingPainter([
-                            ..._drawingStrokes,
-                            if (_activeStroke.isNotEmpty) _activeStroke,
-                          ]),
-                          child: const SizedBox.expand(),
+                      onPanEnd: (_) {
+                        if (_activeStroke.length > 1) {
+                          final eraser = _drawingTool == _DrawingTool.eraser;
+                          final color = _drawingTool == _DrawingTool.highlighter
+                              ? _drawingInk.withValues(alpha: .28)
+                              : _drawingInk;
+                          _drawingStrokes.add(
+                            _InkStroke(
+                              points: List.of(_activeStroke),
+                              color: color,
+                              width:
+                                  (_drawingTool == _DrawingTool.eraser
+                                      ? _drawingInkWidth * 4
+                                      : _drawingInkWidth) *
+                                  _drawingPressure,
+                              isEraser: eraser,
+                            ),
+                          );
+                          _redoDrawingStrokes.clear();
+                        }
+                        setState(() => _activeStroke = []);
+                        if (_drawingTool != _DrawingTool.eraser) {
+                          _scheduleDrawingRecognition();
+                        }
+                      },
+                      child: Container(
+                        key: const Key('drawing-canvas'),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(color: colors.outlineVariant),
+                        ),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(16),
+                          child: CustomPaint(
+                            painter: _ExpressionDrawingPainter([
+                              ..._drawingStrokes,
+                              if (_activeStroke.isNotEmpty)
+                                _InkStroke(
+                                  points: _activeStroke,
+                                  color: _drawingInk.withValues(
+                                    alpha:
+                                        _drawingTool == _DrawingTool.highlighter
+                                        ? .28
+                                        : 1,
+                                  ),
+                                  width: _drawingInkWidth * _drawingPressure,
+                                  isEraser: _drawingTool == _DrawingTool.eraser,
+                                ),
+                            ]),
+                            child: const SizedBox.expand(),
+                          ),
                         ),
                       ),
                     ),
@@ -4936,45 +5264,100 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
             ),
-            if (_recognizedExpression != null)
+            if (_recognizedExpression != null || _drawingStrokes.isNotEmpty)
               Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-                child: Row(
+                padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Recognized expression'),
-                          Math.tex(
-                            _mathTexFromSource(_recognizedExpression!),
-                            mathStyle: MathStyle.display,
-                            textStyle: Theme.of(context).textTheme.titleLarge,
-                            onErrorFallback: (_) =>
-                                Text(_recognizedExpression!),
-                          ),
-                          if (_result != null) ...[
-                            const Text('Answer'),
-                            Math.tex(
-                              _mathTexFromSource(_result!),
-                              mathStyle: MathStyle.display,
-                              textStyle: Theme.of(context).textTheme.titleLarge,
-                              onErrorFallback: (_) => Text(_result!),
-                            ),
-                          ],
-                        ],
+                    TextField(
+                      key: const Key('drawing-expression-review'),
+                      controller: _drawingExpressionInput,
+                      decoration: InputDecoration(
+                        labelText: _recognizedExpression == null
+                            ? 'Type or correct the expression'
+                            : 'Recognized math, tap to correct',
+                        isDense: true,
+                        suffixIcon: IconButton(
+                          tooltip: 'Solve corrected expression',
+                          onPressed:
+                              _drawingResultMode == _DrawingResultMode.off
+                              ? null
+                              : _solveRecognizedDrawing,
+                          icon: const Icon(Icons.calculate_outlined),
+                        ),
                       ),
+                      onChanged: (value) {
+                        setState(() {
+                          _recognizedExpression = value;
+                          _result = null;
+                          _drawingSolveSuggested =
+                              _drawingResultMode == _DrawingResultMode.suggest;
+                        });
+                      },
+                      onSubmitted: (_) => _solveRecognizedDrawing(),
                     ),
-                    if (_recognizedExpression != null)
-                      IconButton(
-                        tooltip: 'Edit expression',
-                        onPressed: () {
-                          _input.text = _recognizedExpression!;
-                          _updateResult();
-                          _exitDrawingMode();
-                        },
-                        icon: const Icon(Icons.edit_outlined),
+                    if (_result != null) ...[
+                      const SizedBox(height: 4),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Text(
+                          '$_result',
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(
+                                fontWeight: FontWeight.w700,
+                                color: _accent,
+                              ),
+                        ),
                       ),
+                    ],
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        if (_drawingSolveSuggested)
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _solveRecognizedDrawing,
+                              icon: const Icon(Icons.calculate_rounded),
+                              label: const Text('Solve'),
+                            ),
+                          ),
+                        if (_drawingSolveSuggested) const SizedBox(width: 8),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: () {
+                              _input.text = _drawingExpressionInput.text.trim();
+                              _answerShown = false;
+                              _mode = _CalculatorMode.scientific;
+                              _showVisualization = false;
+                              _exitDrawingMode(
+                                destination: _CalculatorMode.scientific,
+                              );
+                            },
+                            icon: const Icon(Icons.open_in_new_rounded),
+                            label: const Text('Use in calculator'),
+                          ),
+                        ),
+                        if (RegExp(
+                          r'\b[xy]\b|[xy]\s*=|=\s*[xy]',
+                          caseSensitive: false,
+                        ).hasMatch(_drawingExpressionInput.text)) ...[
+                          const SizedBox(width: 8),
+                          IconButton.filledTonal(
+                            tooltip: 'Open equation in Graphing',
+                            onPressed: () {
+                              _input.text = _drawingExpressionInput.text.trim();
+                              _mode = _CalculatorMode.graphing;
+                              _showVisualization = false;
+                              _exitDrawingMode(
+                                destination: _CalculatorMode.graphing,
+                              );
+                            },
+                            icon: const Icon(Icons.show_chart_rounded),
+                          ),
+                        ],
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -4987,30 +5370,36 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
 class _ExpressionDrawingPainter extends CustomPainter {
   const _ExpressionDrawingPainter(this.strokes);
-  final List<List<Offset>> strokes;
+  final List<_InkStroke> strokes;
 
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawColor(Colors.white, BlendMode.src);
-    final paint = Paint()
-      ..color = const Color(0xFF17233D)
-      ..strokeWidth = 5
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..style = PaintingStyle.stroke;
+    canvas.saveLayer(Offset.zero & size, Paint());
     for (final stroke in strokes) {
-      if (stroke.isEmpty) continue;
-      if (stroke.length == 1) {
-        canvas.drawCircle(stroke.first, 2.5, paint..style = PaintingStyle.fill);
-        paint.style = PaintingStyle.stroke;
+      final points = stroke.points;
+      if (points.isEmpty) continue;
+      final paint = Paint()
+        ..color = stroke.color
+        ..strokeWidth = stroke.width
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..style = PaintingStyle.stroke
+        ..blendMode = stroke.isEraser ? BlendMode.clear : BlendMode.srcOver;
+      if (points.length == 1) {
+        canvas.drawCircle(
+          points.first,
+          stroke.width / 2,
+          paint..style = PaintingStyle.fill,
+        );
         continue;
       }
-      final path = Path()..moveTo(stroke.first.dx, stroke.first.dy);
-      for (final point in stroke.skip(1)) {
+      final path = Path()..moveTo(points.first.dx, points.first.dy);
+      for (final point in points.skip(1)) {
         path.lineTo(point.dx, point.dy);
       }
       canvas.drawPath(path, paint);
     }
+    canvas.restore();
   }
 
   @override
