@@ -1,4 +1,5 @@
 import hashlib
+import hmac
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -34,6 +35,11 @@ def new_refresh_token() -> str:
 
 def refresh_token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def verification_code_hash(purpose: str, email: str, code: str) -> str:
+    value = f"{purpose}:{email}:{code}".encode("utf-8")
+    return hmac.new(settings.jwt_secret.encode("utf-8"), value, hashlib.sha256).hexdigest()
 
 
 def issue_access_token(user_id: str) -> tuple[str, datetime]:

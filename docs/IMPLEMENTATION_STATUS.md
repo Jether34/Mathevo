@@ -1,4 +1,4 @@
-# MathVerse implementation status
+# Mathevo implementation status
 
 This document distinguishes working app flows from planned features. Test coverage demonstrates selected examples and does not establish correctness for every input.
 
@@ -9,7 +9,7 @@ This document distinguishes working app flows from planned features. Test covera
 | App shell | Five compact floating navigation destinations, with active-page color and transparent space around the navigation island. |
 | Onboarding and accounts | Welcome, onboarding, signup, login, and logout flows. Cloud signup and login use the separate backend service. The calculator and local app data remain available without an account. |
 | Dashboard | Daily challenge, local streak and XP, feature shortcuts, and ten newest activities. History opens the saved calculation list. |
-| Calculator | Basic and scientific expression evaluation, geometry calculations, trigonometric calculations, graph plotting and function evaluation, selected algebra equation solving, selected differentiation and integration, and number-system conversions and operations. Keys and available operations change by calculator mode. |
+| Calculator | Basic and scientific expression evaluation; common geometry calculations; circular and selected hyperbolic trigonometric functions; graph plotting; selected algebra equations; selected differentiation and integration; base conversion; selected discrete-math commands; descriptive statistics; elementary probability; and constant-speed motion formulas. Scientific functions include cube root, arbitrary and base-10 logarithms, hyperbolic functions, and floor/ceiling. Keys and available operations change by calculator mode. |
 | Calculator workflow | Live expression evaluation, explicit equals action for committing a result, continuation after a result, calculation sessions, local history, calculation detail, and a continue action. |
 | Visualization | Selected geometry and trigonometry visualizations, with interactive parameters for supported views. Graphing supports the implemented function and plot types only. |
 | Lessons | Search, category navigation, a starter lesson, local progress, and XP awards for supported lesson actions. |
@@ -18,6 +18,8 @@ This document distinguishes working app flows from planned features. Test covera
 | Cloud account backend | Separate API and PostgreSQL schema with signup, login, refresh, logout, and current-user routes. See [`../backend/README.md`](../backend/README.md). |
 
 Calculation results are limited to the operations implemented by the app's math engine and mode-specific handlers. They do not amount to a general symbolic computer algebra system.
+
+Statistics currently accepts finite numeric lists for mean, median, mode, range, sum, count, quartiles, population/sample variance, and standard deviation. Probability currently supports event probability, complement, odds, one binomial outcome, combinations, and permutations. Physics currently supports constant-speed distance, velocity, and time formulas; it does not convert or validate units. Statistics and motion arguments can also use scalar arithmetic expressions, including entered fractions.
 
 ## Known limitations
 
@@ -33,18 +35,28 @@ Calculation results are limited to the operations implemented by the app's math 
 - Settings do not yet provide complete account recovery, biometrics, notification delivery controls, broad localization, or all accessibility and math-input preferences.
 - Android emulator use was verified. iOS device builds and releases require verification on a supported macOS host.
 
+## Immediate action priorities
+
+1. **Protect calculation data and validate cloud identity.** The current mobile UI uses local calculation history and progress, while the backend integration test path uses an in-memory auth service. Verify signup, login, verification, password reset, and session expiry against the deployed service, then add account-scoped sync, export, and deletion before users rely on cross-device recovery.
+2. **Fix the visualization viewport on-device.** The prior phone capture showed the plot consuming too much vertical space and competing with the floating navigation. This patch caps plot height on small screens, repairs visible Unicode labels, and adds a regression assertion for plot/navigation overlap. Run the visualization integration test on a connected Android device before release.
+3. **Keep math support explicitly scoped.** This is a selected-operation calculator, not a general-purpose symbolic solver. The large requested domain list remains substantially unimplemented. Add domains incrementally with explicit supported syntax, numerical precision rules, reference cases, and unsupported-input behavior.
+4. **Connect social features only with server state.** Community content, messaging, and global rankings are not connected. Local XP and streaks are editable device data and must not be presented as verified global achievements.
+5. **Validate recognition and accessibility.** Handwriting recognition, broad localization, accessibility preferences, and iOS behavior remain unverified and need real-device coverage.
+
 ## Verification record
 
 - `flutter analyze --no-pub`: passed with no issues.
-- `flutter test --reporter expanded`: 23 unit and widget tests passed.
-- `flutter test integration_test/calculator_e2e_test.dart -d emulator-5554`: passed for the included onboarding, in-memory signup, representative calculator modes, and drawing-route smoke check.
-- Emulator was cleared of stale app form/session state, rebuilt from this workspace, and left on the welcome screen. No cloud account was created during this verification.
+- `flutter test test/discrete_math_test.dart`: passed for selected operations, edge cases, and invalid inputs.
+- `flutter test integration_test/discrete_math_e2e_test.dart -d emulator-5554`: passed on Android emulator for keypad entry and results for GCD, modular exponentiation, finite set union, tautology, and truth table.
+- Cold launch via Android launcher: reached the Mathevo Welcome screen after rebuilding and installing the current debug build with Flutter. A prior stale installed build remained on its native splash screen; the rebuilt debug install cold-launched successfully.
+- The Android integration test uses local in-memory auth and seeded app preferences. It does not validate live cloud signup, handwriting recognition, every discrete-math operation through the UI, or all mathematical edge cases.
+- The visualization regression now asserts a bounded plot viewport above the floating navigation and checks degree-symbol rendering after 3D rotation. An Android device was not connected during this patch session, so this new device assertion has not yet been run here.
 
 The integration test uses an in-memory authentication service. It does not test the live VPS backend, recognition accuracy, or all operation combinations.
 
 ## Next work in order
 
-1. Expand the math engine into separate tested modules for exact arithmetic, algebra, geometry, trigonometry, graphing, calculus, number systems, linear algebra, probability, and statistics. Define domain rules, precision, and unsupported cases for each operation.
+1. Expand the math engine into separate tested modules for the requested domains, starting with exact arithmetic, algebra, geometry, trigonometry, graphing, calculus, number systems, linear algebra, probability, and statistics. Define domain rules, precision, and unsupported cases for each operation. Use [`MATH_IMPLEMENTATION_CHECKLIST.md`](MATH_IMPLEMENTATION_CHECKLIST.md) to track coverage; no broad field should be marked complete based on a few commands.
 2. Add broad property-based and reference-based numerical tests, edge cases, and independent checks for calculations and transformations.
 3. Improve the math editor with structured fractions, exponents, matrices, LaTeX input, keyboard navigation, validation, and editing at arbitrary expression positions.
 4. Complete responsive and accessibility review across screen sizes, orientations, text scaling, themes, and assistive technologies.

@@ -48,11 +48,18 @@ class CloudAuthSession {
 }
 
 abstract interface class AuthApi {
-  Future<CloudAuthSession> signUp({
+  Future<void> signUp({
     required String name,
     required String email,
     required String password,
   });
+
+  Future<CloudAuthSession> verifyEmail({
+    required String email,
+    required String code,
+  });
+
+  Future<void> resendSignupCode({required String email});
 
   Future<CloudAuthSession> logIn({
     required String email,
@@ -62,6 +69,19 @@ abstract interface class AuthApi {
   Future<CloudAuthSession> refresh(String refreshToken);
 
   Future<void> logOut(String refreshToken);
+
+  Future<void> requestPasswordReset({required String email});
+
+  Future<String> verifyPasswordReset({
+    required String email,
+    required String code,
+  });
+
+  Future<void> completePasswordReset({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  });
 }
 
 class HttpAuthApi implements AuthApi {
@@ -69,9 +89,11 @@ class HttpAuthApi implements AuthApi {
 
   static const _configuredBaseUrl = String.fromEnvironment(
     'MATHVERSE_API_BASE_URL',
+    defaultValue: 'https://76.13.183.207:18443',
   );
   static const _pinnedCertificateAsset = String.fromEnvironment(
     'MATHVERSE_API_CERTIFICATE_ASSET',
+    defaultValue: 'assets/certs/server.crt',
   );
 
   final String baseUrl;
@@ -165,17 +187,30 @@ class HttpAuthApi implements AuthApi {
   }
 
   @override
-  Future<CloudAuthSession> signUp({
+  Future<void> signUp({
     required String name,
     required String email,
     required String password,
-  }) async => CloudAuthSession.fromJson(
+  }) async {
     await _post('/v1/auth/signup', {
       'name': name.trim(),
       'email': email.trim(),
       'password': password,
-    }),
+    });
+  }
+
+  @override
+  Future<CloudAuthSession> verifyEmail({
+    required String email,
+    required String code,
+  }) async => CloudAuthSession.fromJson(
+    await _post('/v1/auth/verify-email', {'email': email.trim(), 'code': code}),
   );
+
+  @override
+  Future<void> resendSignupCode({required String email}) async {
+    await _post('/v1/auth/verify-email/resend', {'email': email.trim()});
+  }
 
   @override
   Future<CloudAuthSession> logIn({
@@ -197,6 +232,42 @@ class HttpAuthApi implements AuthApi {
   @override
   Future<void> logOut(String refreshToken) async {
     await _post('/v1/auth/logout', {'refresh_token': refreshToken});
+  }
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    await _post('/v1/auth/password-reset/request', {'email': email.trim()});
+  }
+
+  @override
+  Future<String> verifyPasswordReset({
+    required String email,
+    required String code,
+  }) async {
+    final response = await _post('/v1/auth/password-reset/verify', {
+      'email': email.trim(),
+      'code': code,
+    });
+    final token = response['reset_token'];
+    if (token is! String || token.isEmpty) {
+      throw const AuthApiException(
+        'The account service returned an invalid reset session.',
+      );
+    }
+    return token;
+  }
+
+  @override
+  Future<void> completePasswordReset({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    await _post('/v1/auth/password-reset/complete', {
+      'email': email.trim(),
+      'reset_token': resetToken,
+      'new_password': newPassword,
+    });
   }
 }
 

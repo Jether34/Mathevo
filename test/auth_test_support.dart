@@ -1,7 +1,9 @@
 import 'package:mathevo/auth_api.dart';
 
 class FakeAuthApi implements AuthApi {
-  FakeAuthApi({bool registered = false}) : _registered = registered {
+  FakeAuthApi({bool registered = false})
+    : _registered = registered,
+      _emailVerified = registered {
     if (registered) {
       _email = 'saved@example.com';
       _password = 'password123';
@@ -10,6 +12,7 @@ class FakeAuthApi implements AuthApi {
   }
 
   bool _registered;
+  bool _emailVerified;
   String? _email;
   String? _password;
   String? _name;
@@ -27,7 +30,7 @@ class FakeAuthApi implements AuthApi {
   );
 
   @override
-  Future<CloudAuthSession> signUp({
+  Future<void> signUp({
     required String name,
     required String email,
     required String password,
@@ -42,8 +45,23 @@ class FakeAuthApi implements AuthApi {
     _email = email.toLowerCase();
     _password = password;
     _name = name;
+    _emailVerified = false;
+  }
+
+  @override
+  Future<CloudAuthSession> verifyEmail({
+    required String email,
+    required String code,
+  }) async {
+    if (email.toLowerCase() != _email || code != '123456') {
+      throw const AuthApiException('The code is invalid or expired.');
+    }
+    _emailVerified = true;
     return _session();
   }
+
+  @override
+  Future<void> resendSignupCode({required String email}) async {}
 
   @override
   Future<CloudAuthSession> logIn({
@@ -51,6 +69,7 @@ class FakeAuthApi implements AuthApi {
     required String password,
   }) async {
     if (!_registered ||
+        !_emailVerified ||
         email.toLowerCase() != _email ||
         password != _password) {
       throw const AuthApiException(
@@ -66,6 +85,34 @@ class FakeAuthApi implements AuthApi {
 
   @override
   Future<void> logOut(String refreshToken) async {}
+
+  @override
+  Future<void> requestPasswordReset({required String email}) async {
+    if (email.toLowerCase() != _email) return;
+  }
+
+  @override
+  Future<String> verifyPasswordReset({
+    required String email,
+    required String code,
+  }) async {
+    if (email.toLowerCase() != _email || code != '654321') {
+      throw const AuthApiException('The code is invalid or expired.');
+    }
+    return 'reset-test-token';
+  }
+
+  @override
+  Future<void> completePasswordReset({
+    required String email,
+    required String resetToken,
+    required String newPassword,
+  }) async {
+    if (email.toLowerCase() != _email || resetToken != 'reset-test-token') {
+      throw const AuthApiException('The reset session is invalid or expired.');
+    }
+    _password = newPassword;
+  }
 }
 
 class MemoryAuthTokenStore implements AuthTokenStore {

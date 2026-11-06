@@ -1,10 +1,11 @@
 import 'dart:math';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'auth_api.dart';
 
-/// Onboarding and account gate backed by the MathVerse cloud API.
+/// Onboarding and account gate backed by the Mathevo cloud API.
 class AuthFlow extends StatefulWidget {
   const AuthFlow({
     super.key,
@@ -21,21 +22,57 @@ class AuthFlow extends StatefulWidget {
   State<AuthFlow> createState() => _AuthFlowState();
 }
 
-enum _AuthPage { getStarted, welcome, benefits, signup, login }
+enum _AuthPage {
+  getStarted,
+  welcome,
+  benefits,
+  signup,
+  verifyEmail,
+  login,
+  forgotPassword,
+  verifyResetCode,
+  resetPassword,
+}
 
-class _AuthFlowState extends State<AuthFlow> {
+const _introPages = [
+  _AuthPage.getStarted,
+  _AuthPage.welcome,
+  _AuthPage.benefits,
+];
+
+class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   _AuthPage _page = _AuthPage.getStarted;
+  late final PageController _introController;
+  late final AnimationController _mascotMotion;
   final _name = TextEditingController();
   final _email = TextEditingController();
   final _password = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
+  final _verificationCode = TextEditingController();
+  final _codeDigits = List.generate(6, (_) => TextEditingController());
+  final _codeFocusNodes = List.generate(6, (_) => FocusNode());
+  final _confirmPassword = TextEditingController();
+  final Map<_AuthPage, GlobalKey<FormState>> _formKeys = {};
   bool _busy = false;
   bool _obscurePassword = true;
+  bool _acceptedPolicies = false;
+  bool _policyRequiredError = false;
+  String? _resetToken;
   String? _error;
+  String? _notice;
+
+  GlobalKey<FormState> get _formKey =>
+      _formKeys.putIfAbsent(_page, GlobalKey<FormState>.new);
 
   @override
   void initState() {
     super.initState();
+    _introController = PageController(
+      initialPage: widget.startAtWelcome ? 1 : 0,
+    );
+    _mascotMotion = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 4800),
+    )..repeat();
     if (widget.startAtWelcome) _page = _AuthPage.welcome;
   }
 
@@ -44,28 +81,213 @@ class _AuthFlowState extends State<AuthFlow> {
     _name.dispose();
     _email.dispose();
     _password.dispose();
+    _verificationCode.dispose();
+    for (final controller in _codeDigits) {
+      controller.dispose();
+    }
+    for (final node in _codeFocusNodes) {
+      node.dispose();
+    }
+    _confirmPassword.dispose();
+    _introController.dispose();
+    _mascotMotion.dispose();
     super.dispose();
   }
 
-  void _go(_AuthPage page) => setState(() {
-    _page = page;
-    _error = null;
-  });
+  bool _isIntroPage(_AuthPage page) =>
+      page == _AuthPage.getStarted ||
+      page == _AuthPage.welcome ||
+      page == _AuthPage.benefits;
+
+  int _introIndex(_AuthPage page) => switch (page) {
+    _AuthPage.getStarted => 0,
+    _AuthPage.welcome => 1,
+    _AuthPage.benefits => 2,
+    _ => -1,
+  };
+
+  void _go(_AuthPage page) {
+    if (_isIntroPage(_page) && _isIntroPage(page)) {
+      _introController.animateToPage(
+        _introIndex(page),
+        duration: const Duration(milliseconds: 620),
+        curve: Curves.easeInOutCubicEmphasized,
+      );
+      return;
+    }
+    setState(() {
+      _page = page;
+      _error = null;
+      _notice = null;
+      _policyRequiredError = false;
+    });
+  }
+
+  void _back() {
+    final page = switch (_page) {
+      _AuthPage.verifyEmail => _AuthPage.signup,
+      _AuthPage.forgotPassword => _AuthPage.login,
+      _AuthPage.verifyResetCode => _AuthPage.forgotPassword,
+      _AuthPage.resetPassword => _AuthPage.login,
+      _AuthPage.signup || _AuthPage.login => _AuthPage.benefits,
+      _ => _AuthPage.welcome,
+    };
+    _go(page);
+  }
+
+  void _showPolicy(String title, String text) {
+    showDialog<void>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 440, maxHeight: 620),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(26),
+            border: Border.all(color: const Color(0xFFF0E8E3)),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x260D2038),
+                blurRadius: 32,
+                offset: Offset(0, 16),
+              ),
+            ],
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [Color(0xFFFFF3EE), Color(0xFFFFFAF7)],
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 46,
+                      height: 46,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFC45136).withValues(alpha: .10),
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      child: Icon(
+                        title.toLowerCase().contains('privacy')
+                            ? Icons.shield_outlined
+                            : Icons.description_outlined,
+                        color: const Color(0xFFC45136),
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'MATHEVO ACCOUNT',
+                            style: TextStyle(
+                              color: Color(0xFF9B7165),
+                              fontSize: 10,
+                              fontWeight: FontWeight.w800,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            title,
+                            style: const TextStyle(
+                              color: Color(0xFF302523),
+                              fontSize: 20,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Close',
+                      onPressed: () => Navigator.pop(context),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 20, 24, 12),
+                  child: Text(
+                    text,
+                    style: const TextStyle(
+                      color: Color(0xFF625B58),
+                      fontSize: 14,
+                      height: 1.65,
+                    ),
+                  ),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(22, 8, 22, 20),
+                child: _primaryButton('Got it', () => Navigator.pop(context)),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showPrivacyPolicy() => _showPolicy(
+    'Privacy Policy',
+    'Mathevo uses your name and email to create and secure your account. '
+        'Your password is stored as a one-way hash. Email verification and '
+        'password-reset codes are stored as hashes and expire. Account and '
+        'session records are kept in the Mathevo cloud service. Calculation '
+        'history and learning progress are stored on this device. The current '
+        'community screens do not publish your calculations. You can use the '
+        'local calculator without creating an account. Contact the developer '
+        'if you need help with an account or its data.',
+  );
+
+  void _showTerms() => _showPolicy(
+    'Terms of Use',
+    'Use Mathevo for personal learning and calculation. Keep your account '
+        'credentials private and do not misuse the service or attempt to access '
+        'another person’s account. Mathevo provides mathematical tools and '
+        'learning aids; check important results independently, especially '
+        'before using them in coursework or other consequential work. Features '
+        'may change as the app is maintained. By creating an account, you agree '
+        'to these terms and the Privacy Policy.',
+  );
 
   Future<void> _createAccount() async {
     if (!_formKey.currentState!.validate()) return;
+    if (!_acceptedPolicies) {
+      setState(() => _policyRequiredError = true);
+      return;
+    }
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      final session = await widget.authApi.signUp(
+      await widget.authApi.signUp(
         name: _name.text.trim(),
         email: _email.text.trim(),
         password: _password.text,
       );
       _password.clear();
-      await widget.onAuthenticated(session);
+      _clearVerificationCode();
+      if (mounted) {
+        setState(() {
+          _page = _AuthPage.verifyEmail;
+          _notice =
+              'We sent a six-digit verification code to ${_email.text.trim()}.';
+        });
+      }
     } on AuthApiException catch (error) {
       setState(() {
         if (error.statusCode == 409) {
@@ -77,6 +299,172 @@ class _AuthFlowState extends State<AuthFlow> {
       });
     } catch (_) {
       setState(() => _error = 'Could not create your account. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _verifySignupCode() async {
+    if (!_hasValidCode()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final session = await widget.authApi.verifyEmail(
+        email: _email.text.trim(),
+        code: _verificationCode.text.trim(),
+      );
+      _clearVerificationCode();
+      await widget.onAuthenticated(session);
+    } on AuthApiException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = 'Could not verify the code. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _resendSignupCode() async {
+    setState(() {
+      _busy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      await widget.authApi.resendSignupCode(email: _email.text.trim());
+      _clearVerificationCode();
+      setState(() => _notice = 'A new verification code has been sent.');
+    } on AuthApiException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = 'Could not resend the code. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _requestPasswordReset() async {
+    if (!_formKey.currentState!.validate()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+      _notice = null;
+    });
+    try {
+      await widget.authApi.requestPasswordReset(email: _email.text.trim());
+      _clearVerificationCode();
+      setState(() {
+        _page = _AuthPage.verifyResetCode;
+        _notice = 'If the account exists, a reset code has been sent.';
+      });
+    } on AuthApiException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = 'Could not request a reset code. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _verifyResetCode() async {
+    if (!_hasValidCode()) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      _resetToken = await widget.authApi.verifyPasswordReset(
+        email: _email.text.trim(),
+        code: _verificationCode.text.trim(),
+      );
+      _password.clear();
+      _confirmPassword.clear();
+      setState(() {
+        _page = _AuthPage.resetPassword;
+        _notice = null;
+      });
+    } on AuthApiException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = 'Could not verify the code. Try again.');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  bool _hasValidCode() {
+    _verificationCode.text = _codeDigits.map((digit) => digit.text).join();
+    if (RegExp(r'^\d{6}$').hasMatch(_verificationCode.text)) return true;
+    setState(() => _error = 'Enter all six digits from the email.');
+    return false;
+  }
+
+  void _clearVerificationCode() {
+    for (final controller in _codeDigits) {
+      controller.clear();
+    }
+    _verificationCode.clear();
+    _codeFocusNodes.first.requestFocus();
+  }
+
+  void _handleCodeDigitChanged(int index, String value) {
+    final digits = value.replaceAll(RegExp(r'\D'), '');
+    if (digits.length > 1) {
+      for (
+        var offset = 0;
+        offset < digits.length && index + offset < 6;
+        offset++
+      ) {
+        _codeDigits[index + offset].text = digits[offset];
+      }
+      final next = (index + digits.length).clamp(0, 5).toInt();
+      _codeFocusNodes[next].requestFocus();
+    } else if (digits.isEmpty) {
+      _codeDigits[index].clear();
+      if (index > 0) _codeFocusNodes[index - 1].requestFocus();
+    } else {
+      _codeDigits[index].text = digits;
+      if (index < 5) {
+        _codeFocusNodes[index + 1].requestFocus();
+      } else {
+        _codeFocusNodes[index].unfocus();
+      }
+    }
+    _verificationCode.text = _codeDigits.map((digit) => digit.text).join();
+    if (_error != null) setState(() => _error = null);
+  }
+
+  Future<void> _completePasswordReset() async {
+    if (!_formKey.currentState!.validate()) return;
+    final token = _resetToken;
+    if (token == null) {
+      setState(() => _error = 'Verify your email code first.');
+      return;
+    }
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.authApi.completePasswordReset(
+        email: _email.text.trim(),
+        resetToken: token,
+        newPassword: _password.text,
+      );
+      _password.clear();
+      _confirmPassword.clear();
+      _resetToken = null;
+      setState(() {
+        _page = _AuthPage.login;
+        _notice =
+            'Your password has been reset. Log in with your new password.';
+      });
+    } on AuthApiException catch (error) {
+      setState(() => _error = error.message);
+    } catch (_) {
+      setState(() => _error = 'Could not reset your password. Try again.');
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -109,197 +497,283 @@ class _AuthFlowState extends State<AuthFlow> {
 
   @override
   Widget build(BuildContext context) {
-    final isForm = _page == _AuthPage.signup || _page == _AuthPage.login;
     final isSignup = _page == _AuthPage.signup;
-    return Scaffold(
-      backgroundColor: const Color(0xFFF2F3F6),
-      body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final screenHeight = constraints.maxHeight;
-            final cardHeight = isSignup
-                ? min(screenHeight * .75, 580.0)
-                : isForm
-                ? min(screenHeight * .60, 470.0)
-                : min(screenHeight * .48, 390.0);
-            return Stack(
-              children: [
-                Positioned.fill(
-                  child: CustomPaint(painter: _CirclePatternPainter()),
-                ),
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: screenHeight - cardHeight + 42,
-                  child: Column(
-                    children: [
-                      if (_page != _AuthPage.getStarted &&
-                          _page != _AuthPage.welcome)
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: IconButton(
-                            tooltip: 'Back',
-                            onPressed: () => _go(
-                              isForm ? _AuthPage.benefits : _AuthPage.welcome,
-                            ),
-                            icon: const Icon(
-                              Icons.arrow_back,
-                              color: Colors.white,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: 18),
-                      const Spacer(),
-                      Container(
-                        width: 76,
-                        height: 76,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: const Icon(
-                          Icons.navigation_rounded,
-                          size: 54,
-                          color: Color(0xFF171C1B),
-                        ),
-                      ),
-                      const Spacer(),
-                    ],
-                  ),
-                ),
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  height: cardHeight,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.vertical(
-                        top: Radius.circular(48),
-                      ),
-                    ),
-                    child: LayoutBuilder(
-                      builder: (context, cardConstraints) =>
-                          SingleChildScrollView(
-                            padding: const EdgeInsets.fromLTRB(28, 24, 28, 8),
-                            child: ConstrainedBox(
-                              constraints: BoxConstraints(
-                                minHeight: max(
-                                  0,
-                                  cardConstraints.maxHeight - 32,
-                                ),
-                              ),
-                              child: IntrinsicHeight(
-                                child: _content(context, isSignup),
-                              ),
-                            ),
-                          ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          },
+    final isIntro =
+        _page == _AuthPage.getStarted ||
+        _page == _AuthPage.welcome ||
+        _page == _AuthPage.benefits;
+    return Theme(
+      data: Theme.of(context).copyWith(
+        colorScheme: Theme.of(context).colorScheme.copyWith(
+          primary: const Color(0xFFC45136),
+          secondary: const Color(0xFFC45136),
+        ),
+      ),
+      child: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: const SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: Brightness.dark,
+          systemNavigationBarColor: Colors.transparent,
+          systemNavigationBarDividerColor: Colors.transparent,
+          systemNavigationBarIconBrightness: Brightness.dark,
+          systemNavigationBarContrastEnforced: false,
+        ),
+        child: Scaffold(
+          backgroundColor: Colors.white,
+          body: SafeArea(
+            child: isIntro
+                ? _introLayout(context)
+                : _accountLayout(context, isSignup),
+          ),
         ),
       ),
     );
   }
 
-  Widget _content(BuildContext context, bool isSignup) {
-    switch (_page) {
-      case _AuthPage.getStarted:
-        return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'MathVerse',
-                  style: TextStyle(
-                    fontSize: 30,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1B2422),
+  Widget _introLayout(BuildContext context) => Padding(
+    padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _brandHeader(),
+        const SizedBox(height: 18),
+        Expanded(
+          child: PageView(
+            controller: _introController,
+            onPageChanged: (index) => setState(() {
+              _page = _introPages[index];
+              _error = null;
+              _notice = null;
+            }),
+            children: [
+              for (final page in _introPages)
+                _content(context, false, page: page),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _progressDots(_introIndex(_page)),
+        const SizedBox(height: 22),
+        _introActionButton(),
+        const SizedBox(height: 4),
+      ],
+    ),
+  );
+
+  Widget _accountLayout(BuildContext context, bool isSignup) => LayoutBuilder(
+    builder: (context, constraints) => SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: max(0, constraints.maxHeight - 30),
+        ),
+        child: IntrinsicHeight(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Align(
+                alignment: Alignment.centerLeft,
+                child: IconButton(
+                  tooltip: 'Back',
+                  onPressed: _back,
+                  padding: EdgeInsets.zero,
+                  alignment: Alignment.centerLeft,
+                  constraints: const BoxConstraints(
+                    minWidth: 44,
+                    minHeight: 44,
+                  ),
+                  icon: const Icon(
+                    Icons.arrow_back_rounded,
+                    color: Color(0xFF302523),
                   ),
                 ),
-                SizedBox(height: 8),
-                Text(
-                  'Calculate · Learn · Grow',
-                  style: TextStyle(color: Color(0xFF77817F)),
-                ),
-              ],
+              ),
+              const SizedBox(height: 18),
+              Expanded(child: _content(context, isSignup)),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
+
+  Widget _introActionButton() => switch (_page) {
+    _AuthPage.getStarted => _primaryButton(
+      'Get Started',
+      () => _go(_AuthPage.welcome),
+    ),
+    _AuthPage.welcome => _primaryButton(
+      'Continue',
+      () => _go(_AuthPage.benefits),
+    ),
+    _AuthPage.benefits => _primaryButton(
+      'Create your account',
+      () => _go(_AuthPage.signup),
+    ),
+    _ => const SizedBox.shrink(),
+  };
+
+  Widget _brandHeader() => Row(
+    children: [
+      Image.asset(
+        'assets/brand/mathevo-logo.png',
+        width: 42,
+        height: 42,
+        fit: BoxFit.contain,
+      ),
+      const SizedBox(width: 10),
+      const Text(
+        'Mathevo',
+        style: TextStyle(
+          color: Color(0xFF302523),
+          fontWeight: FontWeight.w800,
+          fontSize: 18,
+        ),
+      ),
+    ],
+  );
+
+  Widget _content(BuildContext context, bool isSignup, {_AuthPage? page}) {
+    switch (page ?? _page) {
+      case _AuthPage.getStarted:
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Spacer(),
+            Center(
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .36, 280),
+                'assets/brand/mathevo_mascot.png',
+                _MascotType.owl,
+              ),
             ),
-            _primaryButton('GET STARTED', () => _go(_AuthPage.welcome)),
+            const SizedBox(height: 20),
+            const Text(
+              'Welcome to Mathevo!',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 28,
+                height: 1.15,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF302523),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'Solve, explore, and understand mathematics at your own pace.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF817772),
+                fontSize: 15,
+                height: 1.5,
+              ),
+            ),
           ],
         );
       case _AuthPage.welcome:
         return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'Welcome to MathVerse',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1B2422),
-                  ),
-                ),
-                SizedBox(height: 10),
-                Text(
-                  'A place to solve, understand, and enjoy mathematics.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF77817F)),
-                ),
-              ],
+            const Spacer(),
+            Center(
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .22, 170),
+                'assets/brand/mathevo_mascot_robot.png',
+                _MascotType.robot,
+              ),
             ),
-            _primaryButton('CONTINUE', () => _go(_AuthPage.benefits)),
+            const SizedBox(height: 18),
+            const Text(
+              'Welcome to Mathevo',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 27,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF302523),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'A workspace to solve, see, and understand mathematics.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF817772), height: 1.45),
+            ),
+            const SizedBox(height: 20),
+            _featureRow(
+              Icons.calculate_outlined,
+              'Solve with purpose',
+              'Use core and advanced tools to work through math problems.',
+            ),
+            const SizedBox(height: 12),
+            _featureRow(
+              Icons.auto_graph_rounded,
+              'See how math behaves',
+              'Explore graphs, geometry, and interactive visualizations.',
+            ),
           ],
         );
       case _AuthPage.benefits:
         return Column(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'What you’ll get',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF1B2422),
-                  ),
-                ),
-                SizedBox(height: 12),
-                Text(
-                  'Explore practical math tools, keep your learning progress, and build confidence with a personal mathematics workspace.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    height: 1.5,
-                    color: Color(0xFF77817F),
-                  ),
-                ),
-              ],
+            const Spacer(),
+            Center(
+              child: _animatedMascot(
+                min(MediaQuery.sizeOf(context).height * .18, 138),
+                'assets/brand/mathevo_mascot_fox.png',
+                _MascotType.fox,
+              ),
             ),
-            Column(
-              mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 8),
+            const Text(
+              'What you’ll get',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: Color(0xFF302523),
+              ),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Tools for practice, discovery, and progress.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF817772)),
+            ),
+            const SizedBox(height: 24),
+            _featureRow(
+              Icons.functions_rounded,
+              'Calculate and visualize',
+              'Explore selected math modes, graphs, geometry, and interactive visualizations.',
+            ),
+            const SizedBox(height: 12),
+            _featureRow(
+              Icons.menu_book_outlined,
+              'Learn and build a habit',
+              'Resume lessons and track progress, streaks, and XP.',
+            ),
+            const SizedBox(height: 12),
+            _featureRow(
+              Icons.history_rounded,
+              'Review your work',
+              'Return to recent calculations and saved history.',
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
+                const Text(
+                  'Already have an account?',
+                  style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+                ),
                 TextButton(
                   onPressed: () => _go(_AuthPage.login),
-                  child: const Text('Already have an account? Log in'),
-                ),
-                _primaryButton(
-                  'CREATE YOUR ACCOUNT',
-                  () => _go(_AuthPage.signup),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    minimumSize: const Size(0, 40),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Log in'),
                 ),
               ],
             ),
@@ -313,26 +787,28 @@ class _AuthFlowState extends State<AuthFlow> {
             mainAxisSize: MainAxisSize.max,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _eyebrow(isSignup ? 'ACCOUNT SETUP' : 'ACCOUNT ACCESS'),
+              const SizedBox(height: 8),
               Text(
-                isSignup ? 'Create new Account' : 'Login',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: isSignup ? 24 : 28,
+                isSignup ? 'Create your account' : 'Welcome back',
+                textAlign: TextAlign.left,
+                style: const TextStyle(
+                  fontSize: 27,
                   fontWeight: FontWeight.w800,
-                  color: const Color(0xFF1B2422),
+                  color: Color(0xFF302523),
                 ),
               ),
-              const SizedBox(height: 5),
+              const SizedBox(height: 6),
               Text(
                 isSignup
-                    ? 'Create your MathVerse cloud account.'
-                    : 'Sign in to continue.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Color(0xFF858B89)),
+                    ? 'Save your progress and pick up where you left off.'
+                    : 'Sign in to continue learning and calculating.',
+                textAlign: TextAlign.left,
+                style: const TextStyle(fontSize: 13, color: Color(0xFF817772)),
               ),
               const SizedBox(height: 18),
               if (isSignup) ...[
-                _label('NAME'),
+                _label('Name'),
                 _input(
                   _name,
                   hint: 'Your name',
@@ -341,7 +817,7 @@ class _AuthFlowState extends State<AuthFlow> {
                       : null,
                 ),
               ],
-              _label('EMAIL'),
+              _label('Email address'),
               _input(
                 _email,
                 hint: 'you@example.com',
@@ -356,10 +832,10 @@ class _AuthFlowState extends State<AuthFlow> {
                   return null;
                 },
               ),
-              _label('PASSWORD'),
+              _label('Password'),
               _input(
                 _password,
-                hint: 'At least 6 characters',
+                hint: 'At least 8 characters',
                 obscureText: _obscurePassword,
                 suffix: IconButton(
                   onPressed: () =>
@@ -375,9 +851,23 @@ class _AuthFlowState extends State<AuthFlow> {
                     ? 'Use at least 8 characters'
                     : null,
               ),
+              if (isSignup) _policyConsentRow(),
               const Spacer(),
+              if (!isSignup)
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => _go(_AuthPage.forgotPassword),
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      minimumSize: const Size(0, 36),
+                    ),
+                    child: const Text('Forgot password?'),
+                  ),
+                ),
+              if (!isSignup) const SizedBox(height: 4),
               if (_error != null) ...[
-                const SizedBox(height: 8),
+                const SizedBox(height: 4),
                 Text(
                   _error!,
                   key: const Key('auth-error'),
@@ -385,41 +875,504 @@ class _AuthFlowState extends State<AuthFlow> {
                   style: const TextStyle(color: Colors.red, fontSize: 12),
                 ),
               ],
-              TextButton(
-                onPressed: () {
-                  _password.clear();
-                  _go(isSignup ? _AuthPage.login : _AuthPage.signup);
-                },
-                child: Text(
-                  isSignup ? 'Already registered? Log in' : 'Sign up',
-                ),
-              ),
-              if (!isSignup)
-                const Text(
-                  'Password recovery is not available yet.',
+              if (_notice != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  _notice!,
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Color(0xFF929896), fontSize: 11),
+                  style: const TextStyle(
+                    color: Color(0xFF28764C),
+                    fontSize: 12,
+                  ),
                 ),
-              const SizedBox(height: 6),
+              ],
+              const SizedBox(height: 8),
               _primaryButton(
-                isSignup ? 'CREATE ACCOUNT' : 'LOG IN',
+                isSignup ? 'Create account' : 'Sign in',
                 isSignup ? _createAccount : _login,
                 busy: _busy,
+              ),
+              const SizedBox(height: 10),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    isSignup ? 'Already have an account?' : 'New to Mathevo?',
+                    style: const TextStyle(
+                      color: Color(0xFF817772),
+                      fontSize: 12,
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      _password.clear();
+                      _go(isSignup ? _AuthPage.login : _AuthPage.signup);
+                    },
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 6),
+                      minimumSize: const Size(0, 40),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(isSignup ? 'Log in' : 'Create account'),
+                  ),
+                ],
               ),
             ],
           ),
         );
+      case _AuthPage.verifyEmail:
+        return _verificationForm(
+          title: 'Verify your email',
+          description:
+              'Enter the six-digit code sent to ${_email.text.trim()}.',
+          onSubmit: _verifySignupCode,
+          showResend: true,
+        );
+      case _AuthPage.forgotPassword:
+        return _emailResetForm();
+      case _AuthPage.verifyResetCode:
+        return _verificationForm(
+          title: 'Verify reset code',
+          description:
+              'Enter the six-digit code sent to ${_email.text.trim()}.',
+          onSubmit: _verifyResetCode,
+        );
+      case _AuthPage.resetPassword:
+        return _newPasswordForm();
     }
   }
 
+  Widget _featureRow(IconData icon, String title, String description) => Row(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Container(
+        width: 34,
+        height: 34,
+        alignment: Alignment.center,
+        child: Icon(icon, color: const Color(0xFFC45136), size: 19),
+      ),
+      const SizedBox(width: 12),
+      Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                color: Color(0xFF302523),
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              description,
+              style: const TextStyle(
+                color: Color(0xFF817772),
+                fontSize: 11,
+                height: 1.3,
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _eyebrow(String label) => Text(
+    label,
+    style: const TextStyle(
+      color: Color(0xFF817772),
+      fontSize: 10,
+      fontWeight: FontWeight.w700,
+      letterSpacing: 1.1,
+    ),
+  );
+
+  Widget _animatedMascot(double height, String asset, _MascotType type) =>
+      SizedBox.square(
+        dimension: height,
+        child: AnimatedBuilder(
+          animation: _mascotMotion,
+          child: Image.asset(asset, fit: BoxFit.contain),
+          builder: (context, child) {
+            final phase = _mascotMotion.value;
+            final blink = max(
+              _blinkPulse(phase, .31, .026),
+              max(_blinkPulse(phase, .355, .026), _blinkPulse(phase, .82, .03)),
+            );
+            final wingPhase = sin(phase * 2 * pi);
+            return Stack(
+              fit: StackFit.expand,
+              children: [
+                child!,
+                CustomPaint(
+                  painter: _MascotAnimationPainter(blink, wingPhase, type),
+                ),
+              ],
+            );
+          },
+        ),
+      );
+
+  double _blinkPulse(double phase, double center, double radius) =>
+      (1 - (phase - center).abs() / radius).clamp(0.0, 1.0);
+
+  Widget _progressDots(int active) => Row(
+    mainAxisAlignment: MainAxisAlignment.center,
+    children: [
+      SizedBox(
+        width: 64,
+        height: 16,
+        child: Stack(
+          children: [
+            for (var index = 0; index < 3; index++)
+              Positioned(
+                left: index * 20 + 8,
+                top: 4,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFE9DFDA),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 560),
+              curve: Curves.easeInOutCubicEmphasized,
+              left: active * 20,
+              top: 4,
+              width: 24,
+              height: 8,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC45136),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ],
+  );
+
+  Widget _policyConsentRow() => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 32,
+            height: 36,
+            child: Checkbox(
+              key: const Key('policy-checkbox'),
+              value: _acceptedPolicies,
+              visualDensity: VisualDensity.compact,
+              onChanged: (accepted) => setState(() {
+                _acceptedPolicies = accepted ?? false;
+                if (_acceptedPolicies) _policyRequiredError = false;
+              }),
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  const Text(
+                    'I agree to the ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF534744)),
+                  ),
+                  InkWell(
+                    key: const Key('privacy-policy-link'),
+                    onTap: _showPrivacyPolicy,
+                    child: const Text(
+                      'Privacy Policy',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFC45136),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  const Text(
+                    ' and ',
+                    style: TextStyle(fontSize: 12, color: Color(0xFF534744)),
+                  ),
+                  InkWell(
+                    key: const Key('terms-of-use-link'),
+                    onTap: _showTerms,
+                    child: const Text(
+                      'Terms of Use',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Color(0xFFC45136),
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+      if (_policyRequiredError)
+        const Padding(
+          padding: EdgeInsets.only(left: 38, top: 1),
+          child: Text(
+            'Please accept both documents to create an account.',
+            key: Key('policy-required-error'),
+            style: TextStyle(color: Color(0xFFD84B4B), fontSize: 11),
+          ),
+        ),
+    ],
+  );
+
+  Widget _verificationForm({
+    required String title,
+    required String description,
+    required Future<void> Function() onSubmit,
+    bool showResend = false,
+  }) => Form(
+    key: _formKey,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          title,
+          style: const TextStyle(
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF302523),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          description,
+          style: const TextStyle(color: Color(0xFF817772), fontSize: 13),
+        ),
+        const SizedBox(height: 22),
+        Row(
+          children: List.generate(6, (index) {
+            return Expanded(
+              child: Padding(
+                padding: EdgeInsets.only(right: index == 5 ? 0 : 8),
+                child: SizedBox(
+                  height: 58,
+                  child: TextField(
+                    key: Key('verification-digit-$index'),
+                    controller: _codeDigits[index],
+                    focusNode: _codeFocusNodes[index],
+                    autofocus: index == 0,
+                    keyboardType: TextInputType.number,
+                    autofillHints: index == 0
+                        ? const [AutofillHints.oneTimeCode]
+                        : null,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w700,
+                      color: Color(0xFF302523),
+                    ),
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    onChanged: (value) => _handleCodeDigitChanged(index, value),
+                    decoration: InputDecoration(
+                      counterText: '',
+                      filled: true,
+                      fillColor: const Color(0xFFFFF3EE),
+                      contentPadding: EdgeInsets.zero,
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: const BorderSide(
+                          color: Color(0xFFC45136),
+                          width: 1.8,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'The code expires in 10 minutes.',
+          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+        ),
+        const SizedBox(height: 10),
+        if (_notice != null) _noticeText(_notice!),
+        if (_error != null) _errorText(_error!),
+        const Spacer(),
+        const SizedBox(height: 8),
+        _primaryButton(
+          showResend ? 'Verify email' : 'Verify code',
+          onSubmit,
+          busy: _busy,
+        ),
+        if (showResend)
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                'Didn’t get the email?',
+                style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+              ),
+              TextButton(
+                onPressed: _busy ? null : _resendSignupCode,
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 6),
+                  minimumSize: const Size(0, 40),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                child: const Text('Resend code'),
+              ),
+            ],
+          ),
+        TextButton(
+          onPressed: () =>
+              _go(showResend ? _AuthPage.signup : _AuthPage.forgotPassword),
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 40),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          child: Text(
+            showResend ? 'Back to sign up' : 'Back to reset password',
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _emailResetForm() => Form(
+    key: _formKey,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _eyebrow('ACCOUNT RECOVERY'),
+        const SizedBox(height: 8),
+        const Text(
+          'Reset password',
+          style: TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF302523),
+          ),
+        ),
+        const SizedBox(height: 5),
+        const Text(
+          'We’ll email a six-digit code to your account.',
+          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+        ),
+        const SizedBox(height: 8),
+        _label('Email address'),
+        _input(
+          _email,
+          hint: 'you@example.com',
+          keyboardType: TextInputType.emailAddress,
+          validator: _validateEmail,
+        ),
+        const Spacer(),
+        const SizedBox(height: 4),
+        if (_error != null) _errorText(_error!),
+        const SizedBox(height: 6),
+        _primaryButton('Send reset code', _requestPasswordReset, busy: _busy),
+      ],
+    ),
+  );
+
+  Widget _newPasswordForm() => Form(
+    key: _formKey,
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _eyebrow('ACCOUNT RECOVERY'),
+        const SizedBox(height: 8),
+        const Text(
+          'Choose a new password',
+          textAlign: TextAlign.left,
+          style: TextStyle(
+            fontSize: 23,
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF302523),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Verified for ${_email.text.trim()}',
+          textAlign: TextAlign.left,
+          style: const TextStyle(color: Color(0xFF817772), fontSize: 12),
+        ),
+        const SizedBox(height: 16),
+        _label('NEW PASSWORD'),
+        _input(
+          _password,
+          hint: 'At least 8 characters',
+          obscureText: _obscurePassword,
+          validator: (value) => value == null || value.length < 8
+              ? 'Use at least 8 characters'
+              : null,
+        ),
+        _label('CONFIRM PASSWORD'),
+        _input(
+          _confirmPassword,
+          hint: 'Enter the password again',
+          obscureText: _obscurePassword,
+          validator: (value) =>
+              value != _password.text ? 'Passwords do not match' : null,
+        ),
+        const Spacer(),
+        const SizedBox(height: 10),
+        if (_error != null) _errorText(_error!),
+        _primaryButton('Update password', _completePasswordReset, busy: _busy),
+      ],
+    ),
+  );
+
+  String? _validateEmail(String? value) =>
+      value == null ||
+          !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(value.trim())
+      ? 'Enter a valid email'
+      : null;
+
+  Widget _noticeText(String message) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      message,
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Color(0xFF28764C), fontSize: 12),
+    ),
+  );
+
+  Widget _errorText(String message) => Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      message,
+      key: const Key('auth-error'),
+      textAlign: TextAlign.center,
+      style: const TextStyle(color: Colors.red, fontSize: 12),
+    ),
+  );
+
   Widget _label(String text) => Padding(
-    padding: const EdgeInsets.only(left: 3, top: 9, bottom: 4),
+    padding: const EdgeInsets.only(left: 2, top: 11, bottom: 6),
     child: Text(
       text,
       style: const TextStyle(
-        fontSize: 10,
-        letterSpacing: 1.2,
-        color: Color(0xFF858B89),
+        fontSize: 12,
+        fontWeight: FontWeight.w600,
+        color: Color(0xFF655551),
       ),
     ),
   );
@@ -436,16 +1389,28 @@ class _AuthFlowState extends State<AuthFlow> {
     validator: validator,
     keyboardType: keyboardType,
     obscureText: obscureText,
-    style: const TextStyle(fontSize: 13),
+    style: const TextStyle(fontSize: 15, color: Color(0xFF302523)),
     decoration: InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFD8D8D8),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      fillColor: const Color(0xFFFFFAF8),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       suffixIcon: suffix,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(13),
-        borderSide: BorderSide.none,
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFFEDE1DB)),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFFC45136), width: 1.6),
+      ),
+      errorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFFD84B4B)),
+      ),
+      focusedErrorBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(15),
+        borderSide: const BorderSide(color: Color(0xFFD84B4B), width: 1.6),
       ),
       errorStyle: const TextStyle(fontSize: 10),
     ),
@@ -457,13 +1422,13 @@ class _AuthFlowState extends State<AuthFlow> {
     bool busy = false,
   }) => SizedBox(
     width: double.infinity,
-    height: 46,
+    height: 56,
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFF1B2422),
+        backgroundColor: const Color(0xFFC45136),
         foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
       child: busy
           ? const SizedBox(
@@ -476,29 +1441,100 @@ class _AuthFlowState extends State<AuthFlow> {
             )
           : Text(
               label,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
             ),
     ),
   );
 }
 
-class _CirclePatternPainter extends CustomPainter {
+enum _MascotType { owl, robot, fox }
+
+class _MascotAnimationPainter extends CustomPainter {
+  const _MascotAnimationPainter(this.blink, this.wingPhase, this.type);
+
+  final double blink;
+  final double wingPhase;
+  final _MascotType type;
+
   @override
   void paint(Canvas canvas, Size size) {
-    canvas.drawColor(const Color(0xFF1B2220), BlendMode.src);
-    final paint = Paint()..color = const Color(0xFF283750);
-    const radius = 20.0;
-    for (var row = -1; row < 8; row++) {
-      for (var col = -1; col < 9; col++) {
-        final x = col * 54.0 + (row.isOdd ? 26 : 0) + 8;
-        final y = row * 55.0 + 16;
-        canvas.drawCircle(Offset(x, y), radius, paint);
-        final shadow = Paint()..color = const Color(0xFF1B2220);
-        canvas.drawCircle(Offset(x - 10, y - 3), radius * .67, shadow);
+    final feather = Paint()
+      ..color = const Color(0xFFB7E4FF).withValues(alpha: .34)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = size.width * .009;
+    final lift = wingPhase * size.height * .018;
+    final (leftStart, rightStart, wingY, wingTip) = switch (type) {
+      _MascotType.owl => (.22, .78, .63, .55),
+      _MascotType.robot => (.13, .87, .70, .60),
+      _MascotType.fox => (.20, .80, .67, .55),
+    };
+    for (final side in [0, 1]) {
+      final isLeft = side == 0;
+      final start = isLeft ? leftStart : rightStart;
+      final end = isLeft ? start - .06 : start + .06;
+      final flap = isLeft ? lift : -lift;
+      final path = Path()
+        ..moveTo(size.width * start, size.height * wingY)
+        ..quadraticBezierTo(
+          size.width * (start + (isLeft ? -.035 : .035)),
+          size.height * (wingY - .035) - flap,
+          size.width * end,
+          size.height * wingTip - flap,
+        );
+      canvas.drawPath(path, feather);
+    }
+
+    if (blink < .02) return;
+    final faceColor = switch (type) {
+      _MascotType.owl => const Color(0xFFFFF5E6),
+      _MascotType.robot => const Color(0xFF14243A),
+      _MascotType.fox => const Color(0xFFFBF7F1),
+    };
+    final fill = Paint()..color = faceColor;
+    final lid = Paint()
+      ..color = const Color(0xFF24364C)
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeWidth = size.width * .006;
+
+    void closeEye(double x, double y) {
+      final center = Offset(size.width * x, size.height * y);
+      final width = size.width * .125;
+      final rect = Rect.fromCenter(
+        center: center,
+        width: width,
+        height: (size.height * .155 * blink).clamp(
+          size.height * .002,
+          size.height * .155,
+        ),
+      );
+      canvas.drawOval(rect, fill);
+      if (blink > .62) {
+        final path = Path()
+          ..moveTo(rect.left + width * .12, center.dy)
+          ..quadraticBezierTo(
+            center.dx,
+            center.dy + size.height * .012,
+            rect.right - width * .12,
+            center.dy,
+          );
+        canvas.drawPath(path, lid);
       }
     }
+
+    final (leftEye, rightEye, eyeY) = switch (type) {
+      _MascotType.owl => (.365, .59, .37),
+      _MascotType.robot => (.42, .63, .40),
+      _MascotType.fox => (.40, .62, .40),
+    };
+    closeEye(leftEye, eyeY);
+    closeEye(rightEye, eyeY);
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _MascotAnimationPainter oldDelegate) =>
+      oldDelegate.blink != blink ||
+      oldDelegate.wingPhase != wingPhase ||
+      oldDelegate.type != type;
 }
