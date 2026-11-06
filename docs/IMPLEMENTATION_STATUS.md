@@ -9,7 +9,7 @@ This document distinguishes working app flows from planned features. Test covera
 | App shell | Five compact floating navigation destinations, with active-page color and transparent space around the navigation island. |
 | Onboarding and accounts | Welcome, onboarding, signup, login, and logout flows. Cloud signup and login use the separate backend service. The calculator and local app data remain available without an account. |
 | Dashboard | Daily challenge, local streak and XP, feature shortcuts, and ten newest activities. History opens the saved calculation list. |
-| Calculator | Basic and scientific expression evaluation; common geometry calculations; circular and selected hyperbolic trigonometric functions; graph plotting; selected algebra equations; selected differentiation and integration; base conversion with a base-aware on-screen digit keypad; and selected discrete-math commands. Scientific functions include cube root, arbitrary and base-10 logarithms, hyperbolic functions, and floor/ceiling. Keys and available operations change by calculator mode. |
+| Calculator | Basic and scientific expression evaluation; common geometry calculations; circular and selected hyperbolic trigonometric functions; graph plotting; selected algebra equations; selected differentiation and integration; base conversion; selected discrete-math commands; descriptive statistics; elementary probability; and constant-speed motion formulas. Scientific functions include cube root, arbitrary and base-10 logarithms, hyperbolic functions, and floor/ceiling. Keys and available operations change by calculator mode. |
 | Calculator workflow | Live expression evaluation, explicit equals action for committing a result, continuation after a result, calculation sessions, local history, calculation detail, and a continue action. |
 | Visualization | Selected geometry and trigonometry visualizations, with interactive parameters for supported views. Graphing supports the implemented function and plot types only. |
 | Lessons | Search, category navigation, a starter lesson, local progress, and XP awards for supported lesson actions. |
@@ -18,6 +18,8 @@ This document distinguishes working app flows from planned features. Test covera
 | Cloud account backend | Separate API and PostgreSQL schema with signup, login, refresh, logout, and current-user routes. See [`../backend/README.md`](../backend/README.md). |
 
 Calculation results are limited to the operations implemented by the app's math engine and mode-specific handlers. They do not amount to a general symbolic computer algebra system.
+
+Statistics currently accepts finite numeric lists for mean, median, mode, range, sum, count, quartiles, population/sample variance, and standard deviation. Probability currently supports event probability, complement, odds, one binomial outcome, combinations, and permutations. Physics currently supports constant-speed distance, velocity, and time formulas; it does not convert or validate units. Statistics and motion arguments can also use scalar arithmetic expressions, including entered fractions.
 
 ## Known limitations
 

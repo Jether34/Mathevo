@@ -139,8 +139,45 @@ class MathEngine {
   static final Map<String, Expression> _numericExpressionCache = {};
   static const _discreteEngine = DiscreteMathEngine();
 
+  /// Converts common textbook adjacency into explicit products before parsing.
+  /// This avoids relying on parser precedence for forms such as `3x`, `x(x+1)`,
+  /// and `(x+1)^2(2x+3)`.
+  static String _normalizeImplicitMultiplication(String source) {
+    var normalized = source;
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\d)(?=(?:x|y|z|pi|e)\b)', caseSensitive: false),
+      (match) => '${match[1]}*',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'([xyzπe])(?=\d)', caseSensitive: false),
+      (match) => '${match[1]}*',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'([0-9.)])(?=\()'),
+      (match) => '${match[1]}*',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(
+        r'([0-9.)xyzπe])(?=(?:sin|cos|tan|asin|acos|atan|sinh|cosh|tanh|asinh|acosh|atanh|sqrt|cbrt|log10|log|ln|abs|floor|ceil|nrt)\s*\()',
+        caseSensitive: false,
+      ),
+      (match) => '${match[1]}*',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\))(?=(?:x|y|z|pi|e)\b)', caseSensitive: false),
+      (match) => '${match[1]}*',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'(\))(?=\d)'),
+      (match) => '${match[1]}*',
+    );
+    return normalized;
+  }
+
   static GrammarParser _parser() {
-    final parser = GrammarParser();
+    final parser = GrammarParser(
+      const ParserOptions(implicitMultiplication: true),
+    );
     double unary(String name, List<double> arguments) {
       if (arguments.length != 1 || !arguments.single.isFinite) {
         throw ArgumentError('$name expects one finite argument.');
@@ -216,7 +253,9 @@ class MathEngine {
     final source = input.trim();
     if (source.isEmpty) throw const MathInputException('Enter an expression.');
     try {
-      final expression = _parser().parse(source);
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(source),
+      );
       final derivative = expression.derive(variable).simplify();
       return derivative.toString();
     } on Object {
@@ -236,8 +275,8 @@ class MathEngine {
     }
     try {
       final parser = _parser();
-      final left = parser.parse(sides[0]);
-      final right = parser.parse(sides[1]);
+      final left = parser.parse(_normalizeImplicitMultiplication(sides[0]));
+      final right = parser.parse(_normalizeImplicitMultiplication(sides[1]));
       final polynomial = _Polynomial.fromExpression(left - right, variable);
       final coefficients = polynomial.coefficients;
       final a = coefficients[2] ?? 0;
@@ -311,7 +350,9 @@ class MathEngine {
             'Each equation needs one equals sign.',
           );
         }
-        final difference = parser.parse(sides[0]) - parser.parse(sides[1]);
+        final difference =
+            parser.parse(_normalizeImplicitMultiplication(sides[0])) -
+            parser.parse(_normalizeImplicitMultiplication(sides[1]));
         final coefficients = _LinearPair.fromExpression(difference);
         rows.add([coefficients.x, coefficients.y, coefficients.constant]);
       }
@@ -382,7 +423,9 @@ class MathEngine {
       );
     }
     try {
-      final expression = _parser().parse(source);
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(source),
+      );
       final variables = VariableCollector().evaluate(expression).toSet();
       if (variables.difference({variable}).isNotEmpty) {
         throw MathInputException(
@@ -479,7 +522,9 @@ class MathEngine {
 
   double evaluateAt(String input, double value, {String variable = 'x'}) {
     try {
-      final expression = _parser().parse(input.trim());
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(input.trim()),
+      );
       final context = ContextModel()..bindVariableName(variable, Number(value));
       final result = RealEvaluator(
         context,
@@ -508,7 +553,7 @@ class MathEngine {
         if (_numericExpressionCache.length >= 32) {
           _numericExpressionCache.clear();
         }
-        return _parser().parse(source);
+        return _parser().parse(_normalizeImplicitMultiplication(source));
       });
       final context = ContextModel();
       for (final entry in values.entries) {
@@ -535,7 +580,9 @@ class MathEngine {
     final source = input.trim();
     if (source.isEmpty) throw const MathInputException('Enter an integrand.');
     try {
-      final expression = _parser().parse(source);
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(source),
+      );
       final result = _integrateExpression(expression, variable).simplify();
       return '${result.toString()} + C';
     } on MathInputException {
@@ -643,7 +690,9 @@ class MathEngine {
   /// Returns numeric post-order reductions for supported expression trees.
   /// Each line is evaluated by this engine; it does not invent symbolic rules.
   List<String> solutionSteps(String input) {
-    final root = _parser().parse(input.trim());
+    final root = _parser().parse(
+      _normalizeImplicitMultiplication(input.trim()),
+    );
     final steps = <String>[];
     String cleanNumber(String source) =>
         source.replaceAll(RegExp(r'\.0\b'), '');
@@ -704,7 +753,9 @@ class MathEngine {
       throw MathInputException(error.message);
     }
     try {
-      final expression = _parser().parse(source);
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(source),
+      );
       final value = RealEvaluator(
         ContextModel(),
         true,

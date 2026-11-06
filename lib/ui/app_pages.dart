@@ -1114,6 +1114,9 @@ enum _CalculatorMode {
   calculus,
   numberSystem,
   discreteMath,
+  statistics,
+  probability,
+  physics,
   drawing,
 }
 
@@ -1146,6 +1149,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _integralUpperInput = TextEditingController(text: '2');
   final _drawingBoundaryKey = GlobalKey();
   final _engine = const MathEngine();
+  final _dataMathEngine = const StatisticsProbabilityEngine();
   TextRecognizer? _recognizer;
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
@@ -1252,10 +1256,61 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _showCalculationError('Enter both a numerator and denominator.');
       return;
     }
-    setState(() {
-      _fractionBuilder = false;
-    });
-    _insert('(${_numerator.text})/(${_denominator.text})');
+    final fraction = '(${_numerator.text})/(${_denominator.text})';
+    setState(() => _fractionBuilder = false);
+    if (_mode == _CalculatorMode.geometry) {
+      final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
+      controller.value = TextEditingValue(
+        text: fraction,
+        selection: TextSelection.collapsed(offset: fraction.length),
+      );
+      _calculateGeometry();
+    } else {
+      _insert(fraction);
+    }
+  }
+
+  void _toggleSign() {
+    if (!_fractionBuilder && _answerShown) {
+      _input.text = _result ?? '';
+      _input.selection = TextSelection.collapsed(offset: _input.text.length);
+      _result = null;
+      _answerShown = false;
+    }
+    final controller = _fractionBuilder
+        ? (_fractionDenominatorSelected ? _denominator : _numerator)
+        : _input;
+    final text = controller.text;
+    final selection = controller.selection;
+    final cursor = selection.isValid ? selection.start : text.length;
+    final end = selection.isValid ? selection.end : text.length;
+    if (cursor != end) {
+      final selected = text.substring(cursor, end);
+      final toggled = selected.startsWith('-')
+          ? selected.substring(1)
+          : '-$selected';
+      controller.value = TextEditingValue(
+        text: text.replaceRange(cursor, end, toggled),
+        selection: TextSelection.collapsed(offset: cursor + toggled.length),
+      );
+    } else {
+      final prefix = text.substring(0, cursor);
+      final number = RegExp(r'(-?(?:\d+\.?\d*|\.\d+))$').firstMatch(prefix);
+      if (number == null) {
+        _insert('-');
+        return;
+      }
+      final token = number.group(1)!;
+      final toggled = token.startsWith('-') ? token.substring(1) : '-$token';
+      controller.value = TextEditingValue(
+        text: text.replaceRange(number.start, cursor, toggled),
+        selection: TextSelection.collapsed(
+          offset: number.start + toggled.length,
+        ),
+      );
+    }
+    if (!_fractionBuilder) _updateResult();
+    setState(() {});
   }
 
   void _showCalculationError(String message) {
@@ -1294,12 +1349,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
       (m) => '\\frac{${m[1]}}{${m[2]}}',
     );
     tex = tex.replaceAllMapped(
+      RegExp(r'\bpow\(([^,()]+),\s*([^()]+)\)'),
+      (m) => '${m[1]}^{${m[2]}}',
+    );
+    tex = tex.replaceAllMapped(
       RegExp(r'\b(sqrt|cbrt)\(([^()]*)\)'),
       (m) => m[1] == 'sqrt' ? '\\sqrt{${m[2]}}' : '\\sqrt[3]{${m[2]}}',
     );
     tex = tex.replaceAllMapped(
       RegExp(r'\b(abs)\(([^()]*)\)'),
       (m) => r'\left|' + m[2]! + r'\right|',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(
+        r'\b(mean|average|median|mode|range|sum|count|variance|sampleVariance|stdev|sampleStdev|q1|q3|probability|complement|odds|binomial|combination|permutation|distance|velocity|speed|time)\(',
+      ),
+      (m) => '\\operatorname{${m[1]}}(',
     );
     tex = tex.replaceAll('(', r'\left(').replaceAll(')', r'\right)');
     tex = tex.replaceAllMapped(
@@ -1360,6 +1425,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
       return;
     }
     try {
+      if (_usesDataMathMode) {
+        final result = _calculateDataMath(_input.text);
+        setState(() {
+          _result = result;
+          _error = null;
+          _resultIsExact = false;
+          _answerShown = false;
+        });
+        return;
+      }
       if (_mode == _CalculatorMode.graphing) {
         final graphLabel = _graphEquationLabel(_input.text);
         if (graphLabel != null) {
@@ -1409,6 +1484,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
   }
 
+  bool get _usesDataMathMode =>
+      _mode == _CalculatorMode.statistics ||
+      _mode == _CalculatorMode.probability ||
+      _mode == _CalculatorMode.physics;
+
+  String _calculateDataMath(String expression) => switch (_mode) {
+    _CalculatorMode.statistics => _dataMathEngine.calculateStatistics(
+      expression,
+    ),
+    _CalculatorMode.probability => _dataMathEngine.calculateProbability(
+      expression,
+    ),
+    _CalculatorMode.physics => _dataMathEngine.calculatePhysics(expression),
+    _ => throw const MathInputException('Choose a math mode first.'),
+  };
+
   String _angleAdjustedExpression(String source) {
     var result = source.replaceAllMapped(
       RegExp(r'\b(sec|csc|cot)\(([^()]*)\)'),
@@ -1456,6 +1547,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final expression = _input.text.trim();
     if (expression.isEmpty) return;
     try {
+      if (_usesDataMathMode) {
+        final answer = _calculateDataMath(expression);
+        setState(() {
+          _result = answer;
+          _error = null;
+          _resultIsExact = false;
+          _answerShown = true;
+        });
+        _appendSessionEntry(expression, answer, exact: false);
+        return;
+      }
       if (_mode == _CalculatorMode.geometry) {
         _calculateGeometry(commit: true);
         return;
@@ -1594,8 +1696,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _calculateGeometry({bool commit = false}) {
     try {
-      final first = double.parse(_geometryFirst.text.trim());
-      final second = double.tryParse(_geometrySecond.text.trim()) ?? 0;
+      double readDimension(TextEditingController controller) {
+        final text = controller.text.trim();
+        if (text.isEmpty) return 0;
+        final value = _engine.calculate(text).value;
+        if (value == null || !value.isFinite) throw const FormatException();
+        return value;
+      }
+
+      final first = readDimension(_geometryFirst);
+      final second = readDimension(_geometrySecond);
       final needsSecond = const {
         'Rectangle area',
         'Rectangle perimeter',
@@ -1687,11 +1797,38 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _pressGeometryDigit(String key) {
     FocusScope.of(context).unfocus();
+    if (_fractionBuilder) {
+      if (key == 'C' || key == 'DEL') {
+        _pressFunction(key);
+      } else if (key == '±') {
+        _toggleSign();
+      } else {
+        _insert(switch (key) {
+          '×' => '*',
+          '÷' => '/',
+          'π' => 'pi',
+          '√' => 'sqrt(',
+          _ => key,
+        });
+      }
+      return;
+    }
     final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
     if (key == 'C') {
       controller.clear();
       _input.clear();
+    } else if (key == '±') {
+      final value = controller.text;
+      controller.text = value.startsWith('-') ? value.substring(1) : '-$value';
+      controller.selection = TextSelection.collapsed(
+        offset: controller.text.length,
+      );
     } else {
+      final inserted = switch (key) {
+        '×' => '*',
+        '÷' => '/',
+        _ => key,
+      };
       final selection = controller.selection;
       final start = selection.isValid
           ? selection.start
@@ -1703,13 +1840,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
               end,
               '',
             )
-          : controller.text.replaceRange(start, end, key);
+          : controller.text.replaceRange(start, end, inserted);
       controller.value = TextEditingValue(
         text: value,
         selection: TextSelection.collapsed(
           offset: key == 'DEL' && start == end && start > 0
               ? start - 1
-              : start + key.length,
+              : start + inserted.length,
         ),
       );
     }
@@ -1799,6 +1936,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
             (second.isNegative || second > BigInt.from(4096))) {
           throw const FormatException('Shift amount must be from 0 to 4096.');
         }
+        if (_numberOperator == 'pow' &&
+            (second.isNegative || second > BigInt.from(4096))) {
+          throw const FormatException(
+            'The integer exponent must be from 0 to 4096.',
+          );
+        }
         answer = switch (_numberOperator) {
           '+' => first + second,
           '-' => first - second,
@@ -1806,6 +1949,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           '&' => first & second,
           '|' => first | second,
           '^' => first ^ second,
+          'pow' => first.pow(second.toInt()),
           '%' when second != BigInt.zero => first.remainder(second),
           '%' => throw const FormatException('Cannot divide by zero.'),
           '<<' => first << second.toInt(),
@@ -1988,6 +2132,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       });
     } else if (key == 'PERCENT') {
       _insert('/100');
+    } else if (key == 'SIGN') {
+      _toggleSign();
     } else if (_fractionBuilder && key == 'C') {
       (_fractionDenominatorSelected ? _denominator : _numerator).clear();
       setState(() {});
@@ -2094,6 +2240,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               _CalculatorMode.calculus => 'Integral calculus',
                               _CalculatorMode.numberSystem => 'Number systems',
                               _CalculatorMode.discreteMath => 'Discrete math',
+                              _CalculatorMode.statistics => 'Statistics',
+                              _CalculatorMode.probability => 'Probability',
+                              _CalculatorMode.physics => 'Physics',
                               _CalculatorMode.drawing => 'Draw',
                             }),
                             selected: _mode == mode,
@@ -2125,6 +2274,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ),
               if (_mode != _CalculatorMode.numberSystem &&
                   _mode != _CalculatorMode.discreteMath &&
+                  _mode != _CalculatorMode.statistics &&
+                  _mode != _CalculatorMode.probability &&
+                  _mode != _CalculatorMode.physics &&
                   _mode != _CalculatorMode.drawing)
                 IconButton.filledTonal(
                   tooltip: 'Flip to visualization',
@@ -2168,6 +2320,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   if (_mode == _CalculatorMode.algebra) ...[
                     const Text(
                       'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
+                    ),
+                    const SizedBox(height: 5),
+                  ],
+                  if (_mode == _CalculatorMode.graphing) ...[
+                    Text(
+                      'Use xʸ for powers and implicit multiplication, such as (x^2+3x-2)^4(3^x+x^2).',
+                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 5),
                   ],
@@ -2244,6 +2403,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     ],
                     const SizedBox(height: 5),
                   ],
+                  if (_usesDataMathMode) ...[
+                    Text(
+                      _mode == _CalculatorMode.statistics
+                          ? 'Enter values in a function, for example mean(2, 4, 6).'
+                          : _mode == _CalculatorMode.probability
+                          ? 'Use probability(favorable, total), binomial(n, k, p), or complement(p).'
+                          : 'Uniform motion: distance(12, 4) = 48; velocity(120, 4) = 30. Keep units consistent.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 5),
+                  ],
                   Expanded(
                     child: _buildExpressionAnswer(context, expand: true),
                   ),
@@ -2274,9 +2444,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       return '$dimension plot of f of x equals x squared, with a secant at '
           'x equals ${finiteDifference.center} and step ${finiteDifference.step}. '
           'The approximate derivative is ${finiteDifference.approximateDerivative}. '
+          'The x and y axes cross at zero and have numbered ticks. '
+          '${_visualIs3D ? 'The z axis also has numbered ticks.' : ''} '
           'This is a curve and has no surface area.';
     }
-    return '$_visualizationTitle, ${_visualIs3D ? '3D' : '2D'} view';
+    return '$_visualizationTitle, ${_visualIs3D ? '3D' : '2D'} view. '
+        'The x and y axes cross at zero and show numbered ticks.';
   }
 
   double get _visualizationValue {
@@ -2827,6 +3000,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   _visualizationValue.isFinite
                       ? _visualizationValue.toStringAsFixed(4)
                       : 'Cannot evaluate',
+                  key: const Key('visualization-adjusted-value'),
                   style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     color: colors.primary,
                     fontWeight: FontWeight.w800,
@@ -3414,6 +3588,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ],
       ),
       Slider(
+        key: ValueKey('visualization-slider-$label'),
         value: value.clamp(min, max).toDouble(),
         min: min,
         max: max,
@@ -3521,10 +3696,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     autofocus: true,
                     onChanged: (_) => _updateResult(),
                     onSubmitted: (_) => _evaluate(),
-                    maxLines: 2,
-                    decoration: const InputDecoration(
-                      hintText: '12 + 8',
-                      border: InputBorder.none,
+                    expands: true,
+                    maxLines: null,
+                    minLines: null,
+                    textAlignVertical: TextAlignVertical.top,
+                    style: const TextStyle(fontSize: 22, height: 1.45),
+                    decoration: InputDecoration.collapsed(
+                      hintText: _expressionHint,
+                      hintStyle: const TextStyle(color: Colors.black45),
                     ),
                   )
                 : _fractionBuilder
@@ -3544,29 +3723,39 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       _inlineFractionEditor(),
                     ],
                   )
-                : _input.text.trim().isEmpty &&
-                      _mode != _CalculatorMode.geometry
-                ? const Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(
-                      'Enter an expression',
-                      style: TextStyle(color: Colors.black45, fontSize: 18),
-                    ),
-                  )
-                : SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    child: Align(
-                      alignment: Alignment.centerLeft,
-                      child: Math.tex(
-                        _expressionTex,
-                        mathStyle: MathStyle.display,
-                        textStyle: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w500,
-                        ),
-                        onErrorFallback: (_) =>
-                            const Text('Complete the expression'),
-                      ),
+                : GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => setState(() => _sourceEditorVisible = true),
+                    child: SizedBox.expand(
+                      child:
+                          _input.text.trim().isEmpty &&
+                              _mode != _CalculatorMode.geometry
+                          ? const Align(
+                              alignment: Alignment.topLeft,
+                              child: Text(
+                                'Tap here or use the keys to enter an expression',
+                                style: TextStyle(
+                                  color: Colors.black45,
+                                  fontSize: 16,
+                                ),
+                              ),
+                            )
+                          : SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Align(
+                                alignment: Alignment.centerLeft,
+                                child: Math.tex(
+                                  _expressionTex,
+                                  mathStyle: MathStyle.display,
+                                  textStyle: const TextStyle(
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                  onErrorFallback: (_) =>
+                                      const Text('Complete the expression'),
+                                ),
+                              ),
+                            ),
                     ),
                   ),
           ),
@@ -3579,13 +3768,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
     mainAxisSize: MainAxisSize.min,
     children: [
       SizedBox(
-        width: 76,
+        width: 102,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            SizedBox(height: 32, child: _fractionField(_numerator, false)),
+            const Text('Numerator', style: TextStyle(fontSize: 10)),
+            SizedBox(height: 34, child: _fractionField(_numerator, false)),
             Container(height: 2, color: Theme.of(context).colorScheme.primary),
-            SizedBox(height: 32, child: _fractionField(_denominator, true)),
+            SizedBox(height: 34, child: _fractionField(_denominator, true)),
+            const Text('Denominator', style: TextStyle(fontSize: 10)),
           ],
         ),
       ),
@@ -3598,8 +3789,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ],
   );
 
+  String get _expressionHint => switch (_mode) {
+    _CalculatorMode.statistics => 'mean(2, 4, 6)',
+    _CalculatorMode.probability => 'probability(3, 10)',
+    _CalculatorMode.physics => 'distance(12, 4)',
+    _ => 'Enter an expression',
+  };
+
   Widget _fractionField(TextEditingController controller, bool denominator) =>
       TextField(
+        key: Key(
+          denominator
+              ? 'fraction-denominator-input'
+              : 'fraction-numerator-input',
+        ),
         controller: controller,
         readOnly: true,
         textAlign: TextAlign.center,
@@ -3621,7 +3824,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('e', 'e'),
         ('=', '='),
         (';', ';'),
-        ('^', '^'),
+        ('xʸ', '^'),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
+        ('[', '['),
+        (']', ']'),
         ('(', '('),
         (')', ')'),
         ('C', 'C'),
@@ -3631,7 +3838,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('x', 'x'),
         ('\u03C0', 'pi'),
         ('e', 'e'),
-        ('^', '^'),
+        ('xʸ', '^'),
         ('d/dx', 'CALC_DERIVATIVE'),
         ('\u222B', 'CALC_INTEGRAL'),
         ('\u222B\u2090\u1D47', 'CALC_DEFINITE_INTEGRAL'),
@@ -3640,6 +3847,62 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('tan', 'tan('),
         ('sqrt', 'sqrt('),
         ('ln', 'ln('),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
+        (',', ','),
+        ('(', '('),
+        (')', ')'),
+        ('C', 'C'),
+        ('DEL', 'DEL'),
+      ],
+      _CalculatorMode.statistics => [
+        ('xʸ', '^'),
+        ('mean(', 'mean('),
+        ('median(', 'median('),
+        ('mode(', 'mode('),
+        ('range(', 'range('),
+        ('sum(', 'sum('),
+        ('count(', 'count('),
+        ('variance(', 'variance('),
+        ('sampleVariance(', 'sampleVariance('),
+        ('stdev(', 'stdev('),
+        ('sampleStdev(', 'sampleStdev('),
+        ('Q₁(', 'q1('),
+        ('Q₃(', 'q3('),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
+        (',', ','),
+        ('[', '['),
+        (']', ']'),
+        ('(', '('),
+        (')', ')'),
+        ('C', 'C'),
+        ('DEL', 'DEL'),
+      ],
+      _CalculatorMode.probability => [
+        ('xʸ', '^'),
+        ('P(', 'probability('),
+        ('P̄(', 'complement('),
+        ('odds(', 'odds('),
+        ('binomial(', 'binomial('),
+        ('nCr(', 'combination('),
+        ('nPr(', 'permutation('),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
+        (',', ','),
+        ('(', '('),
+        (')', ')'),
+        ('C', 'C'),
+        ('DEL', 'DEL'),
+      ],
+      _CalculatorMode.physics => [
+        ('xʸ', '^'),
+        ('d = v × t', 'distance('),
+        ('v = d ÷ t', 'velocity('),
+        ('t = d ÷ v', 'time('),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
+        (',', ','),
         ('(', '('),
         (')', ')'),
         ('C', 'C'),
@@ -3652,7 +3915,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('=', '='),
         ('\u03C0', 'pi'),
         ('e', 'e'),
-        ('^', '^'),
+        ('xʸ', '^'),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
@@ -3672,12 +3935,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('root', 'nrt('),
         (',', ','),
         ('%', 'PERCENT'),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
         ('(', '('),
         (')', ')'),
         ('C', 'C'),
         ('DEL', 'DEL'),
       ],
       _CalculatorMode.discreteMath => [
+        ('xʸ', 'pow('),
         ('gcd(', 'gcd('),
         ('lcm(', 'lcm('),
         ('prime?', 'isPrime('),
@@ -3716,10 +3982,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('H', 'H'),
         ('(', '('),
         (')', ')'),
+        ('±', 'SIGN'),
+        ('a/b', 'a/b'),
         ('DEL', 'DEL'),
         ('Clear', 'C'),
       ],
       _CalculatorMode.geometry || _CalculatorMode.trigonometry => [
+        ('xʸ', '^'),
         ('\u03C0', 'pi'),
         ('e', 'e'),
         ('sin', 'sin('),
@@ -3751,6 +4020,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('a/b', 'a/b'),
         ('(', '('),
         (')', ')'),
+        ('±', 'SIGN'),
         ('C', 'C'),
         ('DEL', 'DEL'),
       ],
@@ -3784,6 +4054,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('%', 'PERCENT'),
         ('x^y', '^'),
         ('e^x', 'e^('),
+        ('±', 'SIGN'),
         ('!', '!'),
         ('abs', 'abs('),
         ('(', '('),
@@ -3797,8 +4068,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('e', 'e'),
         ('(', '('),
         (')', ')'),
-        ('^', '^'),
+        ('xʸ', '^'),
+        ('x²', '^2'),
         ('%', 'PERCENT'),
+        ('sqrt', 'sqrt('),
+        ('±', 'SIGN'),
         ('a/b', 'a/b'),
         ('C', 'C'),
         ('DEL', 'DEL'),
@@ -3835,11 +4109,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _functionKeyVisual(String label, String key) {
     if (key == 'DEL') return const Icon(Icons.backspace_outlined, size: 17);
+    if (_mode == _CalculatorMode.physics) {
+      final physicsTex = switch (label) {
+        'd = v × t' => r'd=v\times t',
+        'v = d ÷ t' => r'v=\frac{d}{t}',
+        't = d ÷ v' => r't=\frac{d}{v}',
+        _ => null,
+      };
+      if (physicsTex != null) {
+        return Math.tex(
+          physicsTex,
+          mathStyle: MathStyle.text,
+          textStyle: const TextStyle(fontSize: 15),
+        );
+      }
+    }
     final tex = switch (key) {
       'pi' => r'\pi',
       'sqrt(' => r'\sqrt{\square}',
       'cbrt(' => r'\sqrt[3]{\square}',
       'a/b' => r'\frac{\square}{\square}',
+      'pow(' => r'\square^{\square}',
       '^' when _mode == _CalculatorMode.discreteMath => r'\oplus',
       '^' => r'\square^{\square}',
       'e^(' => r'e^x',
@@ -3875,6 +4165,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'CALC_DERIVATIVE' => r'\frac{d}{dx}',
       'CALC_INTEGRAL' => r'\int \square\,dx',
       'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
+      'mean(' => r'\operatorname{mean}(',
+      'median(' => r'\operatorname{median}(',
+      'mode(' => r'\operatorname{mode}(',
+      'range(' => r'\operatorname{range}(',
+      'variance(' => r'\operatorname{Var}(',
+      'sampleVariance(' => r's^2(',
+      'stdev(' => r'\sigma(',
+      'sampleStdev(' => r's(',
+      'probability(' => r'P(',
+      'complement(' => r'P^c(',
+      'binomial(' => r'P(X=k)=',
+      'combination(' => r'\binom{n}{r}',
+      'permutation(' => r'nP_r',
+      'velocity(' => r'v(',
+      'time(' => r't(',
+      'distance(' => r'\operatorname{distance}(',
+      '×' => r'\times',
+      '÷' => r'\div',
       '&&' => r'\land',
       '||' => r'\lor',
       '->' => r'\to',
@@ -4186,6 +4494,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     '&',
                     '|',
                     '^',
+                    'pow',
                     '<<',
                     '>>',
                   ])
@@ -4196,6 +4505,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               '&': 'AND',
                               '|': 'OR',
                               '^': 'XOR',
+                              'pow': 'xʸ',
                             }[operation] ??
                             operation,
                       ),
@@ -4354,8 +4664,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'Cone surface area',
     }.contains(_geometryOperation);
     final geometryGridHeight =
-        (((MediaQuery.sizeOf(context).width - 44) / 4 / 2.1) * 4 + 12)
-            .clamp(156.0, 210.0)
+        (((MediaQuery.sizeOf(context).width - 44) / 4 / 2.1) * 6 + 20)
+            .clamp(190.0, 270.0)
             .toDouble();
     String firstLabel = switch (_geometryOperation) {
       'Rectangle area' || 'Rectangle perimeter' => 'Length',
@@ -4468,20 +4778,37 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 '7',
                 '8',
                 '9',
+                '+',
                 '4',
                 '5',
                 '6',
+                '-',
                 '1',
                 '2',
                 '3',
-                'C',
+                '×',
+                'a/b',
                 '0',
                 '.',
+                '÷',
                 'DEL',
+                '(',
+                ')',
+                '^',
+                'C',
+                '√',
+                'π',
+                '±',
               ])
                 OutlinedButton(
                   key: ValueKey('geometry-key-$key'),
-                  onPressed: () => _pressGeometryDigit(key),
+                  onPressed: () {
+                    if (key == 'a/b') {
+                      _pressFunction('a/b');
+                    } else {
+                      _pressGeometryDigit(key);
+                    }
+                  },
                   style: OutlinedButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: Size.zero,

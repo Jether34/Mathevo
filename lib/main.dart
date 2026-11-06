@@ -18,6 +18,7 @@ import 'auth_token_store.dart';
 import 'gamification.dart';
 import 'math_engine.dart';
 import 'math_history.dart';
+import 'statistics_probability_engine.dart';
 import 'visualization/plot_formula.dart';
 
 part 'ui/app_pages.dart';

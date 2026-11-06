@@ -16,10 +16,10 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
       size.width - right,
       size.height - bottom,
     );
-    final xMin = math.max(0.0, formula.center - 2.6);
-    final xMax = formula.center + 2.6;
-    final yMin = math.max(0.0, formula.center * formula.center - 10);
-    final yMax = formula.center * formula.center + 10;
+    final xMin = math.min(-5.0, formula.center - 2.6);
+    final xMax = math.max(5.0, formula.center + 2.6);
+    const yMin = -5.0;
+    final yMax = math.max(5.0, math.max(xMin * xMin, xMax * xMax) + 5);
     Offset point(double x, double y) => Offset(
       plot.left + (x - xMin) / (xMax - xMin) * plot.width,
       plot.bottom - (y - yMin) / (yMax - yMin) * plot.height,
@@ -28,22 +28,59 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: .10)
       ..strokeWidth = .8;
-    for (var tick = 0; tick <= 6; tick++) {
-      final x = xMin + (xMax - xMin) * tick / 6;
-      canvas.drawLine(point(x, yMin), point(x, yMax), grid);
+    for (var tick = xMin.ceil(); tick <= xMax.floor(); tick++) {
+      canvas.drawLine(
+        point(tick.toDouble(), yMin),
+        point(tick.toDouble(), yMax),
+        grid,
+      );
     }
-    for (var tick = 0; tick <= 5; tick++) {
-      final y = yMin + (yMax - yMin) * tick / 5;
+    final yStep = yMax <= 12 ? 1.0 : 5.0;
+    for (
+      var tick = (yMin / yStep).ceil();
+      tick <= (yMax / yStep).floor();
+      tick++
+    ) {
+      final y = tick * yStep;
       canvas.drawLine(point(xMin, y), point(xMax, y), grid);
     }
     final axes = Paint()
       ..color = Colors.white.withValues(alpha: .68)
       ..strokeWidth = 1.4;
-    if (yMin <= 0 && yMax >= 0) {
-      canvas.drawLine(point(xMin, 0), point(xMax, 0), axes);
+    canvas.drawLine(point(xMin, 0), point(xMax, 0), axes);
+    canvas.drawLine(point(0, yMin), point(0, yMax), axes);
+    for (var tick = -5; tick <= 5; tick++) {
+      final location = point(tick.toDouble(), 0);
+      canvas.drawLine(
+        Offset(location.dx, location.dy - 3),
+        Offset(location.dx, location.dy + 3),
+        axes,
+      );
+      _label(
+        canvas,
+        '$tick',
+        Offset(location.dx - 6, location.dy + 4),
+        Colors.white70,
+      );
     }
-    if (xMin <= 0 && xMax >= 0) {
-      canvas.drawLine(point(0, yMin), point(0, yMax), axes);
+    for (
+      var tick = (yMin / yStep).ceil();
+      tick <= (yMax / yStep).floor();
+      tick++
+    ) {
+      final value = tick * yStep;
+      final location = point(0, value);
+      canvas.drawLine(
+        Offset(location.dx - 3, location.dy),
+        Offset(location.dx + 3, location.dy),
+        axes,
+      );
+      _label(
+        canvas,
+        _short(value),
+        Offset(location.dx - 27, location.dy - 7),
+        Colors.white70,
+      );
     }
 
     canvas.save();
@@ -127,6 +164,7 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
       Offset(plot.right - 10, plot.bottom + 3),
       Colors.white70,
     );
+    _label(canvas, 'y', Offset(point(0, 0).dx + 4, plot.top + 1), Colors.white);
     _metricBadge(
       canvas,
       'Central difference at x = ${_short(formula.center)}, h = ${_short(formula.step)}  |  f′(x) ≈ ${_short(formula.approximateDerivative)}',

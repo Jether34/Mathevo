@@ -71,6 +71,16 @@ class DiscreteMathEngine {
       case 'permute':
         _requireCount(command, args, 2);
         return _permutation(_integer(args[0]), _integer(args[1])).toString();
+      case 'pow':
+        _requireCount(command, args, 2);
+        final base = _integer(args[0]);
+        final exponent = _integer(args[1]);
+        if (exponent.isNegative || exponent > BigInt.from(4096)) {
+          throw const DiscreteMathException(
+            'Integer powers need a non-negative exponent no greater than 4096.',
+          );
+        }
+        return base.pow(exponent.toInt()).toString();
       case 'ratio':
         _requireCount(command, args, 2);
         final a = _integer(args[0]), b = _integer(args[1]);

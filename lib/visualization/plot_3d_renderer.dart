@@ -50,8 +50,8 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
         grid,
       );
     }
-    void axis(_PlotPoint3 end, Color color, String label) {
-      final origin = project(0, 0, 0);
+    void axis(_PlotPoint3 start, _PlotPoint3 end, Color color, String label) {
+      final origin = project(start.$1, start.$2, start.$3);
       final finish = project(end.$1, end.$2, end.$3);
       canvas.drawLine(
         origin,
@@ -63,9 +63,24 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
       _label(canvas, label, finish + const Offset(3, -10), color);
     }
 
-    axis((6, 0, 0), xColor, 'x');
-    axis((0, 3, 0), yColor, 'y');
-    axis((0, 0, formula.center * formula.center + 12), zColor, 'z');
+    final zMax = math.max(10.0, formula.center * formula.center + 10);
+    axis((-5, 0, 0), (5, 0, 0), xColor, 'x');
+    axis((0, -5, 0), (0, 5, 0), yColor, 'y');
+    axis((0, 0, -5), (0, 0, zMax), zColor, 'z');
+    for (var tick = -5; tick <= 5; tick++) {
+      for (final (location, value, color) in <(Offset, int, Color)>[
+        (project(tick.toDouble(), 0, 0), tick, xColor),
+        (project(0, tick.toDouble(), 0), tick, yColor),
+      ]) {
+        canvas.drawCircle(location, 1.8, Paint()..color = color);
+        _label(canvas, '$value', location + const Offset(2, 2), Colors.white70);
+      }
+    }
+    for (var tick = -5; tick <= zMax; tick += 5) {
+      final location = project(0, 0, tick.toDouble());
+      canvas.drawCircle(location, 1.8, Paint()..color = zColor);
+      _label(canvas, '$tick', location + const Offset(2, 2), Colors.white70);
+    }
 
     final curve = Path();
     for (var index = 0; index <= 160; index++) {

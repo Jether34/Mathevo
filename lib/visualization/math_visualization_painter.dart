@@ -1245,9 +1245,9 @@ class _MathVisualizationPainter extends CustomPainter {
     final grid = Paint()
       ..color = Colors.white.withValues(alpha: .09)
       ..strokeWidth = 1;
-    for (var index = 1; index < 8; index++) {
-      final x = size.width * index / 8;
-      final y = size.height * index / 7;
+    for (var value = -5; value <= 5; value++) {
+      final x = size.width * (.5 + value / 12);
+      final y = size.height * (.72 - value / 24);
       canvas.drawLine(Offset(x, 20), Offset(x, size.height - 28), grid);
       canvas.drawLine(Offset(24, y), Offset(size.width - 18, y), grid);
     }
@@ -1264,6 +1264,39 @@ class _MathVisualizationPainter extends CustomPainter {
       Offset(size.width * .5, size.height - 20),
       axis,
     );
+    for (var value = -5; value <= 5; value++) {
+      final x = size.width * (.5 + value / 12);
+      final y = size.height * (.72 - value / 24);
+      canvas.drawLine(
+        Offset(x, size.height * .72 - 3),
+        Offset(x, size.height * .72 + 3),
+        axis,
+      );
+      canvas.drawLine(
+        Offset(size.width * .5 - 3, y),
+        Offset(size.width * .5 + 3, y),
+        axis,
+      );
+      _label(
+        canvas,
+        '$value',
+        Offset(x - 6, size.height * .72 + 4),
+        Colors.white70,
+      );
+      _label(
+        canvas,
+        '$value',
+        Offset(size.width * .5 - 24, y - 6),
+        Colors.white70,
+      );
+    }
+    _label(
+      canvas,
+      'x',
+      Offset(size.width - 16, size.height * .72 + 4),
+      Colors.white,
+    );
+    _label(canvas, 'y', Offset(size.width * .5 + 4, 18), Colors.white);
   }
 
   String _short(double value) =>

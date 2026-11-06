@@ -73,6 +73,8 @@ void main() {
     expect(chartSemantics.properties.label, contains('2D plot'));
     expect(chartSemantics.properties.label, contains('secant'));
     expect(chartSemantics.properties.label, contains('6'));
+    expect(chartSemantics.properties.label, contains('numbered ticks'));
+    expect(chartSemantics.properties.label, contains('cross at zero'));
 
     await tester.tap(find.text('3D'));
     await tester.pumpAndSettle();
@@ -81,7 +83,11 @@ void main() {
     );
     expect(chart3DSemantics.properties.label, contains('3D plot'));
     expect(chart3DSemantics.properties.label, contains('no surface area'));
+    expect(chart3DSemantics.properties.label, contains('z axis'));
+    expect(chart3DSemantics.properties.label, contains('numbered ticks'));
     expect(find.byKey(const Key('visualization-orientation')), findsOneWidget);
+    expect(find.byTooltip('Zoom in'), findsOneWidget);
+    expect(find.byTooltip('Zoom out'), findsOneWidget);
 
     final before = tester
         .widget<Text>(find.byKey(const Key('visualization-orientation')))

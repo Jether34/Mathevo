@@ -99,10 +99,10 @@ operations and all `Not started` domains still need implementation and tests.
 | Tree Structures | Not started | Tree operations, traversal, and counting. |
 | Order Theory | Not started | Partial orders, lattices, and order operations. |
 | Boolean Algebra | Partial | Propositional truth operations; Boolean simplification and circuit tools remain. |
-| Probability Theory | Not started | Events, distributions, and probability calculations. |
+| Probability Theory | Partial | Event probability, complements, odds, one binomial outcome, combinations, and permutations; distributions, conditional/multivariate probability, and inference remain. |
 | Random Variables | Not started | Discrete/continuous distributions and expectations. |
 | Stochastic Processes | Not started | Markov chains and stochastic process calculations. |
-| Descriptive Statistics | Not started | Summary statistics and data entry. |
+| Descriptive Statistics | Partial | Mean, median, mode, range, sum, count, quartiles, and population/sample variance and standard deviation for entered numeric lists. |
 | Inferential Statistics | Not started | Confidence intervals and inference procedures. |
 | Hypothesis Testing | Not started | Test statistics, p-values, and assumptions. |
 | Regression Analysis | Not started | Linear and nonlinear regression workflows. |
@@ -123,7 +123,7 @@ operations and all `Not started` domains still need implementation and tests.
 | Operations Research | Not started | Decision models, scheduling, and optimization. |
 | Actuarial Science | Not started | Survival, loss, and actuarial models. |
 | Financial Mathematics | Not started | Interest, annuities, bonds, and cash-flow analysis. |
-| Mathematical Physics | Not started | Physics-specific mathematical models. |
+| Mathematical Physics | Partial | Constant-speed distance, velocity, and time formulas; unit conversion and broader physical models remain. |
 | Fluid Dynamics Math | Not started | Fluid equations and numerical models. |
 | Relativity and Quantum Mathematics | Not started | Tensor/quantum state calculations and validated conventions. |
 | Mathematical Biology | Not started | Mathematical models for biological systems. |
