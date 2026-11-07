@@ -44,11 +44,41 @@ void main() {
     await tester.tap(find.text('Suggest'));
     await _pumpForUi(tester);
     final canvas = tester.getRect(find.byKey(const Key('drawing-canvas')));
-    final top = canvas.top + canvas.height * .34;
-    final middle = canvas.top + canvas.height * .50;
-    final bottom = canvas.top + canvas.height * .68;
-    final left = canvas.left + canvas.width * .20;
-    final right = canvas.left + canvas.width * .34;
+    final symbolCenter = canvas.center;
+    await _drawPolyline(tester, [
+      Offset(symbolCenter.dx - 12, symbolCenter.dy),
+      Offset(symbolCenter.dx + 12, symbolCenter.dy),
+    ]);
+    await _drawPolyline(tester, [
+      Offset(symbolCenter.dx, symbolCenter.dy - 12),
+      Offset(symbolCenter.dx, symbolCenter.dy + 12),
+    ]);
+    await tester.ensureVisible(find.text('Read one symbol'));
+    await tester.tap(find.text('Read one symbol'));
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 400)),
+    );
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(
+      find.byKey(const Key('stroke-symbol-+')),
+      findsOneWidget,
+      reason: 'The trained model should suggest plus for a clearly drawn plus.',
+    );
+    await tester.tap(find.byKey(const Key('stroke-symbol-+')));
+    await _pumpForUi(tester);
+    final symbolReview = tester.widget<TextField>(
+      find.byKey(const Key('drawing-expression-review')),
+    );
+    expect(symbolReview.controller?.text, '+');
+    await tester.tap(find.byTooltip('Clear'));
+    await _pumpForUi(tester);
+
+    final resetCanvas = tester.getRect(find.byKey(const Key('drawing-canvas')));
+    final top = resetCanvas.top + resetCanvas.height * .34;
+    final middle = resetCanvas.top + resetCanvas.height * .50;
+    final bottom = resetCanvas.top + resetCanvas.height * .68;
+    final left = resetCanvas.left + resetCanvas.width * .20;
+    final right = resetCanvas.left + resetCanvas.width * .34;
     await _drawPolyline(tester, [
       Offset(left, top),
       Offset(right, top),
@@ -56,7 +86,7 @@ void main() {
       Offset(left, bottom),
       Offset(right, bottom),
     ]);
-    final plusX = canvas.left + canvas.width * .48;
+    final plusX = resetCanvas.left + resetCanvas.width * .48;
     await _drawPolyline(tester, [
       Offset(plusX - 12, middle),
       Offset(plusX + 12, middle),
@@ -65,8 +95,8 @@ void main() {
       Offset(plusX, middle - 12),
       Offset(plusX, middle + 12),
     ]);
-    final secondLeft = canvas.left + canvas.width * .61;
-    final secondRight = canvas.left + canvas.width * .75;
+    final secondLeft = resetCanvas.left + resetCanvas.width * .61;
+    final secondRight = resetCanvas.left + resetCanvas.width * .75;
     await _drawPolyline(tester, [
       Offset(secondLeft, top),
       Offset(secondRight, top),
@@ -75,12 +105,12 @@ void main() {
       Offset(secondRight, bottom),
     ]);
     await _drawPolyline(tester, [
-      Offset(canvas.left + canvas.width * .85, middle - 8),
-      Offset(canvas.left + canvas.width * .94, middle - 8),
+      Offset(resetCanvas.left + resetCanvas.width * .85, middle - 8),
+      Offset(resetCanvas.left + resetCanvas.width * .94, middle - 8),
     ]);
     await _drawPolyline(tester, [
-      Offset(canvas.left + canvas.width * .85, middle + 8),
-      Offset(canvas.left + canvas.width * .94, middle + 8),
+      Offset(resetCanvas.left + resetCanvas.width * .85, middle + 8),
+      Offset(resetCanvas.left + resetCanvas.width * .94, middle + 8),
     ]);
 
     await tester.runAsync(

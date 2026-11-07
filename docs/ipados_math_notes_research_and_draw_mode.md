@@ -22,7 +22,7 @@ Research checked on 2026-11-06 against Apple Support documentation. This documen
 
 ## Mathevo gap analysis
 
-Mathevo's Draw mode already provides a large canvas, finger/stylus pointer input, undo-last-stroke, clear, ML Kit text recognition, automatic math normalization, solving, and a route to continue editing the recognized expression in the calculator. Recognition currently runs after a pause and on demand.
+Mathevo's Draw mode provides a large canvas, finger/stylus pointer input, undo and redo, clear, ML Kit text recognition, automatic math normalization, solving, and a route to continue editing the recognized expression in the calculator. Recognition currently runs after a pause and on demand. A small Kaggle HASYv2 classifier also suggests alternatives for one isolated symbol at a time. The person chooses each suggestion before it is added to an expression.
 
 The existing implementation is narrower than Math Notes: it has no visible automatic/suggestion/off preference, no explicit handwritten equals trigger, no vertical arithmetic interpretation, no recognized-variable assignments, and no pen color/width or erase tool. Recognition errors are presented as a generic dialog, and the person has no persistent review surface for correcting recognized characters before solving. Drawing state is cleared when switching into Draw mode and is not saved as a note.
 
@@ -63,6 +63,7 @@ This section is updated as the Draw mode changes and emulator/device verificatio
 - [x] Preserve drawing strokes and recognized content while switching calculator modes.
 - [ ] Persist handwritten notes across app restarts and add a saved notes list.
 - [x] Add an Android emulator end-to-end flow covering handwriting recognition, editable correction, solving, variable assignment/reuse, and calculator handoff.
+- [x] Add a compact offline classifier for isolated handwritten digits and common arithmetic symbols. It complements full-expression OCR and exposes candidate suggestions for review.
 - [ ] Validate Pencil pressure and tilt on physical Apple Pencil hardware. The Android emulator only validates touch/stylus-like pointer input and OCR behavior on that target.
 
 ## Apple sources

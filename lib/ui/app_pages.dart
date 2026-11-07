@@ -1174,6 +1174,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _engine = const MathEngine();
   final _dataMathEngine = const StatisticsProbabilityEngine();
   TextRecognizer? _recognizer;
+  StrokeSymbolModel? _strokeSymbolModel;
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
@@ -1182,7 +1183,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _conversionOnly = true;
   bool _numberBSelected = false;
   bool _recognizingDrawing = false;
+  bool _readingStrokeSymbol = false;
   bool _drawingSolveSuggested = false;
+  bool _buildingSymbolExpression = false;
   bool _answerShown = false;
   bool _showVisualization = false;
   bool _showVisualizationDetails = false;
@@ -1217,6 +1220,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final Map<String, double> _drawingVariables = {};
   String? _recognizedExpression;
   String? _drawingStatus;
+  List<StrokeSymbolPrediction> _strokeSymbolCandidates = [];
   String? _result;
   String? _error;
   bool _resultIsExact = false;
@@ -2110,6 +2114,77 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
   }
 
+  Future<void> _recognizeOneStrokeSymbol() async {
+    if (_drawingStrokes.isEmpty || _readingStrokeSymbol || !mounted) return;
+    final renderObject = _drawingBoundaryKey.currentContext?.findRenderObject();
+    if (renderObject is! RenderRepaintBoundary) return;
+    setState(() {
+      _readingStrokeSymbol = true;
+      _strokeSymbolCandidates = [];
+      _drawingStatus = 'Reading one handwritten symbol...';
+    });
+    try {
+      final model = _strokeSymbolModel ??= StrokeSymbolModel.fromJson(
+        await rootBundle.loadString('assets/models/stroke_symbols.json'),
+      );
+      final image = await renderObject.toImage(pixelRatio: 1);
+      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+      final width = image.width;
+      final height = image.height;
+      image.dispose();
+      if (data == null) {
+        throw const FormatException('Canvas image unavailable.');
+      }
+      final rgba = data.buffer.asUint8List(
+        data.offsetInBytes,
+        data.lengthInBytes,
+      );
+      final features = StrokeSymbolModel.featuresFromRgba(
+        width: width,
+        height: height,
+        rgba: rgba,
+        inputSide: model.inputSide,
+      );
+      if (features == null) {
+        setState(() {
+          _drawingStatus =
+              'No clear symbol found. Draw one symbol, then retry.';
+        });
+        return;
+      }
+      setState(() {
+        _strokeSymbolCandidates = model.predict(features);
+        _drawingStatus =
+            'Choose the closest symbol suggestion to add it to your expression.';
+      });
+    } on Object {
+      setState(() {
+        _strokeSymbolCandidates = [];
+        _drawingStatus = 'The offline symbol reader could not load.';
+      });
+    } finally {
+      if (mounted) setState(() => _readingStrokeSymbol = false);
+    }
+  }
+
+  void _acceptStrokeSymbol(StrokeSymbolPrediction prediction) {
+    final expression = '${_drawingExpressionInput.text}${prediction.token}';
+    setState(() {
+      _drawingExpressionInput.text = expression;
+      _recognizedExpression = expression;
+      _drawingStrokes.clear();
+      _redoDrawingStrokes.clear();
+      _activeStroke = [];
+      _strokeSymbolCandidates = [];
+      _buildingSymbolExpression = true;
+      _result = null;
+      _answerShown = false;
+      _drawingSolveSuggested = false;
+      _drawingStatus =
+          'Added ${prediction.display}. Draw the next symbol or solve the expression.';
+    });
+  }
+
   String _normalizeHandwrittenMath(String handwriting) {
     final stacked = _verticalStackExpression(handwriting);
     if (stacked != null) return stacked;
@@ -2258,6 +2333,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _drawingStrokes.clear();
       _redoDrawingStrokes.clear();
       _activeStroke = [];
+      _strokeSymbolCandidates = [];
+      _buildingSymbolExpression = false;
       _recognizedExpression = null;
       _drawingExpressionInput.clear();
       _drawingStatus = null;
@@ -5035,7 +5112,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
             icon: const Icon(Icons.delete_outline_rounded),
           ),
           TextButton(
-            onPressed: _recognizingDrawing ? null : _recognizeDrawing,
+            onPressed: _recognizingDrawing
+                ? null
+                : () {
+                    setState(() {
+                      _buildingSymbolExpression = false;
+                      _strokeSymbolCandidates = [];
+                    });
+                    _recognizeDrawing();
+                  },
             child: const Text('Analyze'),
           ),
         ],
@@ -5131,6 +5216,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             },
                           ),
                         ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: _readingStrokeSymbol
+                              ? null
+                              : _recognizeOneStrokeSymbol,
+                          icon: _readingStrokeSymbol
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.gesture_rounded),
+                          label: const Text('Read one symbol'),
+                        ),
                       ],
                     ),
                   ),
@@ -5190,10 +5291,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
                       onPanStart: (details) => setState(() {
+                        final keepSymbolExpression = _buildingSymbolExpression;
                         _drawingDebounce?.cancel();
                         _drawingSolveSuggested = false;
-                        _recognizedExpression = null;
-                        _drawingExpressionInput.clear();
+                        _strokeSymbolCandidates = [];
+                        if (!keepSymbolExpression) {
+                          _recognizedExpression = null;
+                          _drawingExpressionInput.clear();
+                        }
                         _result = null;
                         _drawingStatus = null;
                         _activeStroke = [details.localPosition];
@@ -5225,7 +5330,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           _redoDrawingStrokes.clear();
                         }
                         setState(() => _activeStroke = []);
-                        if (_drawingTool != _DrawingTool.eraser) {
+                        if (_drawingTool != _DrawingTool.eraser &&
+                            !_buildingSymbolExpression) {
                           _scheduleDrawingRecognition();
                         }
                       },
@@ -5297,6 +5403,28 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       },
                       onSubmitted: (_) => _solveRecognizedDrawing(),
                     ),
+                    if (_strokeSymbolCandidates.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        'Single-symbol suggestions',
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                      const SizedBox(height: 3),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          for (final candidate in _strokeSymbolCandidates)
+                            ActionChip(
+                              key: Key('stroke-symbol-${candidate.token}'),
+                              label: Text(
+                                '${candidate.display}  ${(candidate.confidence * 100).round()}%',
+                              ),
+                              onPressed: () => _acceptStrokeSymbol(candidate),
+                            ),
+                        ],
+                      ),
+                    ],
                     if (_result != null) ...[
                       const SizedBox(height: 4),
                       Align(

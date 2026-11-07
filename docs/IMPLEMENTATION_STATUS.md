@@ -28,7 +28,7 @@ Statistics currently accepts finite numeric lists for mean, median, mode, range,
 - Calculus supports selected derivatives, antiderivatives, and definite numerical integration. General symbolic calculus, differential equations, vector calculus, and formal solution derivations are not implemented.
 - Graphs and geometry views cover selected two-dimensional and three-dimensional examples. There is no general-purpose 3D math visualization workspace.
 - The solution and explanation experience is not a general verified tutor. Unsupported inputs must be treated as unsupported rather than inferred as solved.
-- Handwriting input is present, but recognition accuracy and complex math structure recognition are not verified by the Android end-to-end test.
+- Draw mode uses ML Kit for full-expression transcription and includes an offline single-symbol classifier trained on HASYv2. The classifier reached 91.61% weighted accuracy on the provided held-out fold, but digits have fewer samples and variable per-class accuracy. Complex math layout recognition remains unverified.
 - Calculation history, profile, learning progress, appearance, streaks, and XP are local to the device. Account synchronization and cross-device recovery are not implemented.
 - Community feed controls do not connect to shared user content, messaging, moderation, or global rankings.
 - Local challenge and XP data are not protected against device modification. There are no server-validated achievements or leaderboards.
