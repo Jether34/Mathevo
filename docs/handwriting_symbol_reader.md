@@ -15,7 +15,7 @@ The classifier always presents alternatives for confirmation. It should not sile
 - Model: multinomial logistic regression with 17 output classes.
 - Runtime: pure Dart inference with bundled weights, no network request and no on-device ML runtime dependency.
 - Evaluation split: official HASYv2 `fold-1` test split.
-- Recorded result: 5,296 train symbols, 596 held-out symbols, 91.61% weighted accuracy and 82.5% macro F1.
+- Recorded result: 5,296 train symbols, 596 held-out symbols, 90.10% weighted accuracy and 78% macro F1.
 - Important limitation: the dataset has few examples for some digits. On this fold, individual digit classes varied substantially, so the app keeps the result as a selectable suggestion.
 
 This is a first compact symbol recognizer, not a complete handwriting or mathematical expression model. Fraction layout, superscripts, roots, multi-character variables, and expression segmentation remain with the existing OCR and manual correction flow.

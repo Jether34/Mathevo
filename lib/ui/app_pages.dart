@@ -2116,8 +2116,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Future<void> _recognizeOneStrokeSymbol() async {
     if (_drawingStrokes.isEmpty || _readingStrokeSymbol || !mounted) return;
-    final renderObject = _drawingBoundaryKey.currentContext?.findRenderObject();
-    if (renderObject is! RenderRepaintBoundary) return;
     setState(() {
       _readingStrokeSymbol = true;
       _strokeSymbolCandidates = [];
@@ -2127,24 +2125,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final model = _strokeSymbolModel ??= StrokeSymbolModel.fromJson(
         await rootBundle.loadString('assets/models/stroke_symbols.json'),
       );
-      final image = await renderObject.toImage(pixelRatio: 1);
-      final data = await image.toByteData(format: ImageByteFormat.rawRgba);
-      final width = image.width;
-      final height = image.height;
-      image.dispose();
-      if (data == null) {
-        throw const FormatException('Canvas image unavailable.');
-      }
-      final rgba = data.buffer.asUint8List(
-        data.offsetInBytes,
-        data.lengthInBytes,
-      );
-      final features = StrokeSymbolModel.featuresFromRgba(
-        width: width,
-        height: height,
-        rgba: rgba,
-        inputSide: model.inputSide,
-      );
+      final features = await _featuresFromDrawingStrokes(model.inputSide);
       if (features == null) {
         setState(() {
           _drawingStatus =
@@ -2152,8 +2133,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         });
         return;
       }
+      final predictions = model.predict(features);
       setState(() {
-        _strokeSymbolCandidates = model.predict(features);
+        _strokeSymbolCandidates = predictions;
         _drawingStatus =
             'Choose the closest symbol suggestion to add it to your expression.';
       });
@@ -2165,6 +2147,68 @@ class _CalculatorPageState extends State<CalculatorPage> {
     } finally {
       if (mounted) setState(() => _readingStrokeSymbol = false);
     }
+  }
+
+  Future<List<double>?> _featuresFromDrawingStrokes(int inputSide) async {
+    final visible = _drawingStrokes.where((stroke) => stroke.points.isNotEmpty);
+    final points = visible
+        .where((stroke) => !stroke.isEraser)
+        .expand((stroke) => stroke.points)
+        .toList();
+    if (points.isEmpty) return null;
+    final minX = points.map((point) => point.dx).reduce(math.min);
+    final maxX = points.map((point) => point.dx).reduce(math.max);
+    final minY = points.map((point) => point.dy).reduce(math.min);
+    final maxY = points.map((point) => point.dy).reduce(math.max);
+    final glyphSide = math.max(1.0, math.max(maxX - minX, maxY - minY));
+    const rasterSide = 64;
+    const margin = 10.0;
+    final scale = (rasterSide - margin * 2) / glyphSide;
+    final centerX = (minX + maxX) / 2;
+    final centerY = (minY + maxY) / 2;
+    ui.Offset transform(Offset point) => ui.Offset(
+      rasterSide / 2 + (point.dx - centerX) * scale,
+      rasterSide / 2 + (point.dy - centerY) * scale,
+    );
+
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawColor(const ui.Color(0xFFFFFFFF), ui.BlendMode.src);
+    for (final stroke in visible) {
+      final mapped = stroke.points.map(transform).toList();
+      final paint = ui.Paint()
+        ..color = const ui.Color(0xFF000000)
+        ..strokeWidth = (stroke.width * scale).clamp(1.0, 14.0).toDouble()
+        ..strokeCap = ui.StrokeCap.round
+        ..strokeJoin = ui.StrokeJoin.round
+        ..style = ui.PaintingStyle.stroke
+        ..blendMode = stroke.isEraser
+            ? ui.BlendMode.clear
+            : ui.BlendMode.srcOver;
+      if (mapped.length == 1) {
+        canvas.drawCircle(
+          mapped.single,
+          paint.strokeWidth / 2,
+          paint..style = ui.PaintingStyle.fill,
+        );
+      } else {
+        final path = ui.Path()..moveTo(mapped.first.dx, mapped.first.dy);
+        for (final point in mapped.skip(1)) {
+          path.lineTo(point.dx, point.dy);
+        }
+        canvas.drawPath(path, paint);
+      }
+    }
+    final image = await recorder.endRecording().toImage(rasterSide, rasterSide);
+    final data = await image.toByteData(format: ImageByteFormat.rawRgba);
+    image.dispose();
+    if (data == null) return null;
+    return StrokeSymbolModel.featuresFromRgba(
+      width: rasterSide,
+      height: rasterSide,
+      rgba: data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes),
+      inputSide: inputSide,
+    );
   }
 
   void _acceptStrokeSymbol(StrokeSymbolPrediction prediction) {
@@ -2183,6 +2227,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _drawingStatus =
           'Added ${prediction.display}. Draw the next symbol or solve the expression.';
     });
+  }
+
+  void _beginDrawingStroke(Offset position) {
+    final keepSymbolExpression = _buildingSymbolExpression;
+    _drawingDebounce?.cancel();
+    _drawingSolveSuggested = false;
+    _strokeSymbolCandidates = [];
+    if (!keepSymbolExpression) {
+      _recognizedExpression = null;
+      _drawingExpressionInput.clear();
+    }
+    _result = null;
+    _drawingStatus = null;
+    _activeStroke = [position];
   }
 
   String _normalizeHandwrittenMath(String handwriting) {
@@ -5290,19 +5348,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     },
                     child: GestureDetector(
                       behavior: HitTestBehavior.opaque,
-                      onPanStart: (details) => setState(() {
-                        final keepSymbolExpression = _buildingSymbolExpression;
-                        _drawingDebounce?.cancel();
-                        _drawingSolveSuggested = false;
-                        _strokeSymbolCandidates = [];
-                        if (!keepSymbolExpression) {
-                          _recognizedExpression = null;
-                          _drawingExpressionInput.clear();
-                        }
-                        _result = null;
-                        _drawingStatus = null;
-                        _activeStroke = [details.localPosition];
-                      }),
+                      onPanDown: (details) => setState(
+                        () => _beginDrawingStroke(details.localPosition),
+                      ),
                       onPanUpdate: (details) => setState(
                         () => _activeStroke = [
                           ..._activeStroke,

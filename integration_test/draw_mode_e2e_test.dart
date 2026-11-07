@@ -55,10 +55,7 @@ void main() {
     ]);
     await tester.ensureVisible(find.text('Read one symbol'));
     await tester.tap(find.text('Read one symbol'));
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 400)),
-    );
-    await tester.pump(const Duration(milliseconds: 100));
+    await _pumpUntil(tester, find.byKey(const Key('stroke-symbol-+')));
     expect(
       find.byKey(const Key('stroke-symbol-+')),
       findsOneWidget,
