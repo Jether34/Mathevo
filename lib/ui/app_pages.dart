@@ -1192,8 +1192,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _visualIs3D = false;
   double _visualZoom = 1;
   double _visualAngle = 62;
-  double _visualRotationX = -.18;
-  double _visualRotationY = .28;
+  double _visualRotationX = 0;
+  double _visualRotationY = 0;
   Offset? _lastVisualizationPointer;
   double _visualHypotenuse = 20;
   double _geometryVisualFirst = 3;
@@ -2941,6 +2941,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _ => 'Function graph',
   };
 
+  int _signedDegrees(double radians) {
+    final degrees = (radians * 180 / math.pi).round();
+    return ((degrees + 180) % 360 + 360) % 360 - 180;
+  }
+
   bool get _isScalarVisualization =>
       (_mode == _CalculatorMode.basic ||
           _mode == _CalculatorMode.scientific ||
@@ -2948,6 +2953,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
           _mode == _CalculatorMode.algebra) &&
       _input.text.trim().isNotEmpty &&
       PlotFormula(_input.text).isScalar;
+
+  bool get _isParametricPlot =>
+      _mode == _CalculatorMode.graphing &&
+      PlotFormula(_input.text).isParametricSurface;
 
   String get _visualizationSemanticsLabel {
     final finiteDifference = CentralDifferenceFormula.tryParse(_input.text);
@@ -3113,6 +3122,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _showVisualizationDetails = false;
     _showExpressionPlot = false;
     _visualZoom = 1;
+    _visualRotationX = 0;
+    _visualRotationY = 0;
     final expression = _input.text.toLowerCase().replaceAll(' ', '');
     if (_mode == _CalculatorMode.geometry) {
       _geometryVisualFirst = double.tryParse(_geometryFirst.text) ?? 3;
@@ -3238,7 +3249,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
       });
       return;
     }
-    if (_mode == _CalculatorMode.graphing || _mode == _CalculatorMode.algebra) {
+    if (_mode == _CalculatorMode.graphing) {
+      setState(() {
+        _result = null;
+        _answerShown = false;
+        _showVisualization = false;
+      });
+      return;
+    }
+    if (_mode == _CalculatorMode.algebra) {
       final expr =
           '${_numberForExpression(_graphSlope)}*x${_graphIntercept < 0 ? '' : '+'}${_numberForExpression(_graphIntercept)}';
       setState(() {
@@ -3467,7 +3486,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               children: [
                 Expanded(
                   child: Text(
-                    'Drag horizontally and vertically to orbit | yaw ${(_visualRotationY * 180 / math.pi).round()}° | pitch ${(_visualRotationX * 180 / math.pi).round()}°',
+                    'Drag horizontally and vertically to orbit | yaw ${_signedDegrees(_visualRotationY)}\u00B0 | pitch ${_signedDegrees(_visualRotationX)}\u00B0',
                     key: const Key('visualization-orientation'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
@@ -3477,8 +3496,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   tooltip: 'Reset 3D view',
                   visualDensity: VisualDensity.compact,
                   onPressed: () => setState(() {
-                    _visualRotationX = -.18;
-                    _visualRotationY = .28;
+                    _visualRotationX = 0;
+                    _visualRotationY = 0;
                     _visualZoom = 1;
                   }),
                   icon: const Icon(Icons.center_focus_strong_rounded, size: 18),
@@ -3494,7 +3513,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             _buildFaceAreaBreakdown(context),
           ],
           const SizedBox(height: 10),
-          _SectionCard(
+          if (!_isParametricPlot) _SectionCard(
             child: Row(
               children: [
                 Expanded(
@@ -3540,7 +3559,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ),
           ),
           const SizedBox(height: 12),
-          if (isTriangle) ...[
+          if (_isParametricPlot) ...[
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'Parametric surface. The plot reports its sampled surface area; use the fixed axes to compare its orientation and scale.',
+              ),
+            ),
+          ] else if (isTriangle) ...[
             _visualSlider(
               context,
               label: 'Angle θ',
@@ -3629,7 +3655,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ),
           ] else if (_mode == _CalculatorMode.graphing &&
               _input.text.trim().isNotEmpty &&
-              !_isScalarVisualization) ...[
+              !_isScalarVisualization &&
+              !_isParametricPlot) ...[
             _visualSlider(
               context,
               label: 'Evaluate at x',

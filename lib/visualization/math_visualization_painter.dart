@@ -1351,16 +1351,16 @@ class _MathVisualizationPainter extends CustomPainter {
     axis(p(zeroX, -3, zeroZ), p(zeroX, 3, zeroZ), const Color(0xFF57D68D));
     axis(p(0, 0, -3), p(0, 0, 3), const Color(0xFF4A86FF));
     for (final tick in xTicks.where((tick) => tick != 0)) {
-      final xp = p(xCoordinate(tick), zeroY, zeroZ);
-      _label(canvas, _short(tick), xp + const Offset(1, 2), Colors.white70);
+      final xp = p(xCoordinate(tick), -3.35, -3.1);
+      _label(canvas, _short(tick), xp + const Offset(1, 2), Colors.white70, fontSize: 9);
     }
     for (final tick in yTicks.where((tick) => tick != 0)) {
-      final yp = p(zeroX, yCoordinate(tick), zeroZ);
-      _label(canvas, _short(tick), yp + const Offset(1, 2), Colors.white70);
+      final yp = p(-3.35, yCoordinate(tick), -3.1);
+      _label(canvas, _short(tick), yp + const Offset(-10, 2), Colors.white70, fontSize: 9);
     }
     for (final tick in _ticks(zMinimum, zMaximum, targetTicks: 5)) {
-      final zp = p(0, 0, zCoordinate(tick));
-      _label(canvas, _short(tick), zp + const Offset(4, -7), Colors.white70);
+      final zp = p(-3.35, 3.35, zCoordinate(tick));
+      _label(canvas, _short(tick), zp + const Offset(-13, -7), Colors.white70, fontSize: 9);
     }
     _label(
       canvas,
@@ -1756,8 +1756,8 @@ class _MathVisualizationPainter extends CustomPainter {
     _label(canvas, 'Parametric surface  (u, v)', const Offset(14, 10), Colors.white);
     _metricBadge(
       canvas,
-      '$faceCount mesh faces  •  surface area ≈ ${area.toStringAsFixed(2)} units²',
-      Offset(12, size.height - 28),
+      '$faceCount faces | A ≈ ${area.toStringAsFixed(2)} units²',
+      const Offset(12, 34),
       const Color(0xFF65E6A5),
       maxWidth: size.width - 24,
     );
@@ -1823,11 +1823,13 @@ class _MathVisualizationPainter extends CustomPainter {
       zCoordinate: zCoordinate,
     );
 
+    Offset baseProject(double x, double y) =>
+        _projectFixed3D(size, x, y, -3);
     final baseCorners = <Offset>[
-      project(min, min, zMinimum),
-      project(max, min, zMinimum),
-      project(max, max, zMinimum),
-      project(min, max, zMinimum),
+      baseProject(-3, -3),
+      baseProject(3, -3),
+      baseProject(3, 3),
+      baseProject(-3, 3),
     ];
     final base = Path()
       ..moveTo(baseCorners.first.dx, baseCorners.first.dy)
@@ -1845,13 +1847,13 @@ class _MathVisualizationPainter extends CustomPainter {
     for (var tick = 0; tick <= cells; tick++) {
       final value = coordinate(tick);
       canvas.drawLine(
-        project(value, min, zMinimum),
-        project(value, max, zMinimum),
+        baseProject(value, -3),
+        baseProject(value, 3),
         baseGrid,
       );
       canvas.drawLine(
-        project(min, value, zMinimum),
-        project(max, value, zMinimum),
+        baseProject(-3, value),
+        baseProject(3, value),
         baseGrid,
       );
     }
@@ -1916,7 +1918,7 @@ class _MathVisualizationPainter extends CustomPainter {
           canvas.drawPath(
             triangle,
             Paint()
-              ..color = faceColor.withValues(alpha: .12)
+              ..color = faceColor.withValues(alpha: .28)
               ..style = PaintingStyle.fill,
           );
         }
@@ -2004,24 +2006,23 @@ class _MathVisualizationPainter extends CustomPainter {
               // Preserve contour segments that lie exactly on mesh edges,
               // such as z = x² along x = 0.
               crossings
-                ..add(project(a.$1, a.$2, zMinimum))
-                ..add(project(b.$1, b.$2, zMinimum));
+                ..add(baseProject(a.$1, a.$2))
+                ..add(baseProject(b.$1, b.$2));
               continue;
             }
             if (aIsZero) {
-              crossings.add(project(a.$1, a.$2, zMinimum));
+              crossings.add(baseProject(a.$1, a.$2));
               continue;
             }
             if (bIsZero) {
-              crossings.add(project(b.$1, b.$2, zMinimum));
+              crossings.add(baseProject(b.$1, b.$2));
               continue;
             }
             if ((a.$3 < 0) == (b.$3 < 0)) continue;
             final ratio = (a.$3 / (a.$3 - b.$3)).clamp(0.0, 1.0);
-            crossings.add(project(
+            crossings.add(baseProject(
               a.$1 + (b.$1 - a.$1) * ratio,
               a.$2 + (b.$2 - a.$2) * ratio,
-              zMinimum,
             ));
           }
           for (var point = 0; point + 1 < crossings.length; point += 2) {
@@ -2046,20 +2047,26 @@ class _MathVisualizationPainter extends CustomPainter {
     _label(canvas, 'z = $source', const Offset(14, 10), Colors.white);
     _metricBadge(
       canvas,
-      '$patchCount mesh faces  •  surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
-      Offset(12, size.height - 28),
+      '$patchCount faces | A ≈ ${meshArea.toStringAsFixed(2)} units²',
+      const Offset(12, 34),
       const Color(0xFF65E6A5),
       maxWidth: size.width - 24,
     );
   }
 
-  void _label(Canvas canvas, String text, Offset offset, Color color) {
+  void _label(
+    Canvas canvas,
+    String text,
+    Offset offset,
+    Color color, {
+    double fontSize = 12,
+  }) {
     final painter = TextPainter(
       text: TextSpan(
         text: text,
         style: TextStyle(
           color: color,
-          fontSize: 12,
+          fontSize: fontSize,
           fontWeight: FontWeight.w600,
         ),
       ),
