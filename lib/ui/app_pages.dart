@@ -2828,6 +2828,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       'Use xʸ for powers and implicit multiplication, such as (x^2+3x-2)^4(3^x+x^2).',
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
+                    Text(
+                      'Parametric 3D: enter x=...; y=...; z=... using u and v. The r key is available for formulas that use r.',
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 5),
                   ],
                   if (_mode == _CalculatorMode.calculus) ...[
@@ -4298,8 +4302,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                     fontSize: 22,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                  onErrorFallback: (_) =>
-                                      const Text('Complete the expression'),
+                                  onErrorFallback: (_) => _rawExpressionFallback(),
                                 ),
                               ),
                             ),
@@ -4307,6 +4310,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _rawExpressionFallback() {
+    final visible = _input.text
+        .replaceAll('*', '×')
+        .replaceAll('/', '÷')
+        .replaceAll('pi', 'π');
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          visible.isEmpty ? '□' : visible,
+          maxLines: 1,
+          softWrap: false,
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+        ),
       ),
     );
   }
@@ -4479,7 +4501,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('x', 'x'),
         ('y', 'y'),
         ('z', 'z'),
+        ('r', 'r'),
+        ('u', 'u'),
+        ('v', 'v'),
         ('=', '='),
+        (';', ';'),
         ('\u03C0', 'pi'),
         ('e', 'e'),
         ('xʸ', '^'),

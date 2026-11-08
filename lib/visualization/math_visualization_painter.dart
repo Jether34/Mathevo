@@ -489,7 +489,9 @@ class _MathVisualizationPainter extends CustomPainter {
       } else if (_triangle) {
         _paintTriangle(canvas, size);
       } else if (is3D) {
-        if (_hasXYZVariables && !_isExplicitZFunction) {
+        if (_formula.isParametricSurface) {
+          _paintParametricSurface(canvas, size);
+        } else if (_hasXYZVariables && !_isExplicitZFunction) {
           _paintImplicitSurface(canvas, size);
         } else {
           _paintSurface(canvas, size);
@@ -1616,7 +1618,156 @@ class _MathVisualizationPainter extends CustomPainter {
     );
   }
 
+  void _paintParametricSurface(Canvas canvas, Size size) {
+    const cells = 36;
+    const parameterStart = 0.0;
+    const parameterEnd = 2 * math.pi;
+    const engine = MathEngine();
+    final coordinates = _formula.parametricCoordinates!;
+    final samples = List<_PlotPoint3>.filled((cells + 1) * (cells + 1), (0, 0, 0));
+    int index(int u, int v) => v * (cells + 1) + u;
+    double parameter(int step) =>
+        parameterStart + (parameterEnd - parameterStart) * step / cells;
+    for (var vIndex = 0; vIndex <= cells; vIndex++) {
+      for (var uIndex = 0; uIndex <= cells; uIndex++) {
+        final values = {
+          'u': parameter(uIndex),
+          'v': parameter(vIndex),
+          'r': 2.0,
+        };
+        try {
+          samples[index(uIndex, vIndex)] = (
+            engine.evaluateAtVariables(coordinates['x']!, values),
+            engine.evaluateAtVariables(coordinates['y']!, values),
+            engine.evaluateAtVariables(coordinates['z']!, values),
+          );
+        } on Object {
+          samples[index(uIndex, vIndex)] = (double.nan, double.nan, double.nan);
+        }
+      }
+    }
+    final finite = samples.where((point) =>
+        point.$1.isFinite && point.$2.isFinite && point.$3.isFinite).toList();
+    if (finite.isEmpty) {
+      _label(canvas, 'Could not evaluate this parametric surface', const Offset(14, 14), Colors.white);
+      return;
+    }
+    final extent = finite.fold<double>(0, (current, point) => math.max(
+      current,
+      math.max(point.$1.abs(), math.max(point.$2.abs(), point.$3.abs())),
+    )).clamp(.1, 1e6).toDouble();
+    final normalized = samples.map((point) => point.$1.isFinite && point.$2.isFinite && point.$3.isFinite
+        ? (point.$1 / extent * 2.55, point.$2 / extent * 2.55, point.$3 / extent * 2.55)
+        : (double.nan, double.nan, double.nan)).toList(growable: false);
+    Offset surfacePoint(_PlotPoint3 point) =>
+        _projectRotating3D(size, point.$1, point.$2, point.$3);
+    Offset basePoint(double x, double y) => _projectFixed3D(size, x, y, -3);
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: -extent,
+      zMaximum: extent,
+      zCoordinate: (value) => value / extent * 2.55,
+      xMinimum: -extent,
+      xMaximum: extent,
+      yMinimum: -extent,
+      yMaximum: extent,
+    );
+
+    final ground = <Offset>[
+      basePoint(-2.7, -2.7),
+      basePoint(2.7, -2.7),
+      basePoint(2.7, 2.7),
+      basePoint(-2.7, 2.7),
+    ];
+    canvas.drawPath(
+      Path()..addPolygon(ground, true),
+      Paint()..color = const Color(0xFF6546C8).withValues(alpha: .08),
+    );
+
+    double triangleArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
+      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
+      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
+      final cross = (
+        ab.$2 * ac.$3 - ab.$3 * ac.$2,
+        ab.$3 * ac.$1 - ab.$1 * ac.$3,
+        ab.$1 * ac.$2 - ab.$2 * ac.$1,
+      );
+      return math.sqrt(cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3) / 2;
+    }
+
+    var area = 0.0;
+    var faceCount = 0;
+    for (var v = 0; v < cells; v++) {
+      for (var u = 0; u < cells; u++) {
+        final corners = [
+          index(u, v),
+          index(u + 1, v),
+          index(u + 1, v + 1),
+          index(u, v + 1),
+        ];
+        final points = corners.map((i) => normalized[i]).toList();
+        if (points.any((p) => !p.$1.isFinite || !p.$2.isFinite || !p.$3.isFinite)) continue;
+        for (final face in [(0, 1, 2), (0, 2, 3)]) {
+          final a = points[face.$1], b = points[face.$2], c = points[face.$3];
+          area += triangleArea(samples[corners[face.$1]], samples[corners[face.$2]], samples[corners[face.$3]]);
+          faceCount++;
+          final polygon = [surfacePoint(a), surfacePoint(b), surfacePoint(c)];
+          final path = Path()..addPolygon(polygon, true);
+          final shade = ((a.$3 + b.$3 + c.$3) / 3 / 5.1 + .5).clamp(0.0, 1.0);
+          final color = Color.lerp(const Color(0xFF168B67), const Color(0xFF42D392), shade)!;
+          canvas.drawPath(path, Paint()..color = color.withValues(alpha: .14));
+        }
+        final projected = points.map(surfacePoint).toList();
+        final wire = Path()
+          ..moveTo(projected[0].dx, projected[0].dy)
+          ..lineTo(projected[1].dx, projected[1].dy)
+          ..lineTo(projected[2].dx, projected[2].dy)
+          ..lineTo(projected[3].dx, projected[3].dy)
+          ..close();
+        canvas.drawPath(wire, Paint()
+          ..color = const Color(0xFF20C879).withValues(alpha: .92)
+          ..strokeWidth = .65
+          ..style = PaintingStyle.stroke);
+      }
+    }
+    final contourPaint = Paint()
+      ..color = const Color(0xFFFF4058)
+      ..strokeWidth = 1.2
+      ..style = PaintingStyle.stroke;
+    for (var v = 0; v < cells; v++) {
+      for (var u = 0; u < cells; u++) {
+        final corners = [index(u, v), index(u + 1, v), index(u + 1, v + 1), index(u, v + 1)];
+        final points = corners.map((i) => samples[i]).toList();
+        final crossings = <Offset>[];
+        for (var edge = 0; edge < 4; edge++) {
+          final a = points[edge], b = points[(edge + 1) % 4];
+          if (!a.$3.isFinite || !b.$3.isFinite || (a.$3 < 0) == (b.$3 < 0)) continue;
+          final t = a.$3 / (a.$3 - b.$3);
+          final x = (a.$1 + (b.$1 - a.$1) * t) / extent * 2.55;
+          final y = (a.$2 + (b.$2 - a.$2) * t) / extent * 2.55;
+          crossings.add(basePoint(x, y));
+        }
+        for (var point = 0; point + 1 < crossings.length; point += 2) {
+          canvas.drawLine(crossings[point], crossings[point + 1], contourPaint);
+        }
+      }
+    }
+    _label(canvas, 'Parametric surface  (u, v)', const Offset(14, 10), Colors.white);
+    _metricBadge(
+      canvas,
+      '$faceCount mesh faces  •  surface area ≈ ${area.toStringAsFixed(2)} units²',
+      Offset(12, size.height - 28),
+      const Color(0xFF65E6A5),
+      maxWidth: size.width - 24,
+    );
+  }
+
   void _paintSurface(Canvas canvas, Size size) {
+    if (_formula.isParametricSurface) {
+      _paintParametricSurface(canvas, size);
+      return;
+    }
     // A denser mesh makes curved surfaces read like the reference plot while
     // keeping evaluation work small enough for interactive rotation.
     const cells = 32;

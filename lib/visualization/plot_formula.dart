@@ -23,6 +23,17 @@ class PlotFormula {
     hasX = RegExp(r'\bx\b').hasMatch(functionExpression);
     hasY = RegExp(r'\by\b').hasMatch(functionExpression);
     hasZ = RegExp(r'\bz\b').hasMatch(functionExpression);
+    final parametric = <String, String>{};
+    for (final assignment in RegExp(
+      r'(?:^|;)([xyz])=([^;]+)',
+    ).allMatches(source)) {
+      parametric[assignment.group(1)!] = assignment.group(2)!;
+    }
+    parametricCoordinates = parametric.length == 3 &&
+            parametric.values.any((value) => RegExp(r'\bu\b').hasMatch(value)) &&
+            parametric.values.any((value) => RegExp(r'\bv\b').hasMatch(value))
+        ? parametric
+        : null;
   }
 
   final String source;
@@ -33,9 +44,11 @@ class PlotFormula {
   late final bool hasX;
   late final bool hasY;
   late final bool hasZ;
+  late final Map<String, String>? parametricCoordinates;
 
   bool get isExplicitY => dependentVariable == 'y' && !hasY;
   bool get isExplicitZ => dependentVariable == 'z';
+  bool get isParametricSurface => parametricCoordinates != null;
   bool get hasXY => hasX && hasY;
   bool get hasXYZ => hasXY && hasZ;
   bool get isScalar => dependentVariable == null && !hasX && !hasY && !hasZ;
@@ -47,6 +60,7 @@ class PlotFormula {
 
   static String normalize(String input) => input
       .trim()
+      .replaceAll(RegExp(r'[\r\n]+'), ';')
       .replaceAll('\u00D7', '*')
       .replaceAll('\u00F7', '/')
       .replaceAll(RegExp(r'\s+'), '');
