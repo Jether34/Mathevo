@@ -1170,7 +1170,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _integralLowerInput = TextEditingController(text: '0');
   final _integralUpperInput = TextEditingController(text: '2');
   final _drawingExpressionInput = TextEditingController();
-  final _drawingBoundaryKey = GlobalKey();
   final _engine = const MathEngine();
   final _dataMathEngine = const StatisticsProbabilityEngine();
   TextRecognizer? _recognizer;
@@ -1178,7 +1177,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
-  bool _sourceEditorVisible = false;
+  int? _selectedIntegralBound;
   bool _errorDialogOpen = false;
   bool _conversionOnly = true;
   bool _numberBSelected = false;
@@ -1253,6 +1252,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _insert(String value) {
     FocusScope.of(context).unfocus();
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperation == 'Definite integral' &&
+        _selectedIntegralBound != null) {
+      if (RegExp(r'^[0-9.\-]$').hasMatch(value)) {
+        final controller = _selectedIntegralBound == 0
+            ? _integralLowerInput
+            : _integralUpperInput;
+        final text = controller.text;
+        final selection = controller.selection;
+        final start = selection.isValid ? selection.start : text.length;
+        final end = selection.isValid ? selection.end : text.length;
+        controller.value = TextEditingValue(
+          text: text.replaceRange(start, end, value),
+          selection: TextSelection.collapsed(offset: start + value.length),
+        );
+        setState(() {});
+        return;
+      }
+      _selectedIntegralBound = null;
+    }
     if (_fractionBuilder) {
       final controller = _fractionDenominatorSelected
           ? _denominator
@@ -2035,32 +2054,32 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Future<void> _recognizeDrawing() async {
     if (_drawingStrokes.isEmpty || _recognizingDrawing || !mounted) return;
-    final renderObject = _drawingBoundaryKey.currentContext?.findRenderObject();
-    if (renderObject is! RenderRepaintBoundary) return;
     setState(() {
       _recognizingDrawing = true;
       _drawingStatus = 'Reading the expression...';
     });
     Directory? tempDirectory;
     try {
-      final image = await renderObject.toImage(pixelRatio: 2);
-      final bytes = await image.toByteData(format: ImageByteFormat.png);
-      image.dispose();
-      if (bytes == null) throw const FormatException();
+      final png = await _croppedDrawingPng();
+      if (png == null) throw const FormatException();
       tempDirectory = await Directory.systemTemp.createTemp('mathverse-draw-');
       final file = File('${tempDirectory.path}/expression.png');
-      await file.writeAsBytes(
-        bytes.buffer.asUint8List(bytes.offsetInBytes, bytes.lengthInBytes),
-      );
+      await file.writeAsBytes(png);
       final recognizer = _recognizer ??= TextRecognizer(
         script: TextRecognitionScript.latin,
       );
       final recognized = await recognizer.processImage(
         InputImage.fromFilePath(file.path),
       );
-      final expression = _normalizeHandwrittenMath(recognized.text);
+      var expression = _normalizeHandwrittenMath(recognized.text);
+      var usedStrokeModel = false;
       if (expression.isEmpty) {
-        const message = 'No expression recognized. Write larger and clearer.';
+        expression = await _recognizeStrokeExpression() ?? '';
+        usedStrokeModel = expression.isNotEmpty;
+      }
+      if (expression.isEmpty) {
+        const message =
+            'I could not read that yet. Write one clear line with larger symbols, then tap Analyze.';
         setState(() {
           _recognizedExpression = null;
           _drawingExpressionInput.clear();
@@ -2077,10 +2096,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _answerShown = false;
         _error = null;
         _drawingSolveSuggested = false;
-        _drawingStatus =
-            'Review the expression, then solve or continue editing.';
+        _drawingStatus = usedStrokeModel
+            ? 'Possible expression read from your strokes. Check it before solving.'
+            : 'Review the expression, then solve or continue editing.';
       });
-      if (_drawingResultMode == _DrawingResultMode.automatic) {
+      if (usedStrokeModel) {
+        setState(() {
+          _drawingSolveSuggested = true;
+          _drawingStatus =
+              'Possible expression read from your strokes. Check it, then tap Solve.';
+        });
+      } else if (_drawingResultMode == _DrawingResultMode.automatic) {
         _solveRecognizedDrawing();
       } else if (_drawingResultMode == _DrawingResultMode.suggest) {
         setState(() {
@@ -2112,6 +2138,154 @@ class _CalculatorPageState extends State<CalculatorPage> {
       if (tempDirectory != null) await tempDirectory.delete(recursive: true);
       if (mounted) setState(() => _recognizingDrawing = false);
     }
+  }
+
+  Future<Uint8List?> _croppedDrawingPng() async {
+    final visible = _drawingStrokes.where((stroke) => stroke.points.isNotEmpty);
+    final points = visible.expand((stroke) => stroke.points).toList();
+    if (points.isEmpty) return null;
+    final minX = points.map((point) => point.dx).reduce(math.min);
+    final maxX = points.map((point) => point.dx).reduce(math.max);
+    final minY = points.map((point) => point.dy).reduce(math.min);
+    final maxY = points.map((point) => point.dy).reduce(math.max);
+    final sourceWidth = math.max(1.0, maxX - minX);
+    final sourceHeight = math.max(1.0, maxY - minY);
+    const imageWidth = 1600;
+    const imageHeight = 640;
+    const padding = 64.0;
+    final scale = math.min(
+      (imageWidth - padding * 2) / sourceWidth,
+      (imageHeight - padding * 2) / sourceHeight,
+    );
+    final recorder = ui.PictureRecorder();
+    final canvas = ui.Canvas(recorder);
+    canvas.drawColor(const ui.Color(0xFFFFFFFF), ui.BlendMode.src);
+    for (final stroke in visible) {
+      final mapped = stroke.points
+          .map(
+            (point) => ui.Offset(
+              padding + (point.dx - minX) * scale,
+              padding + (point.dy - minY) * scale,
+            ),
+          )
+          .toList();
+      final paint = ui.Paint()
+        ..color = stroke.isEraser
+            ? const ui.Color(0xFFFFFFFF)
+            : const ui.Color(0xFF111111)
+        ..strokeWidth = (stroke.width * scale).clamp(3.0, 30.0).toDouble()
+        ..strokeCap = ui.StrokeCap.round
+        ..strokeJoin = ui.StrokeJoin.round
+        ..style = ui.PaintingStyle.stroke;
+      if (mapped.length == 1) {
+        canvas.drawCircle(mapped.single, paint.strokeWidth / 2, paint);
+      } else {
+        final path = ui.Path()..moveTo(mapped.first.dx, mapped.first.dy);
+        for (final point in mapped.skip(1)) {
+          path.lineTo(point.dx, point.dy);
+        }
+        canvas.drawPath(path, paint);
+      }
+    }
+    final image = await recorder.endRecording().toImage(
+      imageWidth,
+      imageHeight,
+    );
+    final data = await image.toByteData(format: ImageByteFormat.png);
+    image.dispose();
+    if (data == null) return null;
+    return data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
+  }
+
+  Future<String?> _recognizeStrokeExpression() async {
+    final model = _strokeSymbolModel ??= StrokeSymbolModel.fromJson(
+      await rootBundle.loadString('assets/models/stroke_symbols.json'),
+    );
+    final strokes = _drawingStrokes
+        .where((stroke) => !stroke.isEraser && stroke.points.isNotEmpty)
+        .toList();
+    if (strokes.isEmpty) return null;
+    final allPoints = strokes.expand((stroke) => stroke.points).toList();
+    final overallHeight = math.max(
+      1.0,
+      allPoints.map((point) => point.dy).reduce(math.max) -
+          allPoints.map((point) => point.dy).reduce(math.min),
+    );
+    final joinGap = math.max(5.0, overallHeight * .22);
+    final sorted = strokes.toList()
+      ..sort((left, right) {
+        final leftX = left.points.map((point) => point.dx).reduce(math.min);
+        final rightX = right.points.map((point) => point.dx).reduce(math.min);
+        return leftX.compareTo(rightX);
+      });
+    final groups = <List<_InkStroke>>[];
+    var rightEdge = double.negativeInfinity;
+    for (final stroke in sorted) {
+      final leftEdge = stroke.points.map((point) => point.dx).reduce(math.min);
+      final strokeRight = stroke.points
+          .map((point) => point.dx)
+          .reduce(math.max);
+      if (groups.isEmpty || leftEdge > rightEdge + joinGap) {
+        groups.add([stroke]);
+        rightEdge = strokeRight;
+      } else {
+        groups.last.add(stroke);
+        rightEdge = math.max(rightEdge, strokeRight);
+      }
+    }
+    if (groups.length > 48) return null;
+    final tokens = <String>[];
+    for (final group in groups) {
+      if (_looksLikeEquals(group)) {
+        tokens.add('=');
+        continue;
+      }
+      final features = await _featuresFromDrawingStrokes(
+        model.inputSide,
+        strokes: group,
+      );
+      if (features == null) return null;
+      final predictions = model.predict(features);
+      if (predictions.isEmpty || predictions.first.confidence < .25) {
+        return null;
+      }
+      tokens.add(predictions.first.token.trim());
+    }
+    final expression = tokens.join();
+    return RegExp(r'^[0-9+\-*/.^()=]+$').hasMatch(expression)
+        ? expression
+        : null;
+  }
+
+  bool _looksLikeEquals(List<_InkStroke> group) {
+    if (group.length != 2) return false;
+    final bounds = group.map((stroke) {
+      final xs = stroke.points.map((point) => point.dx);
+      final ys = stroke.points.map((point) => point.dy);
+      return (
+        xs.reduce(math.min),
+        xs.reduce(math.max),
+        ys.reduce(math.min),
+        ys.reduce(math.max),
+      );
+    }).toList();
+    final first = bounds[0];
+    final second = bounds[1];
+    final firstWidth = first.$2 - first.$1;
+    final secondWidth = second.$2 - second.$1;
+    final firstHeight = first.$4 - first.$3;
+    final secondHeight = second.$4 - second.$3;
+    final overlap =
+        math.min(first.$2, second.$2) - math.max(first.$1, second.$1);
+    final yGap = ((first.$3 + first.$4) / 2 - (second.$3 + second.$4) / 2)
+        .abs();
+    return firstWidth > 8 &&
+        secondWidth > 8 &&
+        firstHeight < firstWidth * .22 &&
+        secondHeight < secondWidth * .22 &&
+        overlap > math.min(firstWidth, secondWidth) * .55 &&
+        yGap > 2 &&
+        yGap < math.min(firstWidth, secondWidth) * .65;
   }
 
   Future<void> _recognizeOneStrokeSymbol() async {
@@ -2149,8 +2323,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
   }
 
-  Future<List<double>?> _featuresFromDrawingStrokes(int inputSide) async {
-    final visible = _drawingStrokes.where((stroke) => stroke.points.isNotEmpty);
+  Future<List<double>?> _featuresFromDrawingStrokes(
+    int inputSide, {
+    List<_InkStroke>? strokes,
+  }) async {
+    final visible = (strokes ?? _drawingStrokes).where(
+      (stroke) => stroke.points.isNotEmpty,
+    );
     final points = visible
         .where((stroke) => !stroke.isEraser)
         .expand((stroke) => stroke.points)
@@ -2444,6 +2623,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _insert('/100');
     } else if (key == 'SIGN') {
       _toggleSign();
+    } else if (_mode == _CalculatorMode.calculus &&
+        _calculusOperation == 'Definite integral' &&
+        _selectedIntegralBound != null &&
+        (key == 'C' || key == 'DEL')) {
+      final controller = _selectedIntegralBound == 0
+          ? _integralLowerInput
+          : _integralUpperInput;
+      if (key == 'C') {
+        controller.clear();
+      } else if (controller.text.isNotEmpty) {
+        controller.text = controller.text.substring(
+          0,
+          controller.text.length - 1,
+        );
+      }
+      setState(() {});
     } else if (_fractionBuilder && key == 'C') {
       (_fractionDenominatorSelected ? _denominator : _numerator).clear();
       setState(() {});
@@ -2477,7 +2672,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
       setState(() {
         _fractionBuilder = true;
         _fractionDenominatorSelected = false;
-        _sourceEditorVisible = false;
         _answerShown = false;
         _result = null;
         _numerator.clear();
@@ -2561,7 +2755,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               setState(() {
                                 _mode = mode;
                                 _showVisualization = false;
-                                _sourceEditorVisible = false;
                                 _error = null;
                                 _result = null;
                                 _answerShown = false;
@@ -2677,11 +2870,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           Expanded(
                             child: TextField(
                               controller: _integralLowerInput,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
+                              readOnly: true,
+                              keyboardType: TextInputType.none,
+                              onTap: () =>
+                                  setState(() => _selectedIntegralBound = 0),
                               decoration: const InputDecoration(
                                 labelText: 'Lower bound',
                                 isDense: true,
@@ -2693,11 +2885,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           Expanded(
                             child: TextField(
                               controller: _integralUpperInput,
-                              keyboardType:
-                                  const TextInputType.numberWithOptions(
-                                    decimal: true,
-                                    signed: true,
-                                  ),
+                              readOnly: true,
+                              keyboardType: TextInputType.none,
+                              onTap: () =>
+                                  setState(() => _selectedIntegralBound = 1),
                               decoration: const InputDecoration(
                                 labelText: 'Upper bound',
                                 isDense: true,
@@ -2739,10 +2930,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
   String get _visualizationTitle => switch (_mode) {
     _CalculatorMode.geometry => 'Geometry workspace',
     _CalculatorMode.trigonometry => 'Trigonometry: right triangle',
-    _CalculatorMode.algebra => 'Algebra: equations and systems',
+    _CalculatorMode.algebra when !_isScalarVisualization =>
+      'Algebra: equations and systems',
     _CalculatorMode.calculus => 'Calculus: function and area',
+    _ when _isScalarVisualization => 'Scalar value',
     _ => 'Function graph',
   };
+
+  bool get _isScalarVisualization =>
+      (_mode == _CalculatorMode.basic ||
+          _mode == _CalculatorMode.scientific ||
+          _mode == _CalculatorMode.graphing ||
+          _mode == _CalculatorMode.algebra) &&
+      _input.text.trim().isNotEmpty &&
+      PlotFormula(_input.text).isScalar;
 
   String get _visualizationSemanticsLabel {
     final finiteDifference = CentralDifferenceFormula.tryParse(_input.text);
@@ -2754,6 +2955,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
           'The x and y axes cross at zero and have numbered ticks. '
           '${_visualIs3D ? 'The z axis also has numbered ticks.' : ''} '
           'This is a curve and has no surface area.';
+    }
+    if (_isScalarVisualization) {
+      final view = _mode == _CalculatorMode.graphing
+          ? (_visualIs3D
+                ? 'a shaded constant plane'
+                : 'a horizontal constant function')
+          : 'a scalar point';
+      return '${_visualIs3D ? '3D' : '2D'} value ${_input.text.trim()}, shown as $view on numbered axes.';
     }
     return '$_visualizationTitle, ${_visualIs3D ? '3D' : '2D'} view. '
         'The x and y axes cross at zero and show numbered ticks.';
@@ -2839,10 +3048,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return double.nan;
       }
     }
+    if (_isScalarVisualization) {
+      try {
+        return _engine.calculate(_input.text).value ?? double.nan;
+      } on Object {
+        return double.nan;
+      }
+    }
     return _graphSlope * _graphX + _graphIntercept;
   }
 
   String get _visualizationFormula {
+    if (_isScalarVisualization) return _input.text.trim();
     if (_mode == _CalculatorMode.geometry) {
       return _geometryExpression(_geometryVisualFirst, _geometryVisualSecond);
     }
@@ -3296,7 +3513,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       ),
                       const SizedBox(height: 5),
                       Text(
-                        'Adjusted result',
+                        _isScalarVisualization
+                            ? 'Evaluated value'
+                            : 'Adjusted result',
                         style: Theme.of(context).textTheme.labelMedium,
                       ),
                     ],
@@ -3405,7 +3624,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
               onChanged: (value) => setState(() => _graphX = value),
             ),
           ] else if (_mode == _CalculatorMode.graphing &&
-              _input.text.trim().isNotEmpty) ...[
+              _input.text.trim().isNotEmpty &&
+              !_isScalarVisualization) ...[
             _visualSlider(
               context,
               label: 'Evaluate at x',
@@ -3415,6 +3635,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
               divisions: 100,
               display: _graphX.toStringAsFixed(1),
               onChanged: (value) => setState(() => _graphX = value),
+            ),
+          ] else if (_isScalarVisualization) ...[
+            Text(
+              'This expression has no independent variable to adjust.',
+              style: Theme.of(context).textTheme.bodySmall,
             ),
           ] else ...[
             _visualSlider(
@@ -3964,6 +4189,46 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
             ),
+            ExpansionTile(
+              key: const Key('calculation-steps-dropdown'),
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: const EdgeInsets.only(bottom: 4),
+              title: const Text('Step-by-step calculation'),
+              leading: const Icon(Icons.expand_more_rounded),
+              children: [
+                ConstrainedBox(
+                  constraints: const BoxConstraints(maxHeight: 220),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        for (final (index, step) in _detailedSteps().indexed)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 5),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                SizedBox(
+                                  width: 26,
+                                  child: Text('${index + 1}.'),
+                                ),
+                                Expanded(
+                                  child: Math.tex(
+                                    _mathTexFromSource(step),
+                                    mathStyle: MathStyle.display,
+                                    textStyle: const TextStyle(fontSize: 17),
+                                    onErrorFallback: (_) => Text(step),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       );
@@ -3979,68 +4244,43 @@ class _CalculatorPageState extends State<CalculatorPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
-            children: [
-              const Expanded(child: Text('Expression')),
-              TextButton.icon(
-                key: const Key('expression-edit-toggle'),
-                onPressed: () => setState(
-                  () => _sourceEditorVisible = !_sourceEditorVisible,
-                ),
-                icon: Icon(
-                  _sourceEditorVisible ? Icons.functions : Icons.edit,
-                  size: 16,
-                ),
-                label: Text(_sourceEditorVisible ? 'Math view' : 'Edit'),
-              ),
-            ],
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text('Expression'),
           ),
           Expanded(
-            child: _sourceEditorVisible
-                ? TextField(
-                    key: const Key('expression-input'),
-                    controller: _input,
-                    autofocus: true,
-                    onChanged: (_) => _updateResult(),
-                    onSubmitted: (_) => _evaluate(),
-                    expands: true,
-                    maxLines: null,
-                    minLines: null,
-                    textAlignVertical: TextAlignVertical.top,
-                    style: const TextStyle(fontSize: 22, height: 1.45),
-                    decoration: InputDecoration.collapsed(
-                      hintText: _expressionHint,
-                      hintStyle: const TextStyle(color: Colors.black45),
-                    ),
-                  )
-                : _fractionBuilder
-                ? Row(
-                    children: [
-                      if (_input.text.isNotEmpty)
-                        Expanded(
-                          child: SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Math.tex(
-                              _expressionTex,
-                              mathStyle: MathStyle.display,
-                              textStyle: const TextStyle(fontSize: 20),
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (_selectedIntegralBound != null) {
+                  setState(() => _selectedIntegralBound = null);
+                }
+              },
+              child: _fractionBuilder
+                  ? Row(
+                      children: [
+                        if (_input.text.isNotEmpty)
+                          Expanded(
+                            child: SingleChildScrollView(
+                              scrollDirection: Axis.horizontal,
+                              child: Math.tex(
+                                _expressionTex,
+                                mathStyle: MathStyle.display,
+                                textStyle: const TextStyle(fontSize: 20),
+                              ),
                             ),
                           ),
-                        ),
-                      _inlineFractionEditor(),
-                    ],
-                  )
-                : GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => setState(() => _sourceEditorVisible = true),
-                    child: SizedBox.expand(
+                        _inlineFractionEditor(),
+                      ],
+                    )
+                  : SizedBox.expand(
                       child:
                           _input.text.trim().isEmpty &&
                               _mode != _CalculatorMode.geometry
                           ? const Align(
                               alignment: Alignment.topLeft,
                               child: Text(
-                                'Tap here or use the keys to enter an expression',
+                                'Use the calculator keys to enter an expression',
                                 style: TextStyle(
                                   color: Colors.black45,
                                   fontSize: 16,
@@ -4064,11 +4304,38 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               ),
                             ),
                     ),
-                  ),
+            ),
           ),
         ],
       ),
     );
+  }
+
+  List<String> _detailedSteps() {
+    final expression = _input.text.trim();
+    if (expression.isEmpty) {
+      return [_expressionTex, '=${_result ?? ''}'];
+    }
+    if (_mode == _CalculatorMode.algebra) {
+      try {
+        if (expression.contains(';')) {
+          return _engine.solveLinearSystem(expression).steps;
+        }
+        if (expression.contains('=')) {
+          return _engine.solveEquation(expression).steps;
+        }
+      } on Object {
+        // Continue with evaluated reductions for supported expressions.
+      }
+    }
+    try {
+      final steps = _engine.solutionSteps(expression);
+      if (steps.isNotEmpty) return steps;
+    } on Object {
+      // The selected domain may use a different evaluator; show the entered
+      // expression and verified result instead of inventing symbolic steps.
+    }
+    return [_prettyExpression(expression), _result ?? ''];
   }
 
   Widget _inlineFractionEditor() => Row(
@@ -4095,13 +4362,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ),
     ],
   );
-
-  String get _expressionHint => switch (_mode) {
-    _CalculatorMode.statistics => 'mean(2, 4, 6)',
-    _CalculatorMode.probability => 'probability(3, 10)',
-    _CalculatorMode.physics => 'distance(12, 4)',
-    _ => 'Enter an expression',
-  };
 
   Widget _fractionField(TextEditingController controller, bool denominator) =>
       TextField(
@@ -4775,7 +5035,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               controller: _numberA,
               onTap: () => setState(() => _numberBSelected = false),
               onChanged: (_) => _calculateNumberSystem(),
-              keyboardType: TextInputType.text,
+              keyboardType: TextInputType.none,
               style: Theme.of(context).textTheme.titleMedium,
               decoration: InputDecoration(
                 labelText: _conversionOnly
@@ -4829,7 +5089,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 controller: _numberB,
                 onTap: () => setState(() => _numberBSelected = true),
                 onChanged: (_) => _calculateNumberSystem(),
-                keyboardType: TextInputType.text,
+                keyboardType: TextInputType.none,
                 style: Theme.of(context).textTheme.titleMedium,
                 decoration: InputDecoration(
                   labelText: 'Second value in base $_sourceBase',
@@ -5101,7 +5361,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 'DEL',
                 '(',
                 ')',
-                '^',
+                'x\u02B8',
                 'C',
                 '√',
                 'π',
@@ -5112,6 +5372,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   onPressed: () {
                     if (key == 'a/b') {
                       _pressFunction('a/b');
+                    } else if (key == 'x\u02B8') {
+                      _pressFunction('^');
                     } else {
                       _pressGeometryDigit(key);
                     }
@@ -5121,7 +5383,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     minimumSize: Size.zero,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: Text(key),
+                  child: key == 'x\u02B8'
+                      ? _functionKeyVisual('x\u02B8', '^')
+                      : Text(key),
                 ),
             ],
           ),
@@ -5337,80 +5601,77 @@ class _CalculatorPageState extends State<CalculatorPage> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
-                child: RepaintBoundary(
-                  key: _drawingBoundaryKey,
-                  child: Listener(
-                    onPointerDown: (event) {
-                      _drawingPressure = event.pressure.clamp(.6, 1.5);
-                    },
-                    onPointerMove: (event) {
-                      _drawingPressure = event.pressure.clamp(.6, 1.5);
-                    },
-                    child: GestureDetector(
-                      behavior: HitTestBehavior.opaque,
-                      onPanDown: (details) => setState(
-                        () => _beginDrawingStroke(details.localPosition),
-                      ),
-                      onPanUpdate: (details) => setState(
-                        () => _activeStroke = [
-                          ..._activeStroke,
-                          details.localPosition,
-                        ],
-                      ),
-                      onPanEnd: (_) {
-                        if (_activeStroke.length > 1) {
-                          final eraser = _drawingTool == _DrawingTool.eraser;
-                          final color = _drawingTool == _DrawingTool.highlighter
-                              ? _drawingInk.withValues(alpha: .28)
-                              : _drawingInk;
-                          _drawingStrokes.add(
-                            _InkStroke(
-                              points: List.of(_activeStroke),
-                              color: color,
-                              width:
-                                  (_drawingTool == _DrawingTool.eraser
-                                      ? _drawingInkWidth * 4
-                                      : _drawingInkWidth) *
-                                  _drawingPressure,
-                              isEraser: eraser,
-                            ),
-                          );
-                          _redoDrawingStrokes.clear();
-                        }
-                        setState(() => _activeStroke = []);
-                        if (_drawingTool != _DrawingTool.eraser &&
-                            !_buildingSymbolExpression) {
-                          _scheduleDrawingRecognition();
-                        }
-                      },
-                      child: Container(
-                        key: const Key('drawing-canvas'),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: colors.outlineVariant),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(16),
-                          child: CustomPaint(
-                            painter: _ExpressionDrawingPainter([
-                              ..._drawingStrokes,
-                              if (_activeStroke.isNotEmpty)
-                                _InkStroke(
-                                  points: _activeStroke,
-                                  color: _drawingInk.withValues(
-                                    alpha:
-                                        _drawingTool == _DrawingTool.highlighter
-                                        ? .28
-                                        : 1,
-                                  ),
-                                  width: _drawingInkWidth * _drawingPressure,
-                                  isEraser: _drawingTool == _DrawingTool.eraser,
-                                ),
-                            ]),
-                            child: const SizedBox.expand(),
+                child: Listener(
+                  onPointerDown: (event) {
+                    _drawingPressure = event.pressure.clamp(.6, 1.5);
+                  },
+                  onPointerMove: (event) {
+                    _drawingPressure = event.pressure.clamp(.6, 1.5);
+                  },
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onPanDown: (details) => setState(
+                      () => _beginDrawingStroke(details.localPosition),
+                    ),
+                    onPanUpdate: (details) => setState(
+                      () => _activeStroke = [
+                        ..._activeStroke,
+                        details.localPosition,
+                      ],
+                    ),
+                    onPanEnd: (_) {
+                      if (_activeStroke.length > 1) {
+                        final eraser = _drawingTool == _DrawingTool.eraser;
+                        final color = _drawingTool == _DrawingTool.highlighter
+                            ? _drawingInk.withValues(alpha: .28)
+                            : _drawingInk;
+                        _drawingStrokes.add(
+                          _InkStroke(
+                            points: List.of(_activeStroke),
+                            color: color,
+                            width:
+                                (_drawingTool == _DrawingTool.eraser
+                                    ? _drawingInkWidth * 4
+                                    : _drawingInkWidth) *
+                                _drawingPressure,
+                            isEraser: eraser,
                           ),
+                        );
+                        _redoDrawingStrokes.clear();
+                      }
+                      setState(() => _activeStroke = []);
+                      if (_drawingTool != _DrawingTool.eraser &&
+                          !_buildingSymbolExpression) {
+                        _scheduleDrawingRecognition();
+                      }
+                    },
+                    child: Container(
+                      key: const Key('drawing-canvas'),
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: colors.outlineVariant),
+                      ),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(16),
+                        child: CustomPaint(
+                          painter: _ExpressionDrawingPainter([
+                            ..._drawingStrokes,
+                            if (_activeStroke.isNotEmpty)
+                              _InkStroke(
+                                points: _activeStroke,
+                                color: _drawingInk.withValues(
+                                  alpha:
+                                      _drawingTool == _DrawingTool.highlighter
+                                      ? .28
+                                      : 1,
+                                ),
+                                width: _drawingInkWidth * _drawingPressure,
+                                isEraser: _drawingTool == _DrawingTool.eraser,
+                              ),
+                          ]),
+                          child: const SizedBox.expand(),
                         ),
                       ),
                     ),
@@ -5427,6 +5688,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     TextField(
                       key: const Key('drawing-expression-review'),
                       controller: _drawingExpressionInput,
+                      keyboardType: TextInputType.none,
                       decoration: InputDecoration(
                         labelText: _recognizedExpression == null
                             ? 'Type or correct the expression'

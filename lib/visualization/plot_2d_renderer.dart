@@ -181,16 +181,124 @@ extension _Plot2DRenderer on _MathVisualizationPainter {
   }
 
   void _paintScalarResult2D(Canvas canvas, Size size, String source) {
-    _paintAxes(canvas, size);
     final value = const MathEngine().evaluate(source);
-    final y = value.isFinite ? value.clamp(-10, 10).toDouble() : 0.0;
-    final point = Offset(size.width * .5, size.height * (.72 - y / 24));
-    canvas.drawCircle(point, 7, Paint()..color = const Color(0xFF65DFF3));
+    _paintScalarCoordinate2D(canvas, size, value);
     _label(
       canvas,
       'Scalar result: ${_short(value)}',
       const Offset(18, 16),
       Colors.white,
     );
+  }
+
+  void _paintConstantFunction2D(Canvas canvas, Size size, double value) {
+    _paintScalarCoordinate2D(canvas, size, value, pointOnly: false);
+    _label(canvas, 'y = ${_short(value)}', const Offset(18, 16), Colors.white);
+  }
+
+  void _paintScalarCoordinate2D(
+    Canvas canvas,
+    Size size,
+    double value, {
+    bool pointOnly = true,
+  }) {
+    if (!value.isFinite) return;
+    const left = 38.0;
+    const right = 18.0;
+    const top = 40.0;
+    const bottom = 28.0;
+    final plot = Rect.fromLTRB(
+      left,
+      top,
+      size.width - right,
+      size.height - bottom,
+    );
+    final padding = math.max(2.0, value.abs() * .12);
+    final yMin = math.min(0.0, value) - padding;
+    final yMax = math.max(0.0, value) + padding;
+    final roughStep = (yMax - yMin) / 5;
+    final exponent = math
+        .pow(10, (math.log(roughStep) / math.ln10).floor())
+        .toDouble();
+    final normalized = roughStep / exponent;
+    final factor = normalized <= 1
+        ? 1.0
+        : normalized <= 2
+        ? 2.0
+        : normalized <= 5
+        ? 5.0
+        : 10.0;
+    final step = factor * exponent;
+    Offset point(double x, double y) => Offset(
+      plot.left + (x + 5) / 10 * plot.width,
+      plot.bottom - (y - yMin) / (yMax - yMin) * plot.height,
+    );
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: .11)
+      ..strokeWidth = .8;
+    for (var x = -5; x <= 5; x++) {
+      final px = point(x.toDouble(), 0).dx;
+      canvas.drawLine(Offset(px, plot.top), Offset(px, plot.bottom), grid);
+    }
+    for (
+      var tick = (yMin / step).ceil();
+      tick <= (yMax / step).floor();
+      tick++
+    ) {
+      final y = tick * step;
+      final py = point(0, y).dy;
+      canvas.drawLine(Offset(plot.left, py), Offset(plot.right, py), grid);
+      _label(canvas, _short(y), Offset(plot.left - 31, py - 7), Colors.white70);
+    }
+    final axes = Paint()
+      ..color = Colors.white.withValues(alpha: .7)
+      ..strokeWidth = 1.4;
+    final origin = point(0, 0);
+    canvas.drawLine(
+      Offset(plot.left, origin.dy),
+      Offset(plot.right, origin.dy),
+      axes,
+    );
+    canvas.drawLine(
+      Offset(origin.dx, plot.top),
+      Offset(origin.dx, plot.bottom),
+      axes,
+    );
+    for (var x = -5; x <= 5; x++) {
+      final px = point(x.toDouble(), 0).dx;
+      canvas.drawLine(
+        Offset(px, origin.dy - 3),
+        Offset(px, origin.dy + 3),
+        axes,
+      );
+      _label(canvas, '$x', Offset(px - 6, origin.dy + 4), Colors.white70);
+    }
+    final curvePaint = Paint()
+      ..color = const Color(0xFF65DFF3)
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
+    if (pointOnly) {
+      final valuePoint = point(0, value);
+      canvas.drawCircle(valuePoint, 7, Paint()..color = curvePaint.color);
+      _label(
+        canvas,
+        _short(value),
+        valuePoint + const Offset(9, -18),
+        curvePaint.color,
+      );
+    } else {
+      canvas.drawLine(point(-5, value), point(5, value), curvePaint);
+      final selected = point(selectedX, value);
+      canvas.drawCircle(selected, 5, Paint()..color = const Color(0xFFFF594D));
+      _label(
+        canvas,
+        '(${_short(selectedX)}, ${_short(value)})',
+        selected + const Offset(7, -18),
+        Colors.white,
+      );
+    }
+    _label(canvas, 'x', Offset(plot.right - 8, origin.dy + 17), Colors.white);
+    _label(canvas, 'y', Offset(origin.dx + 4, plot.top), Colors.white);
   }
 }

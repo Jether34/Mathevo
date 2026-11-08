@@ -6,81 +6,22 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
     Size size,
     CentralDifferenceFormula formula,
   ) {
-    const xColor = Color(0xFFFF625A);
-    const yColor = Color(0xFF57D68D);
-    const zColor = Color(0xFF4A86FF);
     const curveColor = Color(0xFF65DFF3);
-    final cosX = math.cos(rotationX), sinX = math.sin(rotationX);
-    final cosY = math.cos(rotationY), sinY = math.sin(rotationY);
-
-    Offset project(double x, double y, double z) {
-      final worldX = (x - formula.center) / 1.5;
-      final worldY = y / 1.5;
-      final worldZ =
-          (z - formula.center * formula.center) /
-          math.max(18.0, 2 * formula.center.abs().clamp(1, 10) * 1.5);
-      final rotatedX = worldX * cosY + worldZ * sinY;
-      final rotatedZ = -worldX * sinY + worldZ * cosY;
-      final rotatedY = worldY * cosX - rotatedZ * sinX;
-      final depth = worldY * sinX + rotatedZ * cosX;
-      final perspective = 4.2 / (4.2 + depth / 1.5);
-      final scale =
-          math.min(size.width, size.height) * .27 * zoom * perspective;
-      return Offset(
-        size.width * .5 + rotatedX * scale,
-        size.height * .56 - rotatedY * scale,
-      );
-    }
-
-    final grid = Paint()
-      ..color = Colors.white.withValues(alpha: .11)
-      ..strokeWidth = .8;
-    const gridHeight = 0.0;
-    for (var index = 0; index <= 8; index++) {
-      final x = formula.center - 2.6 + index * .65;
-      canvas.drawLine(
-        project(x, -2, gridHeight),
-        project(x, 2, gridHeight),
-        grid,
-      );
-      final y = -2 + index * .5;
-      canvas.drawLine(
-        project(formula.center - 2.6, y, gridHeight),
-        project(formula.center + 2.6, y, gridHeight),
-        grid,
-      );
-    }
-    void axis(_PlotPoint3 start, _PlotPoint3 end, Color color, String label) {
-      final origin = project(start.$1, start.$2, start.$3);
-      final finish = project(end.$1, end.$2, end.$3);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
-    }
-
-    final zMax = math.max(10.0, formula.center * formula.center + 10);
-    axis((-5, 0, 0), (5, 0, 0), xColor, 'x');
-    axis((0, -5, 0), (0, 5, 0), yColor, 'y');
-    axis((0, 0, -5), (0, 0, zMax), zColor, 'z');
-    for (var tick = -5; tick <= 5; tick++) {
-      for (final (location, value, color) in <(Offset, int, Color)>[
-        (project(tick.toDouble(), 0, 0), tick, xColor),
-        (project(0, tick.toDouble(), 0), tick, yColor),
-      ]) {
-        canvas.drawCircle(location, 1.8, Paint()..color = color);
-        _label(canvas, '$value', location + const Offset(2, 2), Colors.white70);
-      }
-    }
-    for (var tick = -5; tick <= zMax; tick += 5) {
-      final location = project(0, 0, tick.toDouble());
-      canvas.drawCircle(location, 1.8, Paint()..color = zColor);
-      _label(canvas, '$tick', location + const Offset(2, 2), Colors.white70);
-    }
+    final maximumZ = math.pow(formula.center.abs() + 3, 2).toDouble();
+    final (zMinimum, zMaximum) = _niceBounds(0, maximumZ);
+    double zCoordinate(double z) =>
+        -3 + 6 * (z - zMinimum) / (zMaximum - zMinimum);
+    Offset project(double x, double y, double z) =>
+        _projectRotating3D(size, x - formula.center, y, zCoordinate(z));
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: zMinimum,
+      zMaximum: zMaximum,
+      zCoordinate: zCoordinate,
+      xMinimum: formula.center - 3,
+      xMaximum: formula.center + 3,
+    );
 
     final curve = Path();
     for (var index = 0; index <= 160; index++) {
@@ -169,40 +110,7 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
 
   void _paintScalarResult3D(Canvas canvas, Size size, String source) {
     final value = const MathEngine().evaluate(source);
-    final cosX = math.cos(rotationX), sinX = math.sin(rotationX);
-    final cosY = math.cos(rotationY), sinY = math.sin(rotationY);
-    Offset project(double x, double y, double z) {
-      final rx = x * cosY + z * sinY;
-      final rz = -x * sinY + z * cosY;
-      final ry = y * cosX - rz * sinX;
-      final depth = y * sinX + rz * cosX;
-      final perspective = 4.2 / (4.2 + depth / 1.5);
-      final scale =
-          math.min(size.width, size.height) * .22 * zoom * perspective;
-      return Offset(
-        size.width * .5 + rx * scale,
-        size.height * .55 - ry * scale,
-      );
-    }
-
-    final origin = project(0, 0, 0);
-    for (final (end, color, label) in <(_PlotPoint3, Color, String)>[
-      ((3, 0, 0), const Color(0xFFFF625A), 'x'),
-      ((0, 3, 0), const Color(0xFF57D68D), 'y'),
-      ((0, 0, 3), const Color(0xFF4A86FF), 'z'),
-    ]) {
-      final finish = project(end.$1, end.$2, end.$3);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
-    }
-    final point = project(0, 0, value.clamp(-10, 10).toDouble());
-    canvas.drawCircle(point, 7, Paint()..color = const Color(0xFF65DFF3));
+    _paintScalarCoordinate3D(canvas, size, value, constantSurface: false);
     _metricBadge(
       canvas,
       'Scalar result: ${_short(value)} (point only)',
@@ -210,5 +118,84 @@ extension _Plot3DRenderer on _MathVisualizationPainter {
       const Color(0xFF9BE7FF),
       maxWidth: size.width - 24,
     );
+  }
+
+  void _paintConstantFunction3D(Canvas canvas, Size size, double value) {
+    _paintScalarCoordinate3D(canvas, size, value, constantSurface: true);
+    _metricBadge(
+      canvas,
+      'Constant surface: z = ${_short(value)}',
+      const Offset(12, 10),
+      const Color(0xFF9BE7FF),
+      maxWidth: size.width - 24,
+    );
+  }
+
+  void _paintScalarCoordinate3D(
+    Canvas canvas,
+    Size size,
+    double value, {
+    required bool constantSurface,
+  }) {
+    if (!value.isFinite) return;
+    final zMinimum = math.min(0.0, value) - math.max(1.0, value.abs() * .08);
+    final zMaximum = math.max(0.0, value) + math.max(1.0, value.abs() * .08);
+    double zCoordinate(double z) =>
+        -3 + 6 * (z - zMinimum) / (zMaximum - zMinimum);
+    Offset project(double x, double y, double z) =>
+        _projectRotating3D(size, x, y, zCoordinate(z));
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: zMinimum,
+      zMaximum: zMaximum,
+      zCoordinate: zCoordinate,
+    );
+
+    if (constantSurface) {
+      final corners = <Offset>[
+        project(-2.2, -2.2, value),
+        project(2.2, -2.2, value),
+        project(2.2, 2.2, value),
+        project(-2.2, 2.2, value),
+      ];
+      final face = Path()
+        ..moveTo(corners.first.dx, corners.first.dy)
+        ..addPolygon(corners, true);
+      canvas.drawPath(
+        face,
+        Paint()
+          ..color = const Color(0xFF42C7E8).withValues(alpha: .24)
+          ..style = PaintingStyle.fill,
+      );
+      final mesh = Paint()
+        ..color = const Color(0xFF76E4F5).withValues(alpha: .7)
+        ..strokeWidth = 1;
+      for (var tick = -2; tick <= 2; tick++) {
+        canvas.drawLine(
+          project(tick.toDouble() * 1.1, -2.2, value),
+          project(tick.toDouble() * 1.1, 2.2, value),
+          mesh,
+        );
+        canvas.drawLine(
+          project(-2.2, tick.toDouble() * 1.1, value),
+          project(2.2, tick.toDouble() * 1.1, value),
+          mesh,
+        );
+      }
+    }
+    final point = project(0, 0, value);
+    if (constantSurface) {
+      canvas.drawCircle(point, 5, Paint()..color = const Color(0xFF65DFF3));
+      _label(
+        canvas,
+        'z = ${_short(value)}',
+        point + const Offset(8, -18),
+        Colors.white,
+      );
+    } else {
+      canvas.drawCircle(point, 7, Paint()..color = const Color(0xFF65DFF3));
+      _label(canvas, _short(value), point + const Offset(8, -18), Colors.white);
+    }
   }
 }

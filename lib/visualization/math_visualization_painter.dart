@@ -309,13 +309,25 @@ class _MathVisualizationPainter extends CustomPainter {
 
     Offset project(_PlotPoint3 point) {
       final rotated = rotate(point);
-      final perspective = 4.2 / (4.2 + rotated.$3 / 1.5);
-      final scale = math.min(size.width, size.height) * .34 * perspective;
-      return Offset(
-        size.width / 2 + rotated.$1 * scale,
-        size.height / 2 - rotated.$2 * scale,
+      return _projectRotating3D(
+        size,
+        rotated.$1 * 2,
+        rotated.$2 * 2,
+        rotated.$3 * 2,
       );
     }
+
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: minimum,
+      zMaximum: maximum,
+      zCoordinate: (value) => value * 2,
+      xMinimum: minimum,
+      xMaximum: maximum,
+      yMinimum: minimum,
+      yMaximum: maximum,
+    );
 
     final sorted = [...triangles]
       ..sort((a, b) {
@@ -385,7 +397,6 @@ class _MathVisualizationPainter extends CustomPainter {
           ..strokeWidth = .55,
       );
     }
-    _paint3DAxes(canvas, size, project);
     _label(
       canvas,
       'Implicit surface F(x,y,z) = 0',
@@ -412,30 +423,6 @@ class _MathVisualizationPainter extends CustomPainter {
       const Color(0xFFFFC66D),
       maxWidth: size.width - 28,
     );
-  }
-
-  void _paint3DAxes(
-    Canvas canvas,
-    Size size,
-    Offset Function((double, double, double)) project,
-  ) {
-    const axisDefinitions = <((double, double, double), Color, String)>[
-      ((1.65, 0, 0), Color(0xFFFF625A), 'x'),
-      ((0, 1.65, 0), Color(0xFF57D68D), 'y'),
-      ((0, 0, 1.65), Color(0xFF4A86FF), 'z'),
-    ];
-    final origin = project((0, 0, 0));
-    for (final (end, color, label) in axisDefinitions) {
-      final finish = project(end);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2.1,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
-    }
   }
 
   String get _plotExpression {
@@ -478,7 +465,14 @@ class _MathVisualizationPainter extends CustomPainter {
         mode == _CalculatorMode.algebra ||
         mode == _CalculatorMode.calculus;
     if (scalarPlotMode && expression.trim().isNotEmpty && rawFormula.isScalar) {
-      if (is3D) {
+      final value = const MathEngine().evaluate(rawFormula.source);
+      if (mode == _CalculatorMode.graphing) {
+        if (is3D) {
+          _paintConstantFunction3D(canvas, size, value);
+        } else {
+          _paintConstantFunction2D(canvas, size, value);
+        }
+      } else if (is3D) {
         _paintScalarResult3D(canvas, size, rawFormula.source);
       } else {
         _paintScalarResult2D(canvas, size, rawFormula.source);
@@ -512,23 +506,6 @@ class _MathVisualizationPainter extends CustomPainter {
       }
       return;
     }
-    final transformCanvas =
-        is3D &&
-        mode != _CalculatorMode.geometry &&
-        mode != _CalculatorMode.trigonometry;
-    if (transformCanvas) {
-      final centerX = size.width / 2;
-      final centerY = size.height / 2;
-      final transform = Matrix4.identity()
-        ..setEntry(3, 2, .001)
-        ..translateByDouble(centerX, centerY, 0, 1)
-        ..rotateX(rotationX)
-        ..rotateY(rotationY)
-        ..scaleByDouble(zoom, zoom, 1, 1)
-        ..translateByDouble(-centerX, -centerY, 0, 1);
-      canvas.save();
-      canvas.transform(transform.storage);
-    }
     if (mode == _CalculatorMode.geometry) {
       if (is3D) {
         _paint3DGeometry(canvas, size);
@@ -550,7 +527,6 @@ class _MathVisualizationPainter extends CustomPainter {
     } else {
       _paintGraph(canvas, size);
     }
-    if (transformCanvas) canvas.restore();
   }
 
   bool get _isExplicitYFunction => _formula.isExplicitY;
@@ -560,9 +536,6 @@ class _MathVisualizationPainter extends CustomPainter {
   void _paint3DGeometry(Canvas canvas, Size size) {
     // Scientific convention: X red, Y green, Z blue. Solid surfaces use a
     // cool cyan/blue fill with amber edge highlights for clear depth cues.
-    const xColor = Color(0xFFFF625A);
-    const yColor = Color(0xFF57D68D);
-    const zColor = Color(0xFF4A86FF);
     const surfaceColor = Color(0xFF36C9E8);
     const rearColor = Color(0xFF286FA8);
     const baseColor = Color(0xFFFFC66D);
@@ -699,11 +672,7 @@ class _MathVisualizationPainter extends CustomPainter {
       }
     }
 
-    final scale =
-        math.min(size.width, size.height) *
-        .31 *
-        zoom /
-        math.max(radius, secondary).clamp(.1, 20);
+    final objectExtent = math.max(radius, secondary).clamp(.1, 20).toDouble();
     (double, double, double) rotate((double, double, double) p) {
       final cy = math.cos(rotationY), sy = math.sin(rotationY);
       final cx = math.cos(rotationX), sx = math.sin(rotationX);
@@ -715,11 +684,25 @@ class _MathVisualizationPainter extends CustomPainter {
     }
 
     Offset project((double, double, double) p) {
-      final q = rotate(p);
-      final perspective = 4.2 / (4.2 + q.$3 / math.max(radius, secondary));
-      final s = scale * perspective;
-      return Offset(size.width * .5 + q.$1 * s, size.height * .52 - q.$2 * s);
+      return _projectRotating3D(
+        size,
+        p.$1 / objectExtent * 2.4,
+        p.$2 / objectExtent * 2.4,
+        p.$3 / objectExtent * 2.4,
+      );
     }
+
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: -objectExtent,
+      zMaximum: objectExtent,
+      zCoordinate: (value) => value / objectExtent * 3,
+      xMinimum: -objectExtent,
+      xMaximum: objectExtent,
+      yMinimum: -objectExtent,
+      yMaximum: objectExtent,
+    );
 
     final transformed = vertices.map(rotate).toList(growable: false);
     final orderedFaceIndices = List<int>.generate(faces.length, (i) => i)
@@ -767,37 +750,6 @@ class _MathVisualizationPainter extends CustomPainter {
       );
     }
 
-    void axis((double, double, double) end, Color color, String label) {
-      final start = project((0, 0, 0));
-      final finish = project(end);
-      final paint = Paint()
-        ..color = color
-        ..strokeWidth = 2.2
-        ..style = PaintingStyle.stroke;
-      canvas.drawLine(start, finish, paint);
-      final direction = finish - start;
-      if (direction.distance > 0) {
-        final unit = direction / direction.distance;
-        final normal = Offset(-unit.dy, unit.dx);
-        final arrow = Path()
-          ..moveTo(finish.dx, finish.dy)
-          ..lineTo(
-            finish.dx - unit.dx * 8 + normal.dx * 4,
-            finish.dy - unit.dy * 8 + normal.dy * 4,
-          )
-          ..lineTo(
-            finish.dx - unit.dx * 8 - normal.dx * 4,
-            finish.dy - unit.dy * 8 - normal.dy * 4,
-          )
-          ..close();
-        canvas.drawPath(arrow, Paint()..color = color);
-      }
-      _label(canvas, label, finish + const Offset(3, -11), color);
-    }
-
-    axis((radius * 1.35, 0, 0), xColor, 'x');
-    axis((0, secondary * .75, 0), yColor, 'y');
-    axis((0, 0, radius * 1.35), zColor, 'z');
     _label(canvas, geometryOperation, const Offset(14, 12), Colors.white);
   }
 
@@ -1075,18 +1027,9 @@ class _MathVisualizationPainter extends CustomPainter {
     final opposite = hypotenuse * math.sin(radians);
     final triangleArea = adjacent * opposite / 2;
     final depth = hypotenuse * .36;
-    final sceneScale =
-        math.min(
-          size.width * .52 / (adjacent + depth),
-          size.height * .46 / (opposite + depth),
-        ) *
-        zoom;
+    final objectExtent = math.max(hypotenuse, depth).clamp(.1, 100).toDouble();
     final cy = math.cos(rotationY), sy = math.sin(rotationY);
     final cx = math.cos(rotationX), sx = math.sin(rotationX);
-    final originX = size.width * .5;
-    final originY = size.height * .52;
-    var sceneShift = Offset.zero;
-
     (double, double, double) rotate((double, double, double) p) {
       final x = p.$1 * cy + p.$3 * sy;
       final z1 = -p.$1 * sy + p.$3 * cy;
@@ -1096,13 +1039,12 @@ class _MathVisualizationPainter extends CustomPainter {
     }
 
     Offset project((double, double, double) p) {
-      final q = rotate(p);
-      final perspective = 4.5 / (4.5 + q.$3 / hypotenuse);
-      return Offset(
-            originX + q.$1 * sceneScale * perspective,
-            originY - q.$2 * sceneScale * perspective,
-          ) +
-          sceneShift;
+      return _projectRotating3D(
+        size,
+        (p.$1 - adjacent / 2) / objectExtent * 5,
+        (p.$2 - opposite / 2) / objectExtent * 5,
+        (p.$3 - depth / 2) / objectExtent * 5,
+      );
     }
 
     const a = (0.0, 0.0, 0.0);
@@ -1111,21 +1053,16 @@ class _MathVisualizationPainter extends CustomPainter {
     final backA = (0.0, 0.0, depth);
     final backB = (adjacent, 0.0, depth);
     final backC = (adjacent, opposite, depth);
-    final projectedVertices = [
-      a,
-      b,
-      c,
-      backA,
-      backB,
-      backC,
-    ].map(project).toList(growable: false);
-    final left = projectedVertices.map((point) => point.dx).reduce(math.min);
-    final right = projectedVertices.map((point) => point.dx).reduce(math.max);
-    final top = projectedVertices.map((point) => point.dy).reduce(math.min);
-    final bottom = projectedVertices.map((point) => point.dy).reduce(math.max);
-    sceneShift = Offset(
-      size.width * .5 - (left + right) / 2,
-      size.height * .52 - (top + bottom) / 2,
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: -objectExtent * .6,
+      zMaximum: objectExtent * .6,
+      zCoordinate: (value) => value / objectExtent * 5,
+      xMinimum: -objectExtent * .6,
+      xMaximum: objectExtent * .6,
+      yMinimum: -objectExtent * .6,
+      yMaximum: objectExtent * .6,
     );
     final faces = <(List<(double, double, double)>, Color, double)>[
       ([a, b, c], surfaceColor, .86),
@@ -1241,71 +1178,212 @@ class _MathVisualizationPainter extends CustomPainter {
     );
   }
 
-  void _paintAxes(Canvas canvas, Size size) {
+  String _short(double value) =>
+      value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
+
+  double _niceTickStep(double span, {int targetTicks = 6}) {
+    if (!span.isFinite || span <= 0) return 1;
+    final rough = span / targetTicks;
+    final power = math
+        .pow(10, (math.log(rough) / math.ln10).floor())
+        .toDouble();
+    final scaled = rough / power;
+    final factor = scaled <= 1
+        ? 1.0
+        : scaled <= 2
+        ? 2.0
+        : scaled <= 5
+        ? 5.0
+        : 10.0;
+    return factor * power;
+  }
+
+  (double, double) _niceBounds(double minimum, double maximum) {
+    if (!minimum.isFinite || !maximum.isFinite) return (-1, 1);
+    if ((maximum - minimum).abs() < 1e-9) {
+      final padding = math.max(1.0, minimum.abs() * .1);
+      minimum -= padding;
+      maximum += padding;
+    } else {
+      final padding = (maximum - minimum) * .08;
+      minimum -= padding;
+      maximum += padding;
+    }
+    final step = _niceTickStep(maximum - minimum);
+    return (
+      (minimum / step).floorToDouble() * step,
+      (maximum / step).ceilToDouble() * step,
+    );
+  }
+
+  List<double> _ticks(double minimum, double maximum, {int targetTicks = 6}) {
+    final step = _niceTickStep(maximum - minimum, targetTicks: targetTicks);
+    final start = (minimum / step).ceil();
+    final end = (maximum / step).floor();
+    return [for (var index = start; index <= end; index++) index * step];
+  }
+
+  Offset _paintDynamicGraphAxes(
+    Canvas canvas,
+    Size size, {
+    required Rect plot,
+    required double xMin,
+    required double xMax,
+    required double yMin,
+    required double yMax,
+  }) {
+    Offset point(double x, double y) => Offset(
+      plot.left + (x - xMin) / (xMax - xMin) * plot.width,
+      plot.bottom - (y - yMin) / (yMax - yMin) * plot.height,
+    );
     final grid = Paint()
-      ..color = Colors.white.withValues(alpha: .09)
-      ..strokeWidth = 1;
-    for (var value = -5; value <= 5; value++) {
-      final x = size.width * (.5 + value / 12);
-      final y = size.height * (.72 - value / 24);
-      canvas.drawLine(Offset(x, 20), Offset(x, size.height - 28), grid);
-      canvas.drawLine(Offset(24, y), Offset(size.width - 18, y), grid);
+      ..color = Colors.white.withValues(alpha: .13)
+      ..strokeWidth = .8;
+    for (final x in _ticks(xMin, xMax)) {
+      final px = point(x, 0).dx;
+      canvas.drawLine(Offset(px, plot.top), Offset(px, plot.bottom), grid);
+      _label(
+        canvas,
+        _short(x),
+        Offset(px - 8, plot.bottom + 4),
+        Colors.white70,
+      );
+    }
+    for (final y in _ticks(yMin, yMax)) {
+      final py = point(0, y).dy;
+      canvas.drawLine(Offset(plot.left, py), Offset(plot.right, py), grid);
+      _label(canvas, _short(y), Offset(plot.left - 34, py - 7), Colors.white70);
     }
     final axis = Paint()
-      ..color = Colors.white.withValues(alpha: .65)
+      ..color = Colors.white.withValues(alpha: .76)
       ..strokeWidth = 1.4;
+    final xAxisY = (0.0).clamp(yMin, yMax);
+    final yAxisX = (0.0).clamp(xMin, xMax);
+    final origin = point(yAxisX, xAxisY);
     canvas.drawLine(
-      Offset(28, size.height * .72),
-      Offset(size.width - 18, size.height * .72),
+      Offset(plot.left, origin.dy),
+      Offset(plot.right, origin.dy),
       axis,
     );
     canvas.drawLine(
-      Offset(size.width * .5, 16),
-      Offset(size.width * .5, size.height - 20),
+      Offset(origin.dx, plot.top),
+      Offset(origin.dx, plot.bottom),
       axis,
     );
-    for (var value = -5; value <= 5; value++) {
-      final x = size.width * (.5 + value / 12);
-      final y = size.height * (.72 - value / 24);
-      canvas.drawLine(
-        Offset(x, size.height * .72 - 3),
-        Offset(x, size.height * .72 + 3),
-        axis,
-      );
-      canvas.drawLine(
-        Offset(size.width * .5 - 3, y),
-        Offset(size.width * .5 + 3, y),
-        axis,
-      );
-      _label(
-        canvas,
-        '$value',
-        Offset(x - 6, size.height * .72 + 4),
-        Colors.white70,
-      );
-      _label(
-        canvas,
-        '$value',
-        Offset(size.width * .5 - 24, y - 6),
-        Colors.white70,
-      );
+    _label(canvas, 'x', Offset(plot.right - 12, origin.dy + 3), Colors.white);
+    _label(canvas, 'y', Offset(origin.dx + 4, plot.top + 2), Colors.white);
+    return origin;
+  }
+
+  Offset _projectFixed3D(Size size, double x, double y, double z) {
+    const yaw = .68, pitch = .58;
+    final cameraX = x * math.cos(yaw) - y * math.sin(yaw);
+    final cameraDepth = x * math.sin(yaw) + y * math.cos(yaw);
+    final cameraY = z * math.cos(pitch) - cameraDepth * math.sin(pitch);
+    final scale = math.min(size.width / 10, size.height / 8) * .92;
+    return Offset(
+      size.width * .5 + cameraX * scale,
+      size.height * .58 - cameraY * scale,
+    );
+  }
+
+  Offset _projectRotating3D(Size size, double x, double y, double z) {
+    final cy = math.cos(rotationY), sy = math.sin(rotationY);
+    final cx = math.cos(rotationX), sx = math.sin(rotationX);
+    final rotatedX = x * cy + z * sy;
+    final rotatedZ = -x * sy + z * cy;
+    final rotatedY = y * cx - rotatedZ * sx;
+    return _projectFixed3D(
+      size,
+      rotatedX * zoom,
+      rotatedY * zoom,
+      rotatedZ * zoom,
+    );
+  }
+
+  void _paintFixed3DFrame(
+    Canvas canvas,
+    Size size, {
+    required double zMinimum,
+    required double zMaximum,
+    required double Function(double) zCoordinate,
+    double xMinimum = -3,
+    double xMaximum = 3,
+    double yMinimum = -3,
+    double yMaximum = 3,
+    bool labelsOnly = false,
+  }) {
+    Offset p(double x, double y, double z) => _projectFixed3D(size, x, y, z);
+    final grid = Paint()
+      ..color = Colors.white.withValues(alpha: .15)
+      ..strokeWidth = .7;
+    double xCoordinate(double x) =>
+        -3 + 6 * (x - xMinimum) / (xMaximum - xMinimum);
+    double yCoordinate(double y) =>
+        -3 + 6 * (y - yMinimum) / (yMaximum - yMinimum);
+    final xTicks = _ticks(xMinimum, xMaximum, targetTicks: 6);
+    final yTicks = _ticks(yMinimum, yMaximum, targetTicks: 6);
+    if (!labelsOnly) {
+      for (final tick in xTicks) {
+        final x = xCoordinate(tick);
+        canvas.drawLine(p(x, -3, -3), p(x, 3, -3), grid);
+        canvas.drawLine(p(x, 3, -3), p(x, 3, 3), grid);
+      }
+      for (final tick in yTicks) {
+        final y = yCoordinate(tick);
+        canvas.drawLine(p(-3, y, -3), p(3, y, -3), grid);
+        canvas.drawLine(p(-3, y, -3), p(-3, y, 3), grid);
+      }
+    }
+    final zeroZ = zMinimum <= 0 && zMaximum >= 0 ? zCoordinate(0) : -3.0;
+    void axis(Offset start, Offset end, Color color) => canvas.drawLine(
+      start,
+      end,
+      Paint()
+        ..color = color
+        ..strokeWidth = 2,
+    );
+    final zeroX = xCoordinate(0).clamp(-3.0, 3.0);
+    final zeroY = yCoordinate(0).clamp(-3.0, 3.0);
+    axis(p(-3, zeroY, zeroZ), p(3, zeroY, zeroZ), const Color(0xFFFF625A));
+    axis(p(zeroX, -3, zeroZ), p(zeroX, 3, zeroZ), const Color(0xFF57D68D));
+    axis(p(0, 0, -3), p(0, 0, 3), const Color(0xFF4A86FF));
+    for (final tick in xTicks.where((tick) => tick != 0)) {
+      final xp = p(xCoordinate(tick), zeroY, zeroZ);
+      _label(canvas, _short(tick), xp + const Offset(1, 2), Colors.white70);
+    }
+    for (final tick in yTicks.where((tick) => tick != 0)) {
+      final yp = p(zeroX, yCoordinate(tick), zeroZ);
+      _label(canvas, _short(tick), yp + const Offset(1, 2), Colors.white70);
+    }
+    for (final tick in _ticks(zMinimum, zMaximum, targetTicks: 5)) {
+      final zp = p(0, 0, zCoordinate(tick));
+      _label(canvas, _short(tick), zp + const Offset(4, -7), Colors.white70);
     }
     _label(
       canvas,
       'x',
-      Offset(size.width - 16, size.height * .72 + 4),
-      Colors.white,
+      p(3, zeroY, zeroZ) + const Offset(5, -10),
+      const Color(0xFFFF625A),
     );
-    _label(canvas, 'y', Offset(size.width * .5 + 4, 18), Colors.white);
+    _label(
+      canvas,
+      'y',
+      p(zeroX, 3, zeroZ) + const Offset(5, -10),
+      const Color(0xFF57D68D),
+    );
+    _label(
+      canvas,
+      'z',
+      p(0, 0, 3) + const Offset(4, -12),
+      const Color(0xFF4A86FF),
+    );
   }
 
-  String _short(double value) =>
-      value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
-
   void _paintGraph(Canvas canvas, Size size, {String? functionExpression}) {
-    _paintAxes(canvas, size);
     final plottedExpression = functionExpression ?? _plotExpression;
-    Offset point(double x) {
+    const xMin = -6.0, xMax = 6.0;
+    double valueAt(double x) {
       var y = slope * x + intercept;
       if (plottedExpression.trim().isNotEmpty &&
           (mode == _CalculatorMode.graphing ||
@@ -1316,15 +1394,52 @@ class _MathVisualizationPainter extends CustomPainter {
           y = double.nan;
         }
       }
-      return Offset(size.width * (.5 + x / 12), size.height * (.72 - y / 24));
+      return y;
     }
 
+    final samples = <(double, double)>[];
+    for (var index = 0; index <= 240; index++) {
+      final x = xMin + (xMax - xMin) * index / 240;
+      samples.add((x, valueAt(x)));
+    }
+    final finite =
+        samples.map((sample) => sample.$2).where((y) => y.isFinite).toList()
+          ..sort();
+    if (finite.isEmpty) {
+      _label(
+        canvas,
+        'No real values in this range',
+        const Offset(18, 18),
+        Colors.white,
+      );
+      return;
+    }
+    // Trim a small number of extreme samples around poles so the useful curve
+    // remains visible while discontinuities are still broken at the viewport.
+    final low = finite[(finite.length * .03).floor()];
+    final high =
+        finite[(finite.length * .97).floor().clamp(0, finite.length - 1)];
+    final (yMin, yMax) = _niceBounds(low, high);
+    final graphRect = Rect.fromLTRB(42, 38, size.width - 18, size.height - 28);
+    Offset point(double x, double y) => Offset(
+      graphRect.left + (x - xMin) / (xMax - xMin) * graphRect.width,
+      graphRect.bottom - (y - yMin) / (yMax - yMin) * graphRect.height,
+    );
+    _paintDynamicGraphAxes(
+      canvas,
+      size,
+      plot: graphRect,
+      xMin: xMin,
+      xMax: xMax,
+      yMin: yMin,
+      yMax: yMax,
+    );
     final path = Path();
     var connected = false;
-    for (var index = 0; index <= 80; index++) {
-      final x = -6 + index * 12 / 80;
-      final p = point(x);
-      if (!p.dy.isFinite) {
+    for (final sample in samples) {
+      final y = sample.$2;
+      final p = point(sample.$1, y);
+      if (!y.isFinite || y < yMin || y > yMax) {
         connected = false;
       } else if (!connected) {
         path.moveTo(p.dx, p.dy);
@@ -1340,8 +1455,9 @@ class _MathVisualizationPainter extends CustomPainter {
         ..strokeWidth = 3
         ..style = PaintingStyle.stroke,
     );
-    final selected = point(selectedX);
-    if (selected.dx.isFinite && selected.dy.isFinite) {
+    final selectedY = valueAt(selectedX);
+    final selected = point(selectedX, selectedY);
+    if (selectedY.isFinite && selectedY >= yMin && selectedY <= yMax) {
       canvas.drawCircle(selected, 6, Paint()..color = const Color(0xFFFF594D));
     }
     _label(
@@ -1369,22 +1485,32 @@ class _MathVisualizationPainter extends CustomPainter {
       final derivative = const MathEngine().differentiate(source);
       final slopeAtPoint = const MathEngine().evaluateAt(derivative, selectedX);
       final yAtPoint = const MathEngine().evaluateAt(source, selectedX);
-      final point = Offset(
-        size.width * (.5 + selectedX / 12),
-        size.height * (.72 - yAtPoint / 24),
+      final sampled = [
+        for (var index = 0; index <= 120; index++)
+          const MathEngine().evaluateAt(source, -6 + index * .1),
+      ]..removeWhere((value) => !value.isFinite);
+      sampled.sort();
+      final (yMin, yMax) = _niceBounds(
+        sampled[(sampled.length * .03).floor()],
+        sampled[(sampled.length * .97).floor().clamp(0, sampled.length - 1)],
       );
-      const leftX = -5.5;
-      const rightX = 5.5;
+      const xMin = -6.0, xMax = 6.0;
+      final graphRect = Rect.fromLTRB(
+        42,
+        38,
+        size.width - 18,
+        size.height - 28,
+      );
+      Offset graphPoint(double x, double y) => Offset(
+        graphRect.left + (x - xMin) / (xMax - xMin) * graphRect.width,
+        graphRect.bottom - (y - yMin) / (yMax - yMin) * graphRect.height,
+      );
+      final point = graphPoint(selectedX, yAtPoint);
+      const leftX = -5.5, rightX = 5.5;
       double tangentY(double x) => yAtPoint + slopeAtPoint * (x - selectedX);
       canvas.drawLine(
-        Offset(
-          size.width * (.5 + leftX / 12),
-          size.height * (.72 - tangentY(leftX) / 24),
-        ),
-        Offset(
-          size.width * (.5 + rightX / 12),
-          size.height * (.72 - tangentY(rightX) / 24),
-        ),
+        graphPoint(leftX, tangentY(leftX)),
+        graphPoint(rightX, tangentY(rightX)),
         Paint()
           ..color = const Color(0xFFFF594D)
           ..strokeWidth = 2.5,
@@ -1407,24 +1533,48 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   void _paintIntegral(Canvas canvas, Size size) {
-    _paintAxes(canvas, size);
     final integrand = expression.trim().isEmpty ? 'x^2' : expression;
     double f(double x) {
       try {
-        return const MathEngine().evaluateAt(integrand, x).clamp(-10, 10);
+        return const MathEngine().evaluateAt(integrand, x);
       } on Object {
-        return 0;
+        return double.nan;
       }
     }
 
-    Offset point(double x) =>
-        Offset(size.width * (.5 + x / 10), size.height * (.72 - f(x) / 28));
-    final fill = Path()..moveTo(point(lower).dx, size.height * .72);
+    final samples =
+        [for (var index = 0; index <= 120; index++) f(-5 + index / 12)]
+          ..removeWhere((value) => !value.isFinite)
+          ..sort();
+    if (samples.isEmpty) return;
+    final (yMin, yMax) = _niceBounds(
+      samples[(samples.length * .03).floor()],
+      samples[(samples.length * .97).floor().clamp(0, samples.length - 1)],
+    );
+    const xMin = -5.0, xMax = 5.0;
+    final graphRect = Rect.fromLTRB(42, 38, size.width - 18, size.height - 28);
+    Offset point(double x, double y) => Offset(
+      graphRect.left + (x - xMin) / (xMax - xMin) * graphRect.width,
+      graphRect.bottom - (y - yMin) / (yMax - yMin) * graphRect.height,
+    );
+    _paintDynamicGraphAxes(
+      canvas,
+      size,
+      plot: graphRect,
+      xMin: xMin,
+      xMax: xMax,
+      yMin: yMin,
+      yMax: yMax,
+    );
+    final baseline = (0.0).clamp(yMin, yMax);
+    final fill = Path()
+      ..moveTo(point(lower, baseline).dx, point(lower, baseline).dy);
     for (var index = 0; index <= 60; index++) {
       final x = lower + (upper - lower) * index / 60;
-      fill.lineTo(point(x).dx, point(x).dy);
+      final y = f(x);
+      if (y.isFinite) fill.lineTo(point(x, y).dx, point(x, y).dy);
     }
-    fill.lineTo(point(upper).dx, size.height * .72);
+    fill.lineTo(point(upper, baseline).dx, point(upper, baseline).dy);
     fill.close();
     canvas.drawPath(
       fill,
@@ -1435,7 +1585,9 @@ class _MathVisualizationPainter extends CustomPainter {
     final curve = Path();
     for (var index = 0; index <= 80; index++) {
       final x = -5 + index * 10 / 80;
-      final p = point(x);
+      final y = f(x);
+      if (!y.isFinite || y < yMin || y > yMax) continue;
+      final p = point(x, y);
       if (index == 0) {
         curve.moveTo(p.dx, p.dy);
       } else {
@@ -1453,19 +1605,21 @@ class _MathVisualizationPainter extends CustomPainter {
     _label(
       canvas,
       'a = ${lower.toStringAsFixed(1)}',
-      Offset(point(lower).dx - 22, size.height * .76),
+      Offset(point(lower, baseline).dx - 22, graphRect.bottom + 3),
       const Color(0xFF78A5FF),
     );
     _label(
       canvas,
       'b = ${upper.toStringAsFixed(1)}',
-      Offset(point(upper).dx - 22, size.height * .76),
+      Offset(point(upper, baseline).dx - 22, graphRect.bottom + 3),
       const Color(0xFF78A5FF),
     );
   }
 
   void _paintSurface(Canvas canvas, Size size) {
-    const cells = 18;
+    // A denser mesh makes curved surfaces read like the reference plot while
+    // keeping evaluation work small enough for interactive rotation.
+    const cells = 32;
     const min = -3.0;
     const max = 3.0;
     const engine = MathEngine();
@@ -1493,18 +1647,61 @@ class _MathVisualizationPainter extends CustomPainter {
         }
       }
     }
-    final cosX = math.cos(rotationX), sinX = math.sin(rotationX);
-    final cosY = math.cos(rotationY), sinY = math.sin(rotationY);
-    Offset project(double x, double y, double z) {
-      final rotatedX = x * cosY + z * sinY;
-      final rotatedZ = -x * sinY + z * cosY;
-      final rotatedY = y * cosX - rotatedZ * sinX;
-      final depth = y * sinX + rotatedZ * cosX;
-      final perspective = 4.2 / (4.2 + depth / 1.5);
-      final scale = math.min(size.width, size.height) * .13 * perspective;
-      return Offset(
-        size.width * .5 + rotatedX * scale,
-        size.height * .55 - rotatedY * scale,
+    final finiteValues = values.where((value) => value.isFinite).toList();
+    if (finiteValues.isEmpty) {
+      _label(
+        canvas,
+        'No real surface values in this range',
+        const Offset(14, 14),
+        Colors.white,
+      );
+      return;
+    }
+    final rawMinimum = finiteValues.reduce(math.min);
+    final rawMaximum = finiteValues.reduce(math.max);
+    final (zMinimum, zMaximum) = _niceBounds(rawMinimum, rawMaximum);
+    double zCoordinate(double value) =>
+        -3 + 6 * (value - zMinimum) / (zMaximum - zMinimum);
+    Offset project(double x, double y, double z) =>
+        _projectRotating3D(size, x, y, zCoordinate(z));
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: zMinimum,
+      zMaximum: zMaximum,
+      zCoordinate: zCoordinate,
+    );
+
+    final baseCorners = <Offset>[
+      project(min, min, zMinimum),
+      project(max, min, zMinimum),
+      project(max, max, zMinimum),
+      project(min, max, zMinimum),
+    ];
+    final base = Path()
+      ..moveTo(baseCorners.first.dx, baseCorners.first.dy)
+      ..addPolygon(baseCorners, true);
+    canvas.drawPath(
+      base,
+      Paint()
+        ..color = const Color(0xFF6546C8).withValues(alpha: .22)
+        ..style = PaintingStyle.fill,
+    );
+    final baseGrid = Paint()
+      ..color = const Color(0xFF9B84F5).withValues(alpha: .76)
+      ..strokeWidth = .7
+      ..style = PaintingStyle.stroke;
+    for (var tick = 0; tick <= cells; tick++) {
+      final value = coordinate(tick);
+      canvas.drawLine(
+        project(value, min, zMinimum),
+        project(value, max, zMinimum),
+        baseGrid,
+      );
+      canvas.drawLine(
+        project(min, value, zMinimum),
+        project(max, value, zMinimum),
+        baseGrid,
       );
     }
 
@@ -1534,16 +1731,18 @@ class _MathVisualizationPainter extends CustomPainter {
         ];
         if (z.any((value) => !value.isFinite)) continue;
         final vertices = <_PlotPoint3>[
-          (coordinate(x), coordinate(y), z[0].clamp(-5, 5)),
-          (coordinate(x + 1), coordinate(y), z[1].clamp(-5, 5)),
-          (coordinate(x + 1), coordinate(y + 1), z[2].clamp(-5, 5)),
-          (coordinate(x), coordinate(y + 1), z[3].clamp(-5, 5)),
+          (coordinate(x), coordinate(y), z[0]),
+          (coordinate(x + 1), coordinate(y), z[1]),
+          (coordinate(x + 1), coordinate(y + 1), z[2]),
+          (coordinate(x), coordinate(y + 1), z[3]),
         ];
         final average = z.reduce((a, b) => a + b) / z.length;
-        final tint = ((average.clamp(-5, 5) + 5) / 10).toDouble();
+        final tint = ((average - zMinimum) / (zMaximum - zMinimum))
+            .clamp(0.0, 1.0)
+            .toDouble();
         final faceColor = Color.lerp(
-          const Color(0xFF7046C8),
-          const Color(0xFF42C7D5),
+          const Color(0xFF168B67),
+          const Color(0xFF42D392),
           tint,
         )!;
         for (final face in [(0, 1, 2), (0, 2, 3)]) {
@@ -1565,40 +1764,140 @@ class _MathVisualizationPainter extends CustomPainter {
             ..close();
           canvas.drawPath(
             triangle,
-            Paint()..color = faceColor.withValues(alpha: .82),
-          );
-          canvas.drawPath(
-            triangle,
             Paint()
-              ..color = const Color(0xFFE5F5FF).withValues(alpha: .58)
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = .7,
+              ..color = faceColor.withValues(alpha: .12)
+              ..style = PaintingStyle.fill,
           );
         }
       }
     }
-    final origin = project(0, 0, 0);
-    for (final (end, color, label) in <(_PlotPoint3, Color, String)>[
-      ((3.4, 0, 0), const Color(0xFFFF625A), 'x'),
-      ((0, 3.4, 0), const Color(0xFF57D68D), 'y'),
-      ((0, 0, 4), const Color(0xFF4A86FF), 'z'),
-    ]) {
-      final finish = project(end.$1, end.$2, end.$3);
-      canvas.drawLine(
-        origin,
-        finish,
-        Paint()
-          ..color = color
-          ..strokeWidth = 2,
-      );
-      _label(canvas, label, finish + const Offset(3, -10), color);
+
+    final surfaceMesh = Paint()
+      ..color = const Color(0xFF20C879).withValues(alpha: .96)
+      ..strokeWidth = .8
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    for (var row = 0; row <= cells; row++) {
+      final path = Path();
+      var connected = false;
+      for (var column = 0; column <= cells; column++) {
+        final z = values[index(column, row)];
+        if (!z.isFinite) {
+          connected = false;
+          continue;
+        }
+        final point = project(coordinate(column), coordinate(row), z);
+        if (!connected) {
+          path.moveTo(point.dx, point.dy);
+          connected = true;
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      canvas.drawPath(path, surfaceMesh);
     }
-    _label(canvas, 'z = $source', const Offset(14, 12), Colors.white);
+    for (var column = 0; column <= cells; column++) {
+      final path = Path();
+      var connected = false;
+      for (var row = 0; row <= cells; row++) {
+        final z = values[index(column, row)];
+        if (!z.isFinite) {
+          connected = false;
+          continue;
+        }
+        final point = project(coordinate(column), coordinate(row), z);
+        if (!connected) {
+          path.moveTo(point.dx, point.dy);
+          connected = true;
+        } else {
+          path.lineTo(point.dx, point.dy);
+        }
+      }
+      canvas.drawPath(path, surfaceMesh);
+    }
+
+    if (zMinimum <= 0 && zMaximum >= 0) {
+      final contourPaint = Paint()
+        ..color = const Color(0xFFFF4058)
+        ..strokeWidth = 1.8
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round;
+      for (var row = 0; row < cells; row++) {
+        for (var column = 0; column < cells; column++) {
+          final corners = <(double, double, double)>[
+            (coordinate(column), coordinate(row), values[index(column, row)]),
+            (
+              coordinate(column + 1),
+              coordinate(row),
+              values[index(column + 1, row)],
+            ),
+            (
+              coordinate(column + 1),
+              coordinate(row + 1),
+              values[index(column + 1, row + 1)],
+            ),
+            (
+              coordinate(column),
+              coordinate(row + 1),
+              values[index(column, row + 1)],
+            ),
+          ];
+          if (corners.any((corner) => !corner.$3.isFinite)) continue;
+          final crossings = <Offset>[];
+          for (var edge = 0; edge < corners.length; edge++) {
+            final a = corners[edge], b = corners[(edge + 1) % corners.length];
+            const zeroTolerance = 1e-9;
+            final aIsZero = a.$3.abs() <= zeroTolerance;
+            final bIsZero = b.$3.abs() <= zeroTolerance;
+            if (aIsZero && bIsZero) {
+              // Preserve contour segments that lie exactly on mesh edges,
+              // such as z = x² along x = 0.
+              crossings
+                ..add(project(a.$1, a.$2, zMinimum))
+                ..add(project(b.$1, b.$2, zMinimum));
+              continue;
+            }
+            if (aIsZero) {
+              crossings.add(project(a.$1, a.$2, zMinimum));
+              continue;
+            }
+            if (bIsZero) {
+              crossings.add(project(b.$1, b.$2, zMinimum));
+              continue;
+            }
+            if ((a.$3 < 0) == (b.$3 < 0)) continue;
+            final ratio = (a.$3 / (a.$3 - b.$3)).clamp(0.0, 1.0);
+            crossings.add(project(
+              a.$1 + (b.$1 - a.$1) * ratio,
+              a.$2 + (b.$2 - a.$2) * ratio,
+              zMinimum,
+            ));
+          }
+          for (var point = 0; point + 1 < crossings.length; point += 2) {
+            canvas.drawLine(
+              crossings[point],
+              crossings[point + 1],
+              contourPaint,
+            );
+          }
+        }
+      }
+    }
+
+    _paintFixed3DFrame(
+      canvas,
+      size,
+      zMinimum: zMinimum,
+      zMaximum: zMaximum,
+      zCoordinate: zCoordinate,
+      labelsOnly: true,
+    );
+    _label(canvas, 'z = $source', const Offset(14, 10), Colors.white);
     _metricBadge(
       canvas,
-      '$patchCount shaded faces | surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
-      Offset(12, size.height - 38),
-      const Color(0xFF9BE7FF),
+      '$patchCount mesh faces  •  surface area ≈ ${meshArea.toStringAsFixed(2)} units²',
+      Offset(12, size.height - 28),
+      const Color(0xFF65E6A5),
       maxWidth: size.width - 24,
     );
   }
