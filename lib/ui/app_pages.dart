@@ -2967,8 +2967,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
           : 'a scalar point';
       return '${_visualIs3D ? '3D' : '2D'} value ${_input.text.trim()}, shown as $view on numbered axes.';
     }
+    if (_visualIs3D && _mode == _CalculatorMode.graphing) {
+      final formula = PlotFormula(_input.text);
+      if (!formula.isParametricSurface &&
+          !formula.hasXYZ &&
+          !formula.isExplicitY) {
+        final source = formula.isExplicitZ
+            ? formula.functionExpression
+            : _input.text.trim().isEmpty
+            ? '($_graphSlope)*x+($_graphIntercept)'
+            : _input.text.trim();
+        final ranges = _surfaceAxisRangesFor(source);
+        return '3D function graph. ${ranges.description}. '
+            'The x, y, and z axes stay fixed while the surface moves.';
+      }
+    }
     return '$_visualizationTitle, ${_visualIs3D ? '3D' : '2D'} view. '
-        'The x and y axes cross at zero and show numbered ticks.';
+        'The x and y axes cross at zero and show numbered ticks. '
+        '${_visualIs3D ? 'Axis ranges follow the sampled object, and the x, y, and z axes stay fixed while it moves.' : ''}';
   }
 
   double get _visualizationValue {
@@ -3480,7 +3496,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               children: [
                 Expanded(
                   child: Text(
-                    'Drag horizontally and vertically to orbit | yaw ${_signedDegrees(_visualRotationY)}\u00B0 | pitch ${_signedDegrees(_visualRotationX)}\u00B0',
+                    'Drag to rotate the 3D object. Axes stay fixed | yaw ${_signedDegrees(_visualRotationY)}\u00B0 | pitch ${_signedDegrees(_visualRotationX)}\u00B0',
                     key: const Key('visualization-orientation'),
                     style: Theme.of(context).textTheme.bodySmall,
                   ),

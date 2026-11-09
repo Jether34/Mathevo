@@ -2,9 +2,143 @@ part of '../main.dart';
 
 typedef _PlotPoint3 = (double, double, double);
 
+class _SurfaceAxisRanges {
+  const _SurfaceAxisRanges({
+    required this.extent,
+    required this.zMinimum,
+    required this.zMaximum,
+  });
+
+  final double extent;
+  final double zMinimum;
+  final double zMaximum;
+
+  String get description =>
+      'x axis from ${_axisNumber(-extent)} to ${_axisNumber(extent)}, '
+      'y axis from ${_axisNumber(-extent)} to ${_axisNumber(extent)}, '
+      'z axis from ${_axisNumber(zMinimum)} to ${_axisNumber(zMaximum)}';
+}
+
+final Map<String, double> _surfaceExtentCache = {};
+final Map<String, _SurfaceAxisRanges> _surfaceAxisRangesCache = {};
+
+String _axisNumber(double value) => value == value.roundToDouble()
+    ? value.toInt().toString()
+    : value
+          .toStringAsFixed(2)
+          .replaceFirst(RegExp(r'0+$'), '')
+          .replaceFirst(RegExp(r'\.$'), '');
+
+double _surfaceTickStep(double span, {int targetTicks = 6}) {
+  if (!span.isFinite || span <= 0) return 1;
+  final rough = span / targetTicks;
+  final power = math.pow(10, (math.log(rough) / math.ln10).floor()).toDouble();
+  final scaled = rough / power;
+  final factor = scaled <= 1
+      ? 1.0
+      : scaled <= 2
+      ? 2.0
+      : scaled <= 5
+      ? 5.0
+      : 10.0;
+  return factor * power;
+}
+
+(double, double) _surfaceNiceBounds(double minimum, double maximum) {
+  if (!minimum.isFinite || !maximum.isFinite) return (-1, 1);
+  if ((maximum - minimum).abs() < 1e-9) {
+    final padding = math.max(1.0, minimum.abs() * .1);
+    minimum -= padding;
+    maximum += padding;
+  } else {
+    final padding = (maximum - minimum) * .08;
+    minimum -= padding;
+    maximum += padding;
+  }
+  final step = _surfaceTickStep(maximum - minimum);
+  return (
+    (minimum / step).floorToDouble() * step,
+    (maximum / step).ceilToDouble() * step,
+  );
+}
+
+double _chooseSurfaceExtent(String expression, MathEngine engine) {
+  final cached = _surfaceExtentCache[expression];
+  if (cached != null) return cached;
+  var selected = 3.0;
+  for (final extent in [2.0, 3.0, 4.0, 5.0, 6.0, 8.0]) {
+    var minimum = double.infinity;
+    var maximum = double.negativeInfinity;
+    var finiteCount = 0;
+    const sampleSteps = 10;
+    for (var row = 0; row <= sampleSteps; row++) {
+      final y = -extent + 2 * extent * row / sampleSteps;
+      for (var column = 0; column <= sampleSteps; column++) {
+        final x = -extent + 2 * extent * column / sampleSteps;
+        try {
+          final value = engine.evaluateAtVariables(expression, {
+            'x': x,
+            'y': y,
+          });
+          if (!value.isFinite) continue;
+          minimum = math.min(minimum, value);
+          maximum = math.max(maximum, value);
+          finiteCount++;
+        } on Object {
+          // Exclude undefined points while finding a useful visible domain.
+        }
+      }
+    }
+    final coverage = finiteCount / ((sampleSteps + 1) * (sampleSteps + 1));
+    if (coverage < .8 || !minimum.isFinite || !maximum.isFinite) continue;
+    final verticalScale = (maximum - minimum) / (2 * extent);
+    if (verticalScale <= 6 || extent == 2) selected = extent;
+  }
+  if (_surfaceExtentCache.length >= 32) {
+    _surfaceExtentCache.remove(_surfaceExtentCache.keys.first);
+  }
+  _surfaceExtentCache[expression] = selected;
+  return selected;
+}
+
+_SurfaceAxisRanges _surfaceAxisRangesFor(String expression) {
+  final source = expression.trim().isEmpty ? 'x^2+y^2' : expression.trim();
+  final cached = _surfaceAxisRangesCache[source];
+  if (cached != null) return cached;
+  const engine = MathEngine();
+  const cells = 36;
+  final extent = _chooseSurfaceExtent(source, engine);
+  var minimum = double.infinity;
+  var maximum = double.negativeInfinity;
+  for (var y = 0; y <= cells; y++) {
+    final py = -extent + 2 * extent * y / cells;
+    for (var x = 0; x <= cells; x++) {
+      final px = -extent + 2 * extent * x / cells;
+      try {
+        final value = engine.evaluateAtVariables(source, {'x': px, 'y': py});
+        if (!value.isFinite) continue;
+        minimum = math.min(minimum, value);
+        maximum = math.max(maximum, value);
+      } on Object {
+        // Only finite sampled surface values determine the displayed range.
+      }
+    }
+  }
+  final (zMinimum, zMaximum) = _surfaceNiceBounds(minimum, maximum);
+  final ranges = _SurfaceAxisRanges(
+    extent: extent,
+    zMinimum: zMinimum,
+    zMaximum: zMaximum,
+  );
+  if (_surfaceAxisRangesCache.length >= 32) {
+    _surfaceAxisRangesCache.remove(_surfaceAxisRangesCache.keys.first);
+  }
+  _surfaceAxisRangesCache[source] = ranges;
+  return ranges;
+}
+
 class _MathVisualizationPainter extends CustomPainter {
-  static final Map<String, double> _surfaceExtentCache = {};
-  static final Map<String, double> _surfaceCameraYawCache = {};
+  static const double _surfaceFrameYaw = .25;
 
   const _MathVisualizationPainter({
     required this.mode,
@@ -40,38 +174,6 @@ class _MathVisualizationPainter extends CustomPainter {
 
   bool get _triangle => mode == _CalculatorMode.trigonometry;
 
-  double get _surfaceCameraYaw {
-    final source = _isExplicitZFunction
-        ? _explicitZFunction
-        : _plotExpression.trim().isEmpty
-        ? '($slope)*x+($intercept)'
-        : _plotExpression.trim();
-    final cached = _surfaceCameraYawCache[source];
-    if (cached != null) return cached;
-    var yaw = .25;
-    if (RegExp(r'\by\b').hasMatch(source)) {
-      // Keep the default azimuth away from the diagonal symmetry of common
-      // saddle surfaces such as z = x*y so both positive and negative lobes
-      // remain visually distinct.
-      yaw = .25;
-    } else {
-      try {
-        const engine = MathEngine();
-        final left = engine.evaluateAtVariables(source, {'x': -.25, 'y': 0});
-        final right = engine.evaluateAtVariables(source, {'x': .25, 'y': 0});
-        final slope = right - left;
-        if (slope.abs() > .25) yaw = slope > 0 ? -.8 : .8;
-      } on Object {
-        yaw = .68;
-      }
-    }
-    if (_surfaceCameraYawCache.length >= 32) {
-      _surfaceCameraYawCache.remove(_surfaceCameraYawCache.keys.first);
-    }
-    _surfaceCameraYawCache[source] = yaw;
-    return yaw;
-  }
-
   Color _heightColor(double value) {
     final t = value.clamp(0.0, 1.0).toDouble();
     // Match the scientific plot palette: blue lows, green midrange, yellow
@@ -88,46 +190,7 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   double _autoSurfaceExtent(String expression, MathEngine engine) {
-    final cached = _surfaceExtentCache[expression];
-    if (cached != null) return cached;
-    // Choose the widest symmetric window that keeps the sampled function's
-    // vertical change readable relative to its horizontal scale. This keeps
-    // high-degree surfaces from flattening while allowing gentle surfaces to
-    // show a wider neighborhood.
-    var selected = 3.0;
-    for (final extent in [2.0, 3.0, 4.0, 5.0, 6.0, 8.0]) {
-      var minimum = double.infinity;
-      var maximum = double.negativeInfinity;
-      var finiteCount = 0;
-      const sampleSteps = 10;
-      for (var row = 0; row <= sampleSteps; row++) {
-        final y = -extent + 2 * extent * row / sampleSteps;
-        for (var column = 0; column <= sampleSteps; column++) {
-          final x = -extent + 2 * extent * column / sampleSteps;
-          try {
-            final value = engine.evaluateAtVariables(expression, {
-              'x': x,
-              'y': y,
-            });
-            if (!value.isFinite) continue;
-            minimum = math.min(minimum, value);
-            maximum = math.max(maximum, value);
-            finiteCount++;
-          } on Object {
-            // Undefined points are excluded when estimating the useful window.
-          }
-        }
-      }
-      final coverage = finiteCount / ((sampleSteps + 1) * (sampleSteps + 1));
-      if (coverage < .8 || !minimum.isFinite || !maximum.isFinite) continue;
-      final verticalScale = (maximum - minimum) / (2 * extent);
-      if (verticalScale <= 6 || extent == 2) selected = extent;
-    }
-    if (_surfaceExtentCache.length >= 32) {
-      _surfaceExtentCache.remove(_surfaceExtentCache.keys.first);
-    }
-    _surfaceExtentCache[expression] = selected;
-    return selected;
+    return _chooseSurfaceExtent(expression, engine);
   }
 
   String get _sourceExpression =>
@@ -1283,38 +1346,11 @@ class _MathVisualizationPainter extends CustomPainter {
       value.toStringAsFixed(3).replaceFirst(RegExp(r'\.?0+$'), '');
 
   double _niceTickStep(double span, {int targetTicks = 6}) {
-    if (!span.isFinite || span <= 0) return 1;
-    final rough = span / targetTicks;
-    final power = math
-        .pow(10, (math.log(rough) / math.ln10).floor())
-        .toDouble();
-    final scaled = rough / power;
-    final factor = scaled <= 1
-        ? 1.0
-        : scaled <= 2
-        ? 2.0
-        : scaled <= 5
-        ? 5.0
-        : 10.0;
-    return factor * power;
+    return _surfaceTickStep(span, targetTicks: targetTicks);
   }
 
   (double, double) _niceBounds(double minimum, double maximum) {
-    if (!minimum.isFinite || !maximum.isFinite) return (-1, 1);
-    if ((maximum - minimum).abs() < 1e-9) {
-      final padding = math.max(1.0, minimum.abs() * .1);
-      minimum -= padding;
-      maximum += padding;
-    } else {
-      final padding = (maximum - minimum) * .08;
-      minimum -= padding;
-      maximum += padding;
-    }
-    final step = _niceTickStep(maximum - minimum);
-    return (
-      (minimum / step).floorToDouble() * step,
-      (maximum / step).ceilToDouble() * step,
-    );
+    return _surfaceNiceBounds(minimum, maximum);
   }
 
   List<double> _ticks(double minimum, double maximum, {int targetTicks = 6}) {
@@ -1377,7 +1413,7 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   Offset _projectFixed3D(Size size, double x, double y, double z) {
-    final yaw = _surfaceCameraYaw;
+    const yaw = _surfaceFrameYaw;
     const pitch = .72;
     final cameraX = x * math.cos(yaw) - y * math.sin(yaw);
     final cameraDepth = x * math.sin(yaw) + y * math.cos(yaw);
@@ -1411,7 +1447,7 @@ class _MathVisualizationPainter extends CustomPainter {
     final rotatedX = (x * cy + z * sy) * zoom;
     final rotatedZ = (-x * sy + z * cy) * zoom;
     final rotatedY = (y * cx - rotatedZ / zoom * sx) * zoom;
-    final cameraYaw = _surfaceCameraYaw;
+    const cameraYaw = _surfaceFrameYaw;
     const cameraPitch = .58;
     final cameraDepth =
         rotatedX * math.sin(cameraYaw) + rotatedY * math.cos(cameraYaw);
