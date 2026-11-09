@@ -7,7 +7,6 @@ import 'dart:ui' show ImageFilter, ImageByteFormat;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show EagerGestureRecognizer;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';

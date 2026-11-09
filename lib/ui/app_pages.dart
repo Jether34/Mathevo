@@ -1194,7 +1194,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   double _visualAngle = 62;
   double _visualRotationX = 0;
   double _visualRotationY = 0;
-  Offset? _lastVisualizationPointer;
   double _visualHypotenuse = 20;
   double _geometryVisualFirst = 3;
   double _geometryVisualSecond = 4;
@@ -3367,39 +3366,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
               fit: StackFit.expand,
               children: [
                 Positioned.fill(
-                  child: RawGestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    gestures: _visualIs3D && !_showVisualizationDetails
-                        ? {
-                            EagerGestureRecognizer:
-                                GestureRecognizerFactoryWithHandlers<
-                                  EagerGestureRecognizer
-                                >(EagerGestureRecognizer.new, (recognizer) {}),
-                          }
-                        : const {},
-                    child: Listener(
-                      onPointerDown: (event) =>
-                          _lastVisualizationPointer = event.localPosition,
-                      onPointerMove: (event) {
-                        final previous = _lastVisualizationPointer;
-                        if (!_visualIs3D ||
-                            _showVisualizationDetails ||
-                            previous == null) {
-                          return;
-                        }
-                        final delta = event.localPosition - previous;
-                        _lastVisualizationPointer = event.localPosition;
-                        setState(() {
-                          const fullTurn = 2 * math.pi;
-                          _visualRotationY =
-                              (_visualRotationY + delta.dx * .008) % fullTurn;
-                          _visualRotationX =
-                              (_visualRotationX + delta.dy * .008) % fullTurn;
-                        });
-                      },
-                      onPointerUp: (_) => _lastVisualizationPointer = null,
-                      onPointerCancel: (_) => _lastVisualizationPointer = null,
-                      child: AnimatedSwitcher(
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      AnimatedSwitcher(
                         duration: const Duration(milliseconds: 420),
                         switchInCurve: Curves.easeOutCubic,
                         switchOutCurve: Curves.easeInCubic,
@@ -3448,7 +3418,35 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 ),
                               ),
                       ),
-                    ),
+                      if (_visualIs3D && !_showVisualizationDetails)
+                        Positioned.fill(
+                          child: Align(
+                            alignment: Alignment.center,
+                            child: GestureDetector(
+                              key: const Key('visualization-object-gesture'),
+                              behavior: HitTestBehavior.opaque,
+                              onPanUpdate: (details) {
+                                setState(() {
+                                  const fullTurn = 2 * math.pi;
+                                  _visualRotationY =
+                                      (_visualRotationY +
+                                          details.delta.dx * .008) %
+                                      fullTurn;
+                                  _visualRotationX =
+                                      (_visualRotationX +
+                                          details.delta.dy * .008) %
+                                      fullTurn;
+                                });
+                              },
+                              child: const FractionallySizedBox(
+                                widthFactor: .76,
+                                heightFactor: .76,
+                                child: SizedBox.expand(),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ),
                 if (_visualIs3D && !_showVisualizationDetails)
@@ -3513,51 +3511,53 @@ class _CalculatorPageState extends State<CalculatorPage> {
             _buildFaceAreaBreakdown(context),
           ],
           const SizedBox(height: 10),
-          if (!_isParametricPlot) _SectionCard(
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        height: 34,
-                        width: double.infinity,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          alignment: Alignment.centerLeft,
-                          child: Math.tex(
-                            _visualizationFormulaTex,
-                            mathStyle: MathStyle.display,
-                            textStyle: const TextStyle(fontSize: 20),
-                            onErrorFallback: (_) => Text(_visualizationFormula),
+          if (!_isParametricPlot)
+            _SectionCard(
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          height: 34,
+                          width: double.infinity,
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Math.tex(
+                              _visualizationFormulaTex,
+                              mathStyle: MathStyle.display,
+                              textStyle: const TextStyle(fontSize: 20),
+                              onErrorFallback: (_) =>
+                                  Text(_visualizationFormula),
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 5),
-                      Text(
-                        _isScalarVisualization
-                            ? 'Evaluated value'
-                            : 'Adjusted result',
-                        style: Theme.of(context).textTheme.labelMedium,
-                      ),
-                    ],
+                        const SizedBox(height: 5),
+                        Text(
+                          _isScalarVisualization
+                              ? 'Evaluated value'
+                              : 'Adjusted result',
+                          style: Theme.of(context).textTheme.labelMedium,
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(width: 12),
-                Text(
-                  _visualizationValue.isFinite
-                      ? _visualizationValue.toStringAsFixed(4)
-                      : 'Cannot evaluate',
-                  key: const Key('visualization-adjusted-value'),
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    color: colors.primary,
-                    fontWeight: FontWeight.w800,
+                  const SizedBox(width: 12),
+                  Text(
+                    _visualizationValue.isFinite
+                        ? _visualizationValue.toStringAsFixed(4)
+                        : 'Cannot evaluate',
+                    key: const Key('visualization-adjusted-value'),
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
           const SizedBox(height: 12),
           if (_isParametricPlot) ...[
             const Padding(
@@ -4329,7 +4329,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                     fontSize: 22,
                                     fontWeight: FontWeight.w500,
                                   ),
-                                  onErrorFallback: (_) => _rawExpressionFallback(),
+                                  onErrorFallback: (_) =>
+                                      _rawExpressionFallback(),
                                 ),
                               ),
                             ),
@@ -5284,8 +5285,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'Cone surface area',
     }.contains(_geometryOperation);
     final geometryGridHeight =
-        (((MediaQuery.sizeOf(context).width - 44) / 4 / 2.1) * 6 + 20)
-            .clamp(190.0, 270.0)
+        (((MediaQuery.sizeOf(context).width - 24) / 4 / 3.9) * 6 + 20)
+            .clamp(145.0, 154.0)
             .toDouble();
     String firstLabel = switch (_geometryOperation) {
       'Rectangle area' || 'Rectangle perimeter' => 'Length',
@@ -5390,9 +5391,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
             physics: const NeverScrollableScrollPhysics(),
             padding: EdgeInsets.zero,
             crossAxisCount: 4,
-            mainAxisSpacing: 4,
-            crossAxisSpacing: 4,
-            childAspectRatio: 2.1,
+            mainAxisSpacing: 3,
+            crossAxisSpacing: 3,
+            childAspectRatio: 3.9,
             children: [
               for (final key in [
                 '7',
@@ -5438,7 +5439,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ),
                   child: key == 'x\u02B8'
                       ? _functionKeyVisual('x\u02B8', '^')
-                      : Text(key),
+                      : Text(
+                          key,
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
                 ),
             ],
           ),
