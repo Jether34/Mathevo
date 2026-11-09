@@ -331,7 +331,7 @@ class _MathevoAppState extends State<MathevoApp> {
       ),
     ),
     home: !_isReady
-        ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+        ? const _AppLoadingSkeleton()
         : !_isAuthenticated
         ? AuthFlow(
             startAtWelcome: _startAtWelcome,
@@ -357,5 +357,123 @@ class _MathevoAppState extends State<MathevoApp> {
             onPickProfilePhoto: _pickProfilePhoto,
             onSaveProfile: _saveProfile,
           ),
+  );
+}
+
+class _AppLoadingSkeleton extends StatefulWidget {
+  const _AppLoadingSkeleton();
+
+  @override
+  State<_AppLoadingSkeleton> createState() => _AppLoadingSkeletonState();
+}
+
+class _AppLoadingSkeletonState extends State<_AppLoadingSkeleton>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat(reverse: true);
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    key: const Key('app-loading-skeleton'),
+    backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+    body: SafeArea(
+      child: AnimatedBuilder(
+        animation: _pulse,
+        builder: (context, _) {
+          final color = Color.lerp(
+            const Color(0xFFE9E3DF),
+            const Color(0xFFF5F1EE),
+            _pulse.value,
+          )!;
+          Widget block({
+            double? width,
+            required double height,
+            double radius = 12,
+          }) => Container(
+            width: width,
+            height: height,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(radius),
+            ),
+          );
+
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(18, 24, 18, 22),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    block(width: 102, height: 22),
+                    const Spacer(),
+                    block(width: 38, height: 38, radius: 20),
+                  ],
+                ),
+                const SizedBox(height: 22),
+                SizedBox(
+                  height: 38,
+                  child: Row(
+                    children: [
+                      for (final width in [54.0, 92.0, 76.0, 72.0]) ...[
+                        block(width: width, height: 32, radius: 16),
+                        const SizedBox(width: 8),
+                      ],
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+                Expanded(
+                  child: Column(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: const Color(0xFFEFE9E5)),
+                          ),
+                          alignment: Alignment.bottomRight,
+                          child: block(width: 130, height: 24),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      for (var row = 0; row < 4; row++) ...[
+                        Expanded(
+                          child: Row(
+                            children: [
+                              for (var column = 0; column < 4; column++) ...[
+                                Expanded(
+                                  child: block(
+                                    height: double.infinity,
+                                    radius: 14,
+                                  ),
+                                ),
+                                if (column < 3) const SizedBox(width: 8),
+                              ],
+                            ],
+                          ),
+                        ),
+                        if (row < 3) const SizedBox(height: 8),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ),
   );
 }

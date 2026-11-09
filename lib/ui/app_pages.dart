@@ -2622,6 +2622,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _insert('/100');
     } else if (key == 'SIGN') {
       _toggleSign();
+    } else if (key == 'VAR_C') {
+      _insert('C');
     } else if (_mode == _CalculatorMode.calculus &&
         _calculusOperation == 'Definite integral' &&
         _selectedIntegralBound != null &&
@@ -2819,17 +2821,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   if (_mode == _CalculatorMode.algebra) ...[
                     const Text(
                       'Solve linear/quadratic equations in x, or enter a 2×2 system separated by ;.',
-                    ),
-                    const SizedBox(height: 5),
-                  ],
-                  if (_mode == _CalculatorMode.graphing) ...[
-                    Text(
-                      'Use xʸ for powers and implicit multiplication, such as (x^2+3x-2)^4(3^x+x^2).',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    Text(
-                      'Parametric 3D: enter x=...; y=...; z=... using u and v. The r key is available for formulas that use r.',
-                      style: Theme.of(context).textTheme.bodySmall,
                     ),
                     const SizedBox(height: 5),
                   ],
@@ -3425,13 +3416,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             child: GestureDetector(
                               key: const Key('visualization-object-gesture'),
                               behavior: HitTestBehavior.opaque,
-                              onPanUpdate: (details) {
+                              onHorizontalDragUpdate: (details) {
                                 setState(() {
                                   const fullTurn = 2 * math.pi;
                                   _visualRotationY =
                                       (_visualRotationY +
                                           details.delta.dx * .008) %
                                       fullTurn;
+                                });
+                              },
+                              onVerticalDragUpdate: (details) {
+                                setState(() {
+                                  const fullTurn = 2 * math.pi;
                                   _visualRotationX =
                                       (_visualRotationX +
                                           details.delta.dy * .008) %
@@ -4188,79 +4184,82 @@ class _CalculatorPageState extends State<CalculatorPage> {
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: const Color(0xFFEFE9E5)),
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text(
-              _resultIsExact ? 'Exact answer' : 'Answer',
-              style: Theme.of(context).textTheme.labelMedium,
-            ),
-            const SizedBox(height: 2),
-            Expanded(
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Semantics(
-                  key: const Key('calculation-result'),
-                  label: _result ?? '--',
-                  child: FittedBox(
-                    fit: BoxFit.scaleDown,
-                    alignment: Alignment.centerLeft,
-                    child: Math.tex(
-                      _mathTexFromSource(_result ?? '--'),
-                      key: const Key('calculation-result-math'),
-                      mathStyle: MathStyle.display,
-                      textStyle: const TextStyle(
-                        fontSize: 27,
-                        fontWeight: FontWeight.w800,
+        child: Material(
+          type: MaterialType.transparency,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                _resultIsExact ? 'Exact answer' : 'Answer',
+                style: Theme.of(context).textTheme.labelMedium,
+              ),
+              const SizedBox(height: 2),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Semantics(
+                    key: const Key('calculation-result'),
+                    label: _result ?? '--',
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Math.tex(
+                        _mathTexFromSource(_result ?? '--'),
+                        key: const Key('calculation-result-math'),
+                        mathStyle: MathStyle.display,
+                        textStyle: const TextStyle(
+                          fontSize: 27,
+                          fontWeight: FontWeight.w800,
+                        ),
+                        onErrorFallback: (_) => Text(_result ?? '--'),
                       ),
-                      onErrorFallback: (_) => Text(_result ?? '--'),
                     ),
                   ),
                 ),
               ),
-            ),
-            ExpansionTile(
-              key: const Key('calculation-steps-dropdown'),
-              tilePadding: EdgeInsets.zero,
-              childrenPadding: const EdgeInsets.only(bottom: 4),
-              title: const Text('Step-by-step calculation'),
-              leading: const Icon(Icons.expand_more_rounded),
-              children: [
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxHeight: 220),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final (index, step) in _detailedSteps().indexed)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 5),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SizedBox(
-                                  width: 26,
-                                  child: Text('${index + 1}.'),
-                                ),
-                                Expanded(
-                                  child: Math.tex(
-                                    _mathTexFromSource(step),
-                                    mathStyle: MathStyle.display,
-                                    textStyle: const TextStyle(fontSize: 17),
-                                    onErrorFallback: (_) => Text(step),
+              ExpansionTile(
+                key: const Key('calculation-steps-dropdown'),
+                tilePadding: EdgeInsets.zero,
+                childrenPadding: const EdgeInsets.only(bottom: 4),
+                title: const Text('Step-by-step calculation'),
+                leading: const Icon(Icons.expand_more_rounded),
+                children: [
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 220),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (final (index, step) in _detailedSteps().indexed)
+                            Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 5),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  SizedBox(
+                                    width: 26,
+                                    child: Text('${index + 1}.'),
                                   ),
-                                ),
-                              ],
+                                  Expanded(
+                                    child: Math.tex(
+                                      _mathTexFromSource(step),
+                                      mathStyle: MathStyle.display,
+                                      textStyle: const TextStyle(fontSize: 17),
+                                      onErrorFallback: (_) => Text(step),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ],
+                ],
+              ),
+            ],
+          ),
         ),
       );
     }
@@ -4595,7 +4594,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('\u2194', '<->'),
         ('A', 'A'),
         ('B', 'B'),
-        ('C', 'C'),
+        ('C', 'VAR_C'),
         ('D', 'D'),
         ('E', 'E'),
         ('F', 'F'),
@@ -4741,7 +4740,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return Math.tex(
           physicsTex,
           mathStyle: MathStyle.text,
-          textStyle: const TextStyle(fontSize: 15),
+          textStyle: const TextStyle(fontSize: 12),
         );
       }
     }
@@ -4814,7 +4813,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Math.tex(
       tex,
       mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 16),
+      textStyle: const TextStyle(fontSize: 12),
       onErrorFallback: (_) => Text(label),
     );
   }
@@ -4824,7 +4823,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final keyHeight = (screen.height * .043).clamp(27.0, 36.0).toDouble();
     final gap = screen.width < 360 ? 4.0 : 6.0;
     final numberGridHeight = keyHeight * 4 + gap * 3;
-    final keypadHeight = keyHeight * 5 + gap * 4;
+    final keypadHeight = keyHeight * 6 + gap * 5;
     const numberKeys = [
       '7',
       '8',
@@ -4858,7 +4857,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   crossAxisSpacing: gap,
                   children: [
                     for (final key in numberKeys)
-                      _calculatorKey(context, key, () => _insert(key)),
+                      _calculatorKey(
+                        context,
+                        key,
+                        () => _insert(key),
+                        key: ValueKey('basic-key-$key'),
+                      ),
                   ],
                 ),
               ),
@@ -4882,6 +4886,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       label,
                       () => _insert(value),
                       emphasized: true,
+                      key: ValueKey(
+                        'basic-key-${value == '*'
+                            ? 'multiply'
+                            : value == '/'
+                            ? 'divide'
+                            : value}',
+                      ),
                     ),
                   ),
                   SizedBox(height: gap),
@@ -4889,7 +4900,39 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 SizedBox(
                   height: keyHeight,
                   width: double.infinity,
-                  child: _calculatorKey(context, '=', _evaluate, primary: true),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _calculatorKey(
+                          context,
+                          'C',
+                          () => _pressFunction('C'),
+                          key: const ValueKey('basic-key-C'),
+                        ),
+                      ),
+                      SizedBox(width: gap),
+                      Expanded(
+                        child: _calculatorKey(
+                          context,
+                          'DEL',
+                          () => _pressFunction('DEL'),
+                          key: const ValueKey('basic-key-DEL'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(height: gap),
+                SizedBox(
+                  height: keyHeight,
+                  width: double.infinity,
+                  child: _calculatorKey(
+                    context,
+                    '=',
+                    _evaluate,
+                    primary: true,
+                    key: const ValueKey('basic-key-equals'),
+                  ),
                 ),
               ],
             ),
@@ -4905,7 +4948,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     VoidCallback onPressed, {
     bool emphasized = false,
     bool primary = false,
+    Key? key,
   }) => SizedBox.expand(
+    key: key,
     child: primary
         ? FilledButton(
             onPressed: onPressed,
@@ -5243,6 +5288,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   );
 
   Widget _basicKeyVisual(String label) {
+    if (label == 'DEL') return const Icon(Icons.backspace_outlined, size: 16);
     final tex = switch (label) {
       '\u00D7' => r'\times',
       '\u00F7' => r'\div',
@@ -5253,7 +5299,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Math.tex(
       tex,
       mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 19),
+      textStyle: const TextStyle(fontSize: 15),
     );
   }
 

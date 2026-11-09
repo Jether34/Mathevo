@@ -4,6 +4,7 @@ typedef _PlotPoint3 = (double, double, double);
 
 class _MathVisualizationPainter extends CustomPainter {
   static final Map<String, double> _surfaceExtentCache = {};
+  static final Map<String, double> _surfaceCameraYawCache = {};
 
   const _MathVisualizationPainter({
     required this.mode,
@@ -39,14 +40,51 @@ class _MathVisualizationPainter extends CustomPainter {
 
   bool get _triangle => mode == _CalculatorMode.trigonometry;
 
+  double get _surfaceCameraYaw {
+    final source = _isExplicitZFunction
+        ? _explicitZFunction
+        : _plotExpression.trim().isEmpty
+        ? '($slope)*x+($intercept)'
+        : _plotExpression.trim();
+    final cached = _surfaceCameraYawCache[source];
+    if (cached != null) return cached;
+    var yaw = .25;
+    if (RegExp(r'\by\b').hasMatch(source)) {
+      // Keep the default azimuth away from the diagonal symmetry of common
+      // saddle surfaces such as z = x*y so both positive and negative lobes
+      // remain visually distinct.
+      yaw = .25;
+    } else {
+      try {
+        const engine = MathEngine();
+        final left = engine.evaluateAtVariables(source, {'x': -.25, 'y': 0});
+        final right = engine.evaluateAtVariables(source, {'x': .25, 'y': 0});
+        final slope = right - left;
+        if (slope.abs() > .25) yaw = slope > 0 ? -.8 : .8;
+      } on Object {
+        yaw = .68;
+      }
+    }
+    if (_surfaceCameraYawCache.length >= 32) {
+      _surfaceCameraYawCache.remove(_surfaceCameraYawCache.keys.first);
+    }
+    _surfaceCameraYawCache[source] = yaw;
+    return yaw;
+  }
+
   Color _heightColor(double value) {
     final t = value.clamp(0.0, 1.0).toDouble();
-    // Keep the surface palette to the requested four channels. Bands are
-    // discrete so blending never introduces cyan, orange, purple, or teal.
-    if (t < .25) return const Color(0xFF0000FF); // Blue
-    if (t < .5) return const Color(0xFF00FF00); // Green
-    if (t < .75) return const Color(0xFFFFFF00); // Yellow
-    return const Color(0xFFFF0000); // Red
+    // Match the scientific plot palette: blue lows, green midrange, yellow
+    // peaks. Red remains reserved for the x axis and zero contours.
+    const colors = <Color>[
+      Color(0xFF0000FF),
+      Color(0xFF00FF00),
+      Color(0xFFFFFF00),
+      Color(0xFFFF0000),
+    ];
+    final scaled = t * (colors.length - 1);
+    final index = scaled.floor().clamp(0, colors.length - 2);
+    return Color.lerp(colors[index], colors[index + 1], scaled - index)!;
   }
 
   double _autoSurfaceExtent(String expression, MathEngine engine) {
@@ -1339,14 +1377,17 @@ class _MathVisualizationPainter extends CustomPainter {
   }
 
   Offset _projectFixed3D(Size size, double x, double y, double z) {
-    const yaw = .68, pitch = .58;
+    final yaw = _surfaceCameraYaw;
+    const pitch = .72;
     final cameraX = x * math.cos(yaw) - y * math.sin(yaw);
     final cameraDepth = x * math.sin(yaw) + y * math.cos(yaw);
     final cameraY = z * math.cos(pitch) - cameraDepth * math.sin(pitch);
-    final scale = math.min(size.width / 10, size.height / 8) * .92;
+    // Leave enough breathing room for the complete stationary frame at
+    // portrait aspect ratios; the object can still use the zoom controls.
+    final scale = math.min(size.width / 10, size.height / 8) * .8;
     return Offset(
       size.width * .5 + cameraX * scale,
-      size.height * .58 - cameraY * scale,
+      size.height * .5 - cameraY * scale,
     );
   }
 
@@ -1362,6 +1403,20 @@ class _MathVisualizationPainter extends CustomPainter {
       rotatedY * zoom,
       rotatedZ * zoom,
     );
+  }
+
+  double _cameraDepth3D(double x, double y, double z) {
+    final cy = math.cos(rotationY), sy = math.sin(rotationY);
+    final cx = math.cos(rotationX), sx = math.sin(rotationX);
+    final rotatedX = (x * cy + z * sy) * zoom;
+    final rotatedZ = (-x * sy + z * cy) * zoom;
+    final rotatedY = (y * cx - rotatedZ / zoom * sx) * zoom;
+    final cameraYaw = _surfaceCameraYaw;
+    const cameraPitch = .58;
+    final cameraDepth =
+        rotatedX * math.sin(cameraYaw) + rotatedY * math.cos(cameraYaw);
+    return cameraDepth * math.cos(cameraPitch) +
+        rotatedZ * math.sin(cameraPitch);
   }
 
   void _paintFixed3DFrame(
@@ -1380,6 +1435,8 @@ class _MathVisualizationPainter extends CustomPainter {
     String zLabel = 'z',
     double worldMinimum = -3,
     double worldMaximum = 3,
+    double frameMinimum = -3,
+    double frameMaximum = 3,
   }) {
     Offset p(double x, double y, double z) => _projectFixed3D(size, x, y, z);
     final grid = Paint()
@@ -1396,16 +1453,66 @@ class _MathVisualizationPainter extends CustomPainter {
     if (!labelsOnly) {
       for (final tick in xTicks) {
         final x = xCoordinate(tick);
-        canvas.drawLine(p(x, -3, -3), p(x, 3, -3), grid);
-        canvas.drawLine(p(x, 3, -3), p(x, 3, 3), grid);
+        canvas.drawLine(
+          p(x, frameMinimum, frameMinimum),
+          p(x, frameMaximum, frameMinimum),
+          grid,
+        );
+        canvas.drawLine(
+          p(x, frameMaximum, frameMinimum),
+          p(x, frameMaximum, frameMaximum),
+          grid,
+        );
       }
       for (final tick in yTicks) {
         final y = yCoordinate(tick);
-        canvas.drawLine(p(-3, y, -3), p(3, y, -3), grid);
-        canvas.drawLine(p(-3, y, -3), p(-3, y, 3), grid);
+        canvas.drawLine(
+          p(frameMinimum, y, frameMinimum),
+          p(frameMaximum, y, frameMinimum),
+          grid,
+        );
+        canvas.drawLine(
+          p(frameMinimum, y, frameMinimum),
+          p(frameMinimum, y, frameMaximum),
+          grid,
+        );
+      }
+      for (final tick in _ticks(zMinimum, zMaximum, targetTicks: 5)) {
+        final z = zCoordinate(tick);
+        canvas.drawLine(
+          p(frameMinimum, frameMinimum, z),
+          p(frameMaximum, frameMinimum, z),
+          grid,
+        );
+        canvas.drawLine(
+          p(frameMinimum, frameMinimum, z),
+          p(frameMinimum, frameMaximum, z),
+          grid,
+        );
+      }
+      // Close the three planes into a complete, stationary plotting box.
+      final frame = Paint()
+        ..color = Colors.white.withValues(alpha: .42)
+        ..strokeWidth = 1;
+      for (final y in [frameMinimum, frameMaximum]) {
+        for (final z in [frameMinimum, frameMaximum]) {
+          canvas.drawLine(p(frameMinimum, y, z), p(frameMaximum, y, z), frame);
+        }
+      }
+      for (final x in [frameMinimum, frameMaximum]) {
+        for (final z in [frameMinimum, frameMaximum]) {
+          canvas.drawLine(p(x, frameMinimum, z), p(x, frameMaximum, z), frame);
+        }
+      }
+      for (final x in [frameMinimum, frameMaximum]) {
+        for (final y in [frameMinimum, frameMaximum]) {
+          canvas.drawLine(p(x, y, frameMinimum), p(x, y, frameMaximum), frame);
+        }
       }
     }
-    final zeroZ = zMinimum <= 0 && zMaximum >= 0 ? zCoordinate(0) : -3.0;
+    final zeroZ = zMinimum <= 0 && zMaximum >= 0
+        ? zCoordinate(0)
+        : worldMinimum;
     void axis(Offset start, Offset end, Color color) => canvas.drawLine(
       start,
       end,
@@ -1415,19 +1522,25 @@ class _MathVisualizationPainter extends CustomPainter {
     );
     final zeroX = xCoordinate(0).clamp(worldMinimum, worldMaximum);
     final zeroY = yCoordinate(0).clamp(worldMinimum, worldMaximum);
-    axis(
-      p(worldMinimum, zeroY, zeroZ),
-      p(worldMaximum, zeroY, zeroZ),
-      const Color(0xFFFF625A),
-    );
-    axis(
-      p(zeroX, worldMinimum, zeroZ),
-      p(zeroX, worldMaximum, zeroZ),
-      const Color(0xFF57D68D),
-    );
-    axis(p(0, 0, worldMinimum), p(0, 0, worldMaximum), const Color(0xFF4A86FF));
+    if (!labelsOnly) {
+      axis(
+        p(worldMinimum, zeroY, zeroZ),
+        p(worldMaximum, zeroY, zeroZ),
+        const Color(0xFFFF0000),
+      );
+      axis(
+        p(zeroX, worldMinimum, zeroZ),
+        p(zeroX, worldMaximum, zeroZ),
+        const Color(0xFF00FF00),
+      );
+      axis(
+        p(0, 0, worldMinimum),
+        p(0, 0, worldMaximum),
+        const Color(0xFF0000FF),
+      );
+    }
     for (final tick in xTicks.where((tick) => tick != 0)) {
-      final xp = p(xCoordinate(tick), -3.35, -3.1);
+      final xp = p(xCoordinate(tick), frameMinimum, frameMinimum);
       _label(
         canvas,
         _short(tick),
@@ -1437,7 +1550,7 @@ class _MathVisualizationPainter extends CustomPainter {
       );
     }
     for (final tick in yTicks.where((tick) => tick != 0)) {
-      final yp = p(-3.35, yCoordinate(tick), -3.1);
+      final yp = p(frameMinimum, yCoordinate(tick), frameMinimum);
       _label(
         canvas,
         _short(tick),
@@ -1447,7 +1560,7 @@ class _MathVisualizationPainter extends CustomPainter {
       );
     }
     for (final tick in _ticks(zMinimum, zMaximum, targetTicks: 5)) {
-      final zp = p(-3.35, 3.35, zCoordinate(tick));
+      final zp = p(frameMinimum, frameMinimum, zCoordinate(tick));
       _label(
         canvas,
         _short(tick),
@@ -1460,15 +1573,15 @@ class _MathVisualizationPainter extends CustomPainter {
       canvas,
       xLabel,
       Offset(size.width - 24, size.height - 20),
-      const Color(0xFFFF625A),
+      const Color(0xFFFF0000),
     );
     _label(
       canvas,
       yLabel,
       Offset(8, size.height - 20),
-      const Color(0xFF57D68D),
+      const Color(0xFF00FF00),
     );
-    _label(canvas, zLabel, const Offset(8, 8), const Color(0xFF4A86FF));
+    _label(canvas, zLabel, const Offset(8, 8), const Color(0xFF0000FF));
   }
 
   void _paintGraph(Canvas canvas, Size size, {String? functionExpression}) {
@@ -1948,8 +2061,8 @@ class _MathVisualizationPainter extends CustomPainter {
     final extent = _autoSurfaceExtent(source, engine);
     final min = -extent;
     final max = extent;
-    double xWorld(double x) => -3 + 6 * (x - min) / (max - min);
-    double yWorld(double y) => -3 + 6 * (y - min) / (max - min);
+    double xWorld(double x) => -2.4 + 4.8 * (x - min) / (max - min);
+    double yWorld(double y) => -2.4 + 4.8 * (y - min) / (max - min);
     final values = List<double>.filled((cells + 1) * (cells + 1), 0);
     int index(int x, int y) => y * (cells + 1) + x;
     double coordinate(int step) => min + (max - min) * step / cells;
@@ -1980,7 +2093,7 @@ class _MathVisualizationPainter extends CustomPainter {
     final rawMaximum = finiteValues.reduce(math.max);
     final (zMinimum, zMaximum) = _niceBounds(rawMinimum, rawMaximum);
     double zCoordinate(double value) =>
-        -3 + 6 * (value - zMinimum) / (zMaximum - zMinimum);
+        -2.4 + 4.8 * (value - zMinimum) / (zMaximum - zMinimum);
     Offset project(double x, double y, double z) =>
         _projectRotating3D(size, xWorld(x), yWorld(y), zCoordinate(z));
     _paintFixed3DFrame(
@@ -1993,30 +2106,19 @@ class _MathVisualizationPainter extends CustomPainter {
       xMaximum: max,
       yMinimum: min,
       yMaximum: max,
-      xLabel: 'x₁',
-      yLabel: 'x₂',
+      xLabel: 'x',
+      yLabel: 'y',
       zLabel: 'z',
+      worldMinimum: -2.4,
+      worldMaximum: 2.4,
     );
 
     Offset baseProject(double x, double y) =>
-        _projectFixed3D(size, xWorld(x), yWorld(y), -3);
-    final baseCorners = <Offset>[
-      baseProject(min, min),
-      baseProject(max, min),
-      baseProject(max, max),
-      baseProject(min, max),
-    ];
-    final base = Path()
-      ..moveTo(baseCorners.first.dx, baseCorners.first.dy)
-      ..addPolygon(baseCorners, true);
-    canvas.drawPath(
-      base,
-      Paint()
-        ..color = const Color(0xFF2638D7).withValues(alpha: .16)
-        ..style = PaintingStyle.fill,
-    );
+        _projectFixed3D(size, xWorld(x), yWorld(y), -2.4);
+    // Keep the projection plane transparent so low blue surface faces remain
+    // distinct from the floor instead of disappearing into a blue slab.
     final baseGrid = Paint()
-      ..color = const Color(0xFF7A9BEF).withValues(alpha: .54)
+      ..color = Colors.white.withValues(alpha: .18)
       ..strokeWidth = .7
       ..style = PaintingStyle.stroke;
     for (var tick = 0; tick <= cells; tick++) {
@@ -2031,113 +2133,6 @@ class _MathVisualizationPainter extends CustomPainter {
         baseProject(max, value),
         baseGrid,
       );
-    }
-
-    double triangleArea(_PlotPoint3 a, _PlotPoint3 b, _PlotPoint3 c) {
-      final ab = (b.$1 - a.$1, b.$2 - a.$2, b.$3 - a.$3);
-      final ac = (c.$1 - a.$1, c.$2 - a.$2, c.$3 - a.$3);
-      final cross = (
-        ab.$2 * ac.$3 - ab.$3 * ac.$2,
-        ab.$3 * ac.$1 - ab.$1 * ac.$3,
-        ab.$1 * ac.$2 - ab.$2 * ac.$1,
-      );
-      return math.sqrt(
-            cross.$1 * cross.$1 + cross.$2 * cross.$2 + cross.$3 * cross.$3,
-          ) /
-          2;
-    }
-
-    var meshArea = 0.0;
-    var patchCount = 0;
-    for (var y = 0; y < cells; y++) {
-      for (var x = 0; x < cells; x++) {
-        final z = [
-          values[index(x, y)],
-          values[index(x + 1, y)],
-          values[index(x + 1, y + 1)],
-          values[index(x, y + 1)],
-        ];
-        if (z.any((value) => !value.isFinite)) continue;
-        final vertices = <_PlotPoint3>[
-          (coordinate(x), coordinate(y), z[0]),
-          (coordinate(x + 1), coordinate(y), z[1]),
-          (coordinate(x + 1), coordinate(y + 1), z[2]),
-          (coordinate(x), coordinate(y + 1), z[3]),
-        ];
-        final average = z.reduce((a, b) => a + b) / z.length;
-        final tint = ((average - zMinimum) / (zMaximum - zMinimum))
-            .clamp(0.0, 1.0)
-            .toDouble();
-        final faceColor = _heightColor(tint);
-        for (final face in [(0, 1, 2), (0, 2, 3)]) {
-          final a = vertices[face.$1],
-              b = vertices[face.$2],
-              c = vertices[face.$3];
-          final area = triangleArea(a, b, c);
-          meshArea += area;
-          patchCount++;
-          final p = [
-            project(a.$1, a.$2, a.$3),
-            project(b.$1, b.$2, b.$3),
-            project(c.$1, c.$2, c.$3),
-          ];
-          final triangle = Path()
-            ..moveTo(p[0].dx, p[0].dy)
-            ..lineTo(p[1].dx, p[1].dy)
-            ..lineTo(p[2].dx, p[2].dy)
-            ..close();
-          canvas.drawPath(
-            triangle,
-            Paint()
-              ..color = faceColor
-              ..style = PaintingStyle.fill,
-          );
-        }
-      }
-    }
-
-    final surfaceMesh = Paint()
-      ..color = const Color(0xFF20C879).withValues(alpha: .96)
-      ..strokeWidth = .8
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    for (var row = 0; row <= cells; row++) {
-      final path = Path();
-      var connected = false;
-      for (var column = 0; column <= cells; column++) {
-        final z = values[index(column, row)];
-        if (!z.isFinite) {
-          connected = false;
-          continue;
-        }
-        final point = project(coordinate(column), coordinate(row), z);
-        if (!connected) {
-          path.moveTo(point.dx, point.dy);
-          connected = true;
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      canvas.drawPath(path, surfaceMesh);
-    }
-    for (var column = 0; column <= cells; column++) {
-      final path = Path();
-      var connected = false;
-      for (var row = 0; row <= cells; row++) {
-        final z = values[index(column, row)];
-        if (!z.isFinite) {
-          connected = false;
-          continue;
-        }
-        final point = project(coordinate(column), coordinate(row), z);
-        if (!connected) {
-          path.moveTo(point.dx, point.dy);
-          connected = true;
-        } else {
-          path.lineTo(point.dx, point.dy);
-        }
-      }
-      canvas.drawPath(path, surfaceMesh);
     }
 
     final contourLevels = _ticks(zMinimum, zMaximum, targetTicks: 7)
@@ -2214,6 +2209,67 @@ class _MathVisualizationPainter extends CustomPainter {
       }
     }
 
+    final surfaceFaces = <(double, Path, Color, List<Offset>)>[];
+    for (var y = 0; y < cells; y++) {
+      for (var x = 0; x < cells; x++) {
+        final z = [
+          values[index(x, y)],
+          values[index(x + 1, y)],
+          values[index(x + 1, y + 1)],
+          values[index(x, y + 1)],
+        ];
+        if (z.any((value) => !value.isFinite)) continue;
+        final vertices = <_PlotPoint3>[
+          (coordinate(x), coordinate(y), z[0]),
+          (coordinate(x + 1), coordinate(y), z[1]),
+          (coordinate(x + 1), coordinate(y + 1), z[2]),
+          (coordinate(x), coordinate(y + 1), z[3]),
+        ];
+        final average = z.reduce((a, b) => a + b) / z.length;
+        final tint = ((average - zMinimum) / (zMaximum - zMinimum))
+            .clamp(0.0, 1.0)
+            .toDouble();
+        final faceColor = _heightColor(tint).withValues(alpha: .94);
+        final projected = vertices
+            .map((point) => project(point.$1, point.$2, point.$3))
+            .toList(growable: false);
+        final patch = Path()..addPolygon(projected, true);
+        final depth =
+            vertices
+                .map(
+                  (point) => _cameraDepth3D(
+                    xWorld(point.$1),
+                    yWorld(point.$2),
+                    zCoordinate(point.$3),
+                  ),
+                )
+                .reduce((a, b) => a + b) /
+            vertices.length;
+        surfaceFaces.add((depth, patch, faceColor, projected));
+      }
+    }
+    // Painter's order prevents farther patches from overwriting the visible
+    // side of a curved surface after it is orbited.
+    surfaceFaces.sort((a, b) => a.$1.compareTo(b.$1));
+    for (final face in surfaceFaces) {
+      canvas.drawPath(face.$2, Paint()..color = face.$3);
+      final vertices = face.$4;
+      final wire = Path()
+        ..moveTo(vertices.first.dx, vertices.first.dy)
+        ..lineTo(vertices[1].dx, vertices[1].dy)
+        ..lineTo(vertices[2].dx, vertices[2].dy)
+        ..lineTo(vertices[3].dx, vertices[3].dy)
+        ..close();
+      canvas.drawPath(
+        wire,
+        Paint()
+          ..color = const Color(0xFF101010).withValues(alpha: .9)
+          ..strokeWidth = .45
+          ..style = PaintingStyle.stroke
+          ..strokeCap = StrokeCap.round,
+      );
+    }
+
     _paintFixed3DFrame(
       canvas,
       size,
@@ -2225,16 +2281,11 @@ class _MathVisualizationPainter extends CustomPainter {
       xMaximum: max,
       yMinimum: min,
       yMaximum: max,
-      xLabel: 'x₁',
-      yLabel: 'x₂',
+      xLabel: 'x',
+      yLabel: 'y',
       zLabel: 'z',
-    );
-    _metricBadge(
-      canvas,
-      '$patchCount faces | A ≈ ${meshArea.toStringAsFixed(2)} units²',
-      const Offset(12, 34),
-      const Color(0xFF65E6A5),
-      maxWidth: size.width - 24,
+      worldMinimum: -2.4,
+      worldMaximum: 2.4,
     );
   }
 

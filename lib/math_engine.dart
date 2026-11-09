@@ -152,6 +152,13 @@ class MathEngine {
       RegExp(r'([xyzπe])(?=\d)', caseSensitive: false),
       (match) => '${match[1]}*',
     );
+    // Adjacent coordinate variables are textbook implicit products. The
+    // calculator renders `xy` without a multiplication glyph, so make that
+    // product explicit before parsing it as a function of x and y.
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'([xyz])(?=[xyz])', caseSensitive: false),
+      (match) => '${match[1]}*',
+    );
     normalized = normalized.replaceAllMapped(
       RegExp(r'([0-9.)])(?=\()'),
       (match) => '${match[1]}*',
