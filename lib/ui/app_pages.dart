@@ -1234,6 +1234,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _sessionIsExact = true;
   String _calculusFamily = 'Derivatives';
   String _calculusOperation = 'First derivative';
+  bool _calculusOperationSelected = false;
   String _derivativeNotation = 'Leibniz';
   String _derivativeVariable = 'x';
   String _dependentVariable = 'y';
@@ -1414,6 +1415,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _answerShown = false;
       _calculusFamily = 'Derivatives';
       _calculusOperation = 'First derivative';
+      _calculusOperationSelected = false;
       _derivativeNotation = 'Leibniz';
       _derivativeVariable = 'x';
       _dependentVariable = 'y';
@@ -1591,10 +1593,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       };
     }
     final body = _mathTexFromSource(_input.text);
-    if (_mode != _CalculatorMode.calculus) return body;
-    if (_input.text.trim().isEmpty &&
-        _calculusFamily == 'Derivatives' &&
-        _calculusOperation == 'First derivative') {
+    if (_mode != _CalculatorMode.calculus || !_calculusOperationSelected) {
       return body;
     }
     if (RegExp(r'^d[xyz]/dt\s*=').hasMatch(_input.text.trim())) return body;
@@ -1626,6 +1625,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _ =>
         '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}}\\int_{${_integralLowerYInput.text}}^{${_integralUpperYInput.text}}\\int_{${_integralLowerZInput.text}}^{${_integralUpperZInput.text}} $body\\,dx\\,dy\\,dz',
     };
+  }
+
+  String get _expressionDisplaySemanticsLabel {
+    final expression = _input.text.trim();
+    if (_mode != _CalculatorMode.calculus ||
+        !_calculusOperationSelected ||
+        expression.isEmpty ||
+        RegExp(r'^d[xyz]/dt\s*=').hasMatch(expression)) {
+      return expression;
+    }
+    return '$_calculusOperationSymbol of $expression';
   }
 
   void _updateResult() {
@@ -1797,6 +1807,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
             _answerShown = true;
           });
           _appendSessionEntry(expression, expression, exact: false);
+          return;
+        }
+        if (!_calculusOperationSelected) {
+          final calculation = _calculateExpression(expression);
+          final answer = calculation.displayValue;
+          setState(() {
+            _result = answer;
+            _error = null;
+            _resultIsExact = calculation.kind == MathResultKind.exact;
+            _answerShown = true;
+          });
+          _appendSessionEntry(
+            expression,
+            answer,
+            exact: calculation.kind == MathResultKind.exact,
+          );
           return;
         }
         if (_calculusFamily == 'Derivatives') {
@@ -2988,6 +3014,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       setState(() {
         _calculusFamily = selection.$1;
         _calculusOperation = selection.$2;
+        _calculusOperationSelected = true;
         _derivativeNotation = selection.$3;
         if (_calculusOperation == 'Partial derivative') {
           _partialVariable = selection.$4;
@@ -3355,6 +3382,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode == _CalculatorMode.calculus) {
       try {
         final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
+        if (!_calculusOperationSelected) {
+          return _engine.evaluateAt(expression, _graphX);
+        }
         if (_calculusFamily == 'Derivatives') {
           final variable = _calculusOperation == 'Partial derivative'
               ? _partialVariable
@@ -3482,6 +3512,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.calculus) {
       final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
+      if (!_calculusOperationSelected) return expression;
       if (_calculusFamily == 'Derivatives') {
         return '$_calculusOperation of $expression';
       }
@@ -3504,6 +3535,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final body = _mathTexFromSource(
         _input.text.trim().isEmpty ? 'x^2' : _input.text,
       );
+      if (!_calculusOperationSelected) return body;
       if (_calculusFamily == 'Derivatives') {
         return '\\frac{d}{dx}\\left($body\\right)';
       }
@@ -3653,6 +3685,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final adjustedExpression = switch (_mode) {
       _CalculatorMode.calculus when _calculusOperation == 'Definite integral' =>
         '∫[${_integralLowerInput.text},${_integralUpperInput.text}] ${_input.text} dx',
+      _CalculatorMode.calculus when !_calculusOperationSelected =>
+        _input.text.trim().isEmpty ? 'x^2' : _input.text,
       _CalculatorMode.calculus => '$_calculusOperation: ${_input.text}',
       _CalculatorMode.graphing =>
         '$_visualizationFormula; x=$_graphX; y=0; z=0',
@@ -3672,7 +3706,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         'Computed result: $answer',
       ],
       _CalculatorMode.calculus => [
-        'Selected operation: $_calculusOperation',
+        'Selected operation: ${_calculusOperationSelected ? _calculusOperation : 'None'}',
         'Expression: ${_input.text.trim().isEmpty ? 'x^2' : _input.text.trim()}',
         if (_calculusOperation == 'Definite integral')
           'Adjusted bounds: x=${_numberForExpression(_integralLower)} to ${_numberForExpression(_integralUpper)}',
@@ -4628,11 +4662,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   scrollDirection: Axis.horizontal,
                   child: Align(
                     alignment: Alignment.centerLeft,
-                    child: Math.tex(
-                      _expressionTex,
-                      mathStyle: MathStyle.text,
-                      textStyle: const TextStyle(fontSize: 14),
-                      onErrorFallback: (_) => _rawExpressionFallback(),
+                    child: Semantics(
+                      key: const Key('calculator-expression-display'),
+                      label: _expressionDisplaySemanticsLabel,
+                      child: Math.tex(
+                        _expressionTex,
+                        mathStyle: MathStyle.text,
+                        textStyle: const TextStyle(fontSize: 14),
+                        onErrorFallback: (_) => _rawExpressionFallback(),
+                      ),
                     ),
                   ),
                 ),
@@ -4728,15 +4766,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               scrollDirection: Axis.horizontal,
                               child: Align(
                                 alignment: Alignment.centerLeft,
-                                child: Math.tex(
-                                  _expressionTex,
-                                  mathStyle: MathStyle.display,
-                                  textStyle: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w500,
+                                child: Semantics(
+                                  key: const Key(
+                                    'calculator-expression-display',
                                   ),
-                                  onErrorFallback: (_) =>
-                                      _rawExpressionFallback(),
+                                  label: _expressionDisplaySemanticsLabel,
+                                  child: Math.tex(
+                                    _expressionTex,
+                                    mathStyle: MathStyle.display,
+                                    textStyle: const TextStyle(
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                    onErrorFallback: (_) =>
+                                        _rawExpressionFallback(),
+                                  ),
                                 ),
                               ),
                             ),
@@ -4869,9 +4913,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Semantics(
-          label: 'Selected calculus operation: $_calculusOperation',
+          label: _calculusOperationSelected
+              ? 'Selected calculus operation: $_calculusOperation'
+              : 'No calculus operation selected',
           child: Text(
-            _calculusOperationSymbol,
+            _calculusOperationSelected
+                ? _calculusOperationSymbol
+                : 'Select a calculus key',
             style: Theme.of(context).textTheme.titleSmall,
           ),
         ),
@@ -4893,28 +4941,30 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  String get _calculusOperationSymbol => switch (_calculusOperation) {
-    'First derivative' =>
-      _derivativeNotation == 'Lagrange'
-          ? "f'($_derivativeVariable)"
-          : 'd$_dependentVariable/d$_derivativeVariable',
-    'Second derivative' =>
-      _derivativeNotation == 'Lagrange'
-          ? "f''($_derivativeVariable)"
-          : 'd^2$_dependentVariable/d$_derivativeVariable^2',
-    'Partial derivative' => 'd/d$_partialVariable',
-    'Indefinite integral' => 'integral',
-    'Definite integral' => 'integral with bounds',
-    'Double integral' => 'double integral',
-    'Triple integral' => 'triple integral',
-    'Two-sided limit' => 'limit from both sides',
-    'Left-hand limit' => 'left-hand limit',
-    'Right-hand limit' => 'right-hand limit',
-    _ =>
-      _limitAtPositiveInfinity
-          ? 'limit at positive infinity'
-          : 'limit at negative infinity',
-  };
+  String get _calculusOperationSymbol => !_calculusOperationSelected
+      ? 'Select a calculus key'
+      : switch (_calculusOperation) {
+          'First derivative' =>
+            _derivativeNotation == 'Lagrange'
+                ? "f'($_derivativeVariable)"
+                : 'd$_dependentVariable/d$_derivativeVariable',
+          'Second derivative' =>
+            _derivativeNotation == 'Lagrange'
+                ? "f''($_derivativeVariable)"
+                : 'd^2$_dependentVariable/d$_derivativeVariable^2',
+          'Partial derivative' => 'd/d$_partialVariable',
+          'Indefinite integral' => 'integral',
+          'Definite integral' => 'integral with bounds',
+          'Double integral' => 'double integral',
+          'Triple integral' => 'triple integral',
+          'Two-sided limit' => 'limit from both sides',
+          'Left-hand limit' => 'left-hand limit',
+          'Right-hand limit' => 'right-hand limit',
+          _ =>
+            _limitAtPositiveInfinity
+                ? 'limit at positive infinity'
+                : 'limit at negative infinity',
+        };
   String get _calculusBoundsSummary => switch (_calculusOperation) {
     'Definite integral' =>
       '[${_integralLowerInput.text}, ${_integralUpperInput.text}]',

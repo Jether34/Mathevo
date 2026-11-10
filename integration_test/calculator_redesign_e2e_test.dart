@@ -183,6 +183,36 @@ void main() {
     expect(deleteKey.top, greaterThan(divideKey.bottom));
 
     await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-z')));
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const Key('calculator-expression-display')),
+          )
+          .properties
+          .label,
+      'z',
+      reason: 'Typing a variable must not automatically apply a derivative.',
+    );
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_FIRST')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('function-key-z')));
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const Key('calculator-expression-display')),
+          )
+          .properties
+          .label,
+      'dy/dx of z',
+      reason: 'A derivative should only apply after its own key is selected.',
+    );
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    expect(find.byKey(const Key('calculation-result')), findsNothing);
+
     await _tap(
       tester,
       find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
