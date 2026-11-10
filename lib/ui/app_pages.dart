@@ -1596,7 +1596,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode != _CalculatorMode.calculus || !_calculusOperationSelected) {
       return body;
     }
-    if (RegExp(r'^d[xyz]/dt\s*=').hasMatch(_input.text.trim())) return body;
+    if (RegExp(r'^(?:d[xyz]/dt|[A-Za-z])\s*=').hasMatch(_input.text.trim())) {
+      return body;
+    }
     if (_calculusFamily == 'Derivatives') {
       final derivative = _derivativeNotation == 'Lagrange'
           ? (_calculusOperation == 'Second derivative' ? "f''" : "f'")
@@ -1632,7 +1634,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode != _CalculatorMode.calculus ||
         !_calculusOperationSelected ||
         expression.isEmpty ||
-        RegExp(r'^d[xyz]/dt\s*=').hasMatch(expression)) {
+        RegExp(r'^(?:d[xyz]/dt|[A-Za-z])\s*=').hasMatch(expression)) {
       return expression;
     }
     return '$_calculusOperationSymbol of $expression';
@@ -1809,7 +1811,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
           _appendSessionEntry(expression, expression, exact: false);
           return;
         }
+        final equation = RegExp(
+          r'^\s*([A-Za-z])\s*=\s*(.+)$',
+        ).firstMatch(expression);
         if (!_calculusOperationSelected) {
+          if (equation != null) {
+            setState(() {
+              _result = expression;
+              _error = null;
+              _resultIsExact = false;
+              _answerShown = true;
+            });
+            _appendSessionEntry(expression, expression, exact: false);
+            return;
+          }
           final calculation = _calculateExpression(expression);
           final answer = calculation.displayValue;
           setState(() {
@@ -1830,28 +1845,28 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ? _partialVariable
               : _derivativeVariable;
           final order = _calculusOperation == 'Second derivative' ? 2 : 1;
-          var derivative = expression;
+          final source = equation?.group(2) ?? expression;
+          final dependentVariable = equation?.group(1) ?? _dependentVariable;
+          var derivative = source;
           for (var i = 0; i < order; i++) {
             derivative = _engine.differentiate(derivative, variable: variable);
           }
           final notation = _calculusOperation == 'Partial derivative'
-              ? '\u2202/\u2202$variable'
+              ? equation == null
+                    ? '\u2202/\u2202$variable'
+                    : '\u2202$dependentVariable/\u2202$variable'
               : _derivativeNotation == 'Lagrange'
               ? (order == 2 ? "f''($variable)" : "f'($variable)")
               : (order == 2
-                    ? 'd\u00b2$_dependentVariable/d$variable\u00b2'
-                    : 'd$_dependentVariable/d$variable');
+                    ? 'd\u00b2$dependentVariable/d$variable\u00b2'
+                    : 'd$dependentVariable/d$variable');
           setState(() {
             _result = '$notation = $derivative';
             _error = null;
             _resultIsExact = true;
             _answerShown = true;
           });
-          _appendSessionEntry(
-            '$notation ($expression)',
-            derivative,
-            exact: true,
-          );
+          _appendSessionEntry('$notation ($source)', derivative, exact: true);
           return;
         }
         if (_calculusFamily == 'Integrals') {
@@ -3047,6 +3062,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _insert('dy/dt=');
     } else if (key == 'DIFF_EQ_DZ') {
       _insert('dz/dt=');
+    } else if (key == 'EQUALS_SIGN') {
+      _insert('=');
     } else if (key == 'PERCENT') {
       _insert('/100');
     } else if (key == 'SIGN') {
@@ -5053,6 +5070,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ('∑', 'sumSymbol'),
     ('∏', 'productSymbol'),
     ('∂', 'partial'),
+    ('=', 'EQUALS_SIGN'),
     ('±', 'SIGN'),
     ('%', 'PERCENT'),
     ('a/b', 'a/b'),

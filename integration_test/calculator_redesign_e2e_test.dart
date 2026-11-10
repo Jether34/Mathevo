@@ -115,6 +115,7 @@ void main() {
       'DIFF_EQ_DX',
       'DIFF_EQ_DY',
       'DIFF_EQ_DZ',
+      'EQUALS_SIGN',
     ]) {
       expect(
         find.byKey(ValueKey('function-key-$operationKey')),
@@ -287,6 +288,47 @@ void main() {
           .properties
           .label,
       contains('dx/dt=(z-b)x-dy'),
+    );
+
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-z')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-EQUALS_SIGN')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-t')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const Key('calculator-expression-display')),
+          )
+          .properties
+          .label,
+      'z=t^2',
+    );
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('z=t^2'),
+    );
+
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_DERIVATIVE_T')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('function-key-z')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-EQUALS_SIGN')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-t')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('dz/dt = 2*t'),
     );
 
     await _selectMode(tester, 'Discrete math');
