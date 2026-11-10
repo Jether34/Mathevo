@@ -1169,6 +1169,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final _geometrySecond = TextEditingController();
   final _integralLowerInput = TextEditingController(text: '0');
   final _integralUpperInput = TextEditingController(text: '2');
+  final _integralLowerYInput = TextEditingController(text: '0');
+  final _integralUpperYInput = TextEditingController(text: '1');
+  final _integralLowerZInput = TextEditingController(text: '0');
+  final _integralUpperZInput = TextEditingController(text: '1');
+  final _limitApproachInput = TextEditingController(text: '0');
   final _drawingExpressionInput = TextEditingController();
   final _engine = const MathEngine();
   final _dataMathEngine = const StatisticsProbabilityEngine();
@@ -1226,7 +1231,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
   final List<String> _sessionBreakdown = [];
   String? _sessionFinalResult;
   bool _sessionIsExact = true;
-  String _calculusOperation = 'Derivative';
+  String _calculusFamily = 'Derivatives';
+  String _calculusOperation = 'First derivative';
+  String _derivativeNotation = 'Leibniz';
+  String _partialVariable = 'x';
+  final String _integrationVariable = 'x';
+  bool _limitAtPositiveInfinity = true;
   bool _angleDegrees = true;
   String _triangleFunction = 'sin';
   bool _triangleHasCoefficient = false;
@@ -1243,6 +1253,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _geometrySecond.dispose();
     _integralLowerInput.dispose();
     _integralUpperInput.dispose();
+    _integralLowerYInput.dispose();
+    _integralUpperYInput.dispose();
+    _integralLowerZInput.dispose();
+    _integralUpperZInput.dispose();
+    _limitApproachInput.dispose();
     _drawingExpressionInput.dispose();
     final recognizer = _recognizer;
     if (recognizer != null) unawaited(recognizer.close());
@@ -1251,13 +1266,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _insert(String value) {
     FocusScope.of(context).unfocus();
-    if (_mode == _CalculatorMode.calculus &&
-        _calculusOperation == 'Definite integral' &&
-        _selectedIntegralBound != null) {
+    if (_mode == _CalculatorMode.calculus && _selectedIntegralBound != null) {
       if (RegExp(r'^[0-9.\-]$').hasMatch(value)) {
-        final controller = _selectedIntegralBound == 0
-            ? _integralLowerInput
-            : _integralUpperInput;
+        final controller = _calculusBoundControllers[_selectedIntegralBound!];
         final text = controller.text;
         final selection = controller.selection;
         final start = selection.isValid ? selection.start : text.length;
@@ -1304,6 +1315,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
     _updateResult();
   }
+
+  List<TextEditingController> get _calculusBoundControllers => [
+    _integralLowerInput,
+    _integralUpperInput,
+    _integralLowerYInput,
+    _integralUpperYInput,
+    _integralLowerZInput,
+    _integralUpperZInput,
+    _limitApproachInput,
+  ];
 
   void _insertFraction() {
     if (_numerator.text.trim().isEmpty || _denominator.text.trim().isEmpty) {
@@ -1461,11 +1482,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     final body = _mathTexFromSource(_input.text);
     if (_mode != _CalculatorMode.calculus) return body;
+    if (_calculusFamily == 'Derivatives') {
+      final derivative = _derivativeNotation == 'Lagrange'
+          ? (_calculusOperation == 'Second derivative' ? "f''" : "f'")
+          : (_calculusOperation == 'Second derivative'
+                ? r'\frac{d^2}{dx^2}'
+                : r'\frac{d}{dx}');
+      return '$derivative\\left($body\\right)';
+    }
+    if (_calculusFamily == 'Limits') return '\\lim_{x\\to a} $body';
     return switch (_calculusOperation) {
-      'Derivative' => '\\frac{d}{dx}\\left($body\\right)',
-      'Indefinite integral' => '\\int $body\\,dx',
-      _ =>
+      'Indefinite integral' => '\\int $body\\,d$_integrationVariable',
+      'Definite integral' =>
         '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}} $body\\,dx',
+      'Double integral' => '\\iint $body\\,dx\\,dy',
+      _ => '\\iiint $body\\,dx\\,dy\\,dz',
     };
   }
 
@@ -1630,37 +1661,118 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return;
       }
       if (_mode == _CalculatorMode.calculus) {
-        if (_calculusOperation == 'Derivative') {
-          final derivative = _engine.differentiate(expression);
-          final answer = 'd/dx = $derivative';
+        if (_calculusFamily == 'Derivatives') {
+          final variable = _calculusOperation == 'Partial derivative'
+              ? _partialVariable
+              : 'x';
+          final order = _calculusOperation == 'Second derivative' ? 2 : 1;
+          var derivative = expression;
+          for (var i = 0; i < order; i++) {
+            derivative = _engine.differentiate(derivative, variable: variable);
+          }
+          final notation = _calculusOperation == 'Partial derivative'
+              ? '∂/∂$variable'
+              : _derivativeNotation == 'Lagrange'
+              ? (order == 2 ? 'f″($variable)' : 'f′($variable)')
+              : (order == 2 ? 'd²y/d$variable²' : 'dy/d$variable');
           setState(() {
-            _result = answer;
+            _result = '$notation = $derivative';
             _error = null;
             _resultIsExact = true;
             _answerShown = true;
           });
-          _appendSessionEntry('d/dx ($expression)', derivative, exact: true);
+          _appendSessionEntry(
+            '$notation ($expression)',
+            derivative,
+            exact: true,
+          );
           return;
         }
-        if (_calculusOperation == 'Indefinite integral') {
-          final answer = _engine.integrateIndefinite(expression);
+        if (_calculusFamily == 'Integrals') {
+          if (_calculusOperation == 'Indefinite integral') {
+            final answer = _engine.integrateIndefinite(
+              expression,
+              variable: _integrationVariable,
+            );
+            setState(() {
+              _result = answer;
+              _error = null;
+              _resultIsExact = true;
+              _answerShown = true;
+            });
+            _appendSessionEntry(
+              '∫ $expression d$_integrationVariable',
+              answer,
+              exact: true,
+            );
+            return;
+          }
+          final bounds = _calculusBoundControllers
+              .take(6)
+              .map((c) => double.parse(c.text.trim()))
+              .toList();
+          final MathResult result = _calculusOperation == 'Definite integral'
+              ? _engine.integrateDefinite(
+                  expression,
+                  lower: bounds[0],
+                  upper: bounds[1],
+                  variable: _integrationVariable,
+                )
+              : _calculusOperation == 'Double integral'
+              ? _engine.integrateDouble(
+                  expression,
+                  lowerX: bounds[0],
+                  upperX: bounds[1],
+                  lowerY: bounds[2],
+                  upperY: bounds[3],
+                )
+              : _engine.integrateTriple(
+                  expression,
+                  lowerX: bounds[0],
+                  upperX: bounds[1],
+                  lowerY: bounds[2],
+                  upperY: bounds[3],
+                  lowerZ: bounds[4],
+                  upperZ: bounds[5],
+                );
+          final answer = '≈ ${result.displayValue}';
           setState(() {
             _result = answer;
             _error = null;
-            _resultIsExact = true;
+            _resultIsExact = false;
             _answerShown = true;
           });
-          _appendSessionEntry('Integral of $expression', answer, exact: true);
+          _appendSessionEntry(
+            '$_calculusOperation $expression',
+            answer,
+            exact: false,
+          );
           return;
         }
-        final lower = double.parse(_integralLowerInput.text.trim());
-        final upper = double.parse(_integralUpperInput.text.trim());
-        final calculation = _engine.integrateDefinite(
+        final side = switch (_calculusOperation) {
+          'Left-hand limit' => LimitSide.left,
+          'Right-hand limit' => LimitSide.right,
+          'Limit at infinity' =>
+            _limitAtPositiveInfinity
+                ? LimitSide.positiveInfinity
+                : LimitSide.negativeInfinity,
+          _ => LimitSide.twoSided,
+        };
+        final point =
+            side == LimitSide.positiveInfinity ||
+                side == LimitSide.negativeInfinity
+            ? 0.0
+            : double.parse(_limitApproachInput.text.trim());
+        final value = _engine.calculateLimit(
           expression,
-          lower: lower,
-          upper: upper,
+          variable: 'x',
+          point: point,
+          side: side,
         );
-        final answer = '\u2248 ${calculation.displayValue}';
+        final limitText = value.isInfinite
+            ? (value.isNegative ? '−∞' : '∞')
+            : formatApproximateValue(value);
+        final answer = 'lim = $limitText';
         setState(() {
           _result = answer;
           _error = null;
@@ -1668,7 +1780,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           _answerShown = true;
         });
         _appendSessionEntry(
-          '\u222B[$lower,$upper] $expression dx',
+          '$_calculusOperation $expression',
           answer,
           exact: false,
         );
@@ -2610,11 +2722,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
     FocusScope.of(context).unfocus();
     if (key.startsWith('CALC_')) {
       setState(() {
-        _calculusOperation = switch (key) {
-          'CALC_DERIVATIVE' => 'Derivative',
-          'CALC_INTEGRAL' => 'Indefinite integral',
-          _ => 'Definite integral',
-        };
+        if (key == 'CALC_DERIVATIVE') {
+          _calculusFamily = 'Derivatives';
+          _calculusOperation = 'First derivative';
+        } else {
+          _calculusFamily = 'Integrals';
+          _calculusOperation = key == 'CALC_INTEGRAL'
+              ? 'Indefinite integral'
+              : 'Definite integral';
+        }
         _result = null;
         _answerShown = false;
       });
@@ -2625,12 +2741,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     } else if (key == 'VAR_C') {
       _insert('C');
     } else if (_mode == _CalculatorMode.calculus &&
-        _calculusOperation == 'Definite integral' &&
         _selectedIntegralBound != null &&
         (key == 'C' || key == 'DEL')) {
-      final controller = _selectedIntegralBound == 0
-          ? _integralLowerInput
-          : _integralUpperInput;
+      final controller = _calculusBoundControllers[_selectedIntegralBound!];
       if (key == 'C') {
         controller.clear();
       } else if (controller.text.isNotEmpty) {
@@ -2825,74 +2938,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     const SizedBox(height: 5),
                   ],
                   if (_mode == _CalculatorMode.calculus) ...[
-                    Wrap(
-                      spacing: 6,
-                      children: [
-                        ChoiceChip(
-                          label: const Text('Derivative'),
-                          selected: _calculusOperation == 'Derivative',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Derivative';
-                            _result = null;
-                            _answerShown = false;
-                          }),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Indefinite integral'),
-                          selected: _calculusOperation == 'Indefinite integral',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Indefinite integral';
-                            _result = null;
-                            _answerShown = false;
-                          }),
-                        ),
-                        ChoiceChip(
-                          label: const Text('Definite integral'),
-                          selected: _calculusOperation == 'Definite integral',
-                          onSelected: (_) => setState(() {
-                            _calculusOperation = 'Definite integral';
-                            _result = null;
-                            _answerShown = false;
-                          }),
-                        ),
-                      ],
-                    ),
-                    if (_calculusOperation == 'Definite integral') ...[
-                      const SizedBox(height: 4),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _integralLowerInput,
-                              readOnly: true,
-                              keyboardType: TextInputType.none,
-                              onTap: () =>
-                                  setState(() => _selectedIntegralBound = 0),
-                              decoration: const InputDecoration(
-                                labelText: 'Lower bound',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: TextField(
-                              controller: _integralUpperInput,
-                              readOnly: true,
-                              keyboardType: TextInputType.none,
-                              onTap: () =>
-                                  setState(() => _selectedIntegralBound = 1),
-                              decoration: const InputDecoration(
-                                labelText: 'Upper bound',
-                                isDense: true,
-                                border: OutlineInputBorder(),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
+                    _buildCalculusControls(),
                     const SizedBox(height: 5),
                   ],
                   if (_usesDataMathMode) ...[
@@ -3026,26 +3072,80 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode == _CalculatorMode.calculus) {
       try {
         final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
-        return switch (_calculusOperation) {
-          'Derivative' => _engine.evaluateAt(
-            _engine.differentiate(expression),
+        if (_calculusFamily == 'Derivatives') {
+          final variable = _calculusOperation == 'Partial derivative'
+              ? _partialVariable
+              : 'x';
+          final order = _calculusOperation == 'Second derivative' ? 2 : 1;
+          var derivative = expression;
+          for (var i = 0; i < order; i++) {
+            derivative = _engine.differentiate(derivative, variable: variable);
+          }
+          return _engine.evaluateAt(derivative, _graphX, variable: variable);
+        }
+        if (_calculusFamily == 'Limits') {
+          final side = switch (_calculusOperation) {
+            'Left-hand limit' => LimitSide.left,
+            'Right-hand limit' => LimitSide.right,
+            'Limit at infinity' =>
+              _limitAtPositiveInfinity
+                  ? LimitSide.positiveInfinity
+                  : LimitSide.negativeInfinity,
+            _ => LimitSide.twoSided,
+          };
+          return _engine.calculateLimit(
+            expression,
+            variable: 'x',
+            point: double.tryParse(_limitApproachInput.text) ?? 0,
+            side: side,
+          );
+        }
+        if (_calculusOperation == 'Indefinite integral') {
+          final antiderivative = _engine
+              .integrateIndefinite(expression, variable: _integrationVariable)
+              .replaceFirst(RegExp(r'\s*\+\s*C$'), '');
+          return _engine.evaluateAt(
+            antiderivative,
             _graphX,
-          ),
-          'Indefinite integral' => _engine.evaluateAt(
-            _engine
-                .integrateIndefinite(expression)
-                .replaceFirst(RegExp(r'\s*\+\s*C$'), ''),
-            _graphX,
-          ),
-          _ =>
-            _engine
-                .integrateDefinite(
-                  expression,
-                  lower: _integralLower,
-                  upper: _integralUpper,
-                )
-                .value!,
-        };
+            variable: _integrationVariable,
+          );
+        }
+        final bounds = _calculusBoundControllers
+            .take(6)
+            .map((c) => double.tryParse(c.text) ?? 0)
+            .toList();
+        if (_calculusOperation == 'Definite integral') {
+          return _engine
+              .integrateDefinite(
+                expression,
+                lower: bounds[0],
+                upper: bounds[1],
+                variable: _integrationVariable,
+              )
+              .value!;
+        }
+        if (_calculusOperation == 'Double integral') {
+          return _engine
+              .integrateDouble(
+                expression,
+                lowerX: bounds[0],
+                upperX: bounds[1],
+                lowerY: bounds[2],
+                upperY: bounds[3],
+              )
+              .value!;
+        }
+        return _engine
+            .integrateTriple(
+              expression,
+              lowerX: bounds[0],
+              upperX: bounds[1],
+              lowerY: bounds[2],
+              upperY: bounds[3],
+              lowerZ: bounds[4],
+              upperZ: bounds[5],
+            )
+            .value!;
       } on Object {
         return double.nan;
       }
@@ -3094,13 +3194,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.calculus) {
       final expression = _input.text.trim().isEmpty ? 'x^2' : _input.text;
-      return switch (_calculusOperation) {
-        'Derivative' =>
-          "Derivative of $expression at x=${_graphX.toStringAsFixed(1)}",
-        'Indefinite integral' => 'Antiderivative of $expression',
-        _ =>
-          'Integral of $expression from ${_integralLower.toStringAsFixed(1)} to ${_integralUpper.toStringAsFixed(1)}',
-      };
+      if (_calculusFamily == 'Derivatives') {
+        return '$_calculusOperation of $expression';
+      }
+      if (_calculusFamily == 'Limits') {
+        return '$_calculusOperation of $expression';
+      }
+      if (_calculusOperation == 'Indefinite integral') {
+        return 'Antiderivative of $expression';
+      }
+      return '$_calculusOperation of $expression';
     }
     if (_mode == _CalculatorMode.graphing && _input.text.trim().isNotEmpty) {
       return _graphEquationLabel(_input.text) ?? 'f(x) = ${_input.text}';
@@ -3113,12 +3216,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final body = _mathTexFromSource(
         _input.text.trim().isEmpty ? 'x^2' : _input.text,
       );
+      if (_calculusFamily == 'Derivatives') {
+        return '\\frac{d}{dx}\\left($body\\right)';
+      }
+      if (_calculusFamily == 'Limits') {
+        return '\\lim_{x\\to a} $body';
+      }
       return switch (_calculusOperation) {
-        'Derivative' =>
-          '\\left.\\frac{d}{dx}\\left($body\\right)\\right|_{x=${_numberForExpression(_graphX)}}',
         'Indefinite integral' => '\\int $body\\,dx',
-        _ =>
+        'Definite integral' =>
           '\\int_{${_numberForExpression(_integralLower)}}^{${_numberForExpression(_integralUpper)}} $body\\,dx',
+        'Double integral' => '\\iint $body\\,dx\\,dy',
+        _ => '\\iiint $body\\,dx\\,dy\\,dz',
       };
     }
     return _mathTexFromSource(_visualizationFormula);
@@ -4234,46 +4343,52 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ),
                 ),
               ),
-              ExpansionTile(
-                key: const Key('calculation-steps-dropdown'),
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: const EdgeInsets.only(bottom: 4),
-                title: const Text('Step-by-step calculation'),
-                leading: const Icon(Icons.expand_more_rounded),
-                children: [
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 220),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          for (final (index, step) in _detailedSteps().indexed)
-                            Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 5),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  SizedBox(
-                                    width: 26,
-                                    child: Text('${index + 1}.'),
-                                  ),
-                                  Expanded(
-                                    child: Math.tex(
-                                      _mathTexFromSource(step),
-                                      mathStyle: MathStyle.display,
-                                      textStyle: const TextStyle(fontSize: 17),
-                                      onErrorFallback: (_) => Text(step),
+              if (_mode != _CalculatorMode.calculus)
+                ExpansionTile(
+                  key: const Key('calculation-steps-dropdown'),
+                  tilePadding: EdgeInsets.zero,
+                  childrenPadding: const EdgeInsets.only(bottom: 4),
+                  title: const Text('Step-by-step calculation'),
+                  leading: const Icon(Icons.expand_more_rounded),
+                  children: [
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 220),
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final (index, step)
+                                in _detailedSteps().indexed)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 5,
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    SizedBox(
+                                      width: 26,
+                                      child: Text('${index + 1}.'),
                                     ),
-                                  ),
-                                ],
+                                    Expanded(
+                                      child: Math.tex(
+                                        _mathTexFromSource(step),
+                                        mathStyle: MathStyle.display,
+                                        textStyle: const TextStyle(
+                                          fontSize: 17,
+                                        ),
+                                        onErrorFallback: (_) => Text(step),
+                                      ),
+                                    ),
+                                  ],
+                                ),
                               ),
-                            ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
             ],
           ),
         ),
@@ -4447,6 +4562,156 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
       );
 
+  Widget _buildCalculusControls() {
+    const families = ['Derivatives', 'Integrals', 'Limits'];
+    final operations = switch (_calculusFamily) {
+      'Integrals' => [
+        'Indefinite integral',
+        'Definite integral',
+        'Double integral',
+        'Triple integral',
+      ],
+      'Limits' => [
+        'Two-sided limit',
+        'Left-hand limit',
+        'Right-hand limit',
+        'Limit at infinity',
+      ],
+      _ => ['First derivative', 'Second derivative', 'Partial derivative'],
+    };
+    final boundFields = switch (_calculusOperation) {
+      'Definite integral' => <(TextEditingController, String, int)>[
+        (_integralLowerInput, 'Lower bound', 0),
+        (_integralUpperInput, 'Upper bound', 1),
+      ],
+      'Double integral' => <(TextEditingController, String, int)>[
+        (_integralLowerInput, 'x lower', 0),
+        (_integralUpperInput, 'x upper', 1),
+        (_integralLowerYInput, 'y lower', 2),
+        (_integralUpperYInput, 'y upper', 3),
+      ],
+      'Triple integral' => <(TextEditingController, String, int)>[
+        (_integralLowerInput, 'x lower', 0),
+        (_integralUpperInput, 'x upper', 1),
+        (_integralLowerYInput, 'y lower', 2),
+        (_integralUpperYInput, 'y upper', 3),
+        (_integralLowerZInput, 'z lower', 4),
+        (_integralUpperZInput, 'z upper', 5),
+      ],
+      'Two-sided limit' ||
+      'Left-hand limit' ||
+      'Right-hand limit' => <(TextEditingController, String, int)>[
+        (_limitApproachInput, 'x approaches', 6),
+      ],
+      _ => <(TextEditingController, String, int)>[],
+    };
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 6,
+          children: [
+            for (final family in families)
+              ChoiceChip(
+                label: Text(family),
+                selected: _calculusFamily == family,
+                onSelected: (_) => setState(() {
+                  _calculusFamily = family;
+                  _calculusOperation = family == 'Integrals'
+                      ? 'Indefinite integral'
+                      : family == 'Limits'
+                      ? 'Two-sided limit'
+                      : 'First derivative';
+                  _selectedIntegralBound = null;
+                  _result = null;
+                  _answerShown = false;
+                }),
+              ),
+          ],
+        ),
+        Wrap(
+          spacing: 4,
+          children: [
+            for (final operation in operations)
+              ChoiceChip(
+                label: Text(operation),
+                selected: _calculusOperation == operation,
+                onSelected: (_) => setState(() {
+                  _calculusOperation = operation;
+                  _selectedIntegralBound = null;
+                  _result = null;
+                  _answerShown = false;
+                }),
+              ),
+          ],
+        ),
+        if (_calculusFamily == 'Derivatives')
+          Wrap(
+            spacing: 6,
+            children: [
+              const Text('Notation'),
+              for (final notation in ['Lagrange', 'Leibniz'])
+                ChoiceChip(
+                  label: Text(notation),
+                  selected: _derivativeNotation == notation,
+                  onSelected: (_) =>
+                      setState(() => _derivativeNotation = notation),
+                ),
+              if (_calculusOperation == 'Partial derivative')
+                for (final variable in ['x', 'y', 'z'])
+                  ChoiceChip(
+                    label: Text('∂/$variable'),
+                    selected: _partialVariable == variable,
+                    onSelected: (_) =>
+                        setState(() => _partialVariable = variable),
+                  ),
+            ],
+          ),
+        if (_calculusOperation == 'Limit at infinity')
+          Wrap(
+            spacing: 6,
+            children: [
+              ChoiceChip(
+                label: const Text('+∞'),
+                selected: _limitAtPositiveInfinity,
+                onSelected: (_) =>
+                    setState(() => _limitAtPositiveInfinity = true),
+              ),
+              ChoiceChip(
+                label: const Text('−∞'),
+                selected: !_limitAtPositiveInfinity,
+                onSelected: (_) =>
+                    setState(() => _limitAtPositiveInfinity = false),
+              ),
+            ],
+          ),
+        if (boundFields.isNotEmpty)
+          Wrap(
+            spacing: 6,
+            runSpacing: 4,
+            children: [
+              for (final field in boundFields)
+                SizedBox(
+                  width: 120,
+                  child: TextField(
+                    controller: field.$1,
+                    readOnly: true,
+                    keyboardType: TextInputType.none,
+                    onTap: () =>
+                        setState(() => _selectedIntegralBound = field.$3),
+                    decoration: InputDecoration(
+                      labelText: field.$2,
+                      isDense: true,
+                      border: const OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+      ],
+    );
+  }
+
   Widget _buildFunctionRow() {
     final List<(String, String)> functions = switch (_mode) {
       _CalculatorMode.algebra => [
@@ -4468,17 +4733,45 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ],
       _CalculatorMode.calculus => [
         ('x', 'x'),
-        ('\u03C0', 'pi'),
-        ('e', 'e'),
-        ('xʸ', '^'),
-        ('d/dx', 'CALC_DERIVATIVE'),
-        ('\u222B', 'CALC_INTEGRAL'),
-        ('\u222B\u2090\u1D47', 'CALC_DEFINITE_INTEGRAL'),
+        ('y', 'y'),
+        ('z', 'z'),
+        ('f(x)', 'f(x)'),
+        ('f(g(x))', 'f(g(x))'),
+        ('f⁻¹(x)', 'f^(-1)'),
+        ('|x|', 'abs('),
+        ('exp', 'exp('),
+        ('ln', 'ln('),
+        ('log₁₀', 'log10('),
+        ('log base', 'log('),
+        ('x²', '^2'),
+        ('x³', '^3'),
+        ('xⁿ', '^'),
+        ('x⁻¹', '^(-1)'),
+        ('x^(m/n)', '^(1/2)'),
+        ('√x', 'sqrt('),
+        ('∛x', 'cbrt('),
+        ('ⁿ√x', 'nrt('),
         ('sin', 'sin('),
         ('cos', 'cos('),
         ('tan', 'tan('),
-        ('sqrt', 'sqrt('),
-        ('ln', 'ln('),
+        ('csc', 'csc('),
+        ('sec', 'sec('),
+        ('cot', 'cot('),
+        ('arcsin', 'arcsin('),
+        ('arccos', 'arccos('),
+        ('arctan', 'arctan('),
+        ('arccsc', 'arccsc('),
+        ('arccot', 'arccot('),
+        ('π', 'pi'),
+        ('e', 'e'),
+        ('τ', 'tau'),
+        ('φ', 'phi'),
+        ('i', 'i'),
+        ('∞', 'infinity'),
+        ('+ C', ' + C'),
+        ('d/dx', 'CALC_DERIVATIVE'),
+        ('∫', 'CALC_INTEGRAL'),
+        ('∫ₐᵇ', 'CALC_DEFINITE_INTEGRAL'),
         ('±', 'SIGN'),
         ('a/b', 'a/b'),
         (',', ','),

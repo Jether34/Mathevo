@@ -79,4 +79,71 @@ void main() {
       );
     },
   );
+
+  test('supports calculator calculus keys and numerical operations', () {
+    expect(engine.differentiate('x^2'), '2*x');
+    expect(engine.differentiate('2*x'), '2');
+    expect(engine.differentiate('x^3'), '3*x^2');
+    expect(engine.evaluate('sec(0)'), closeTo(1, 1e-12));
+    expect(engine.evaluate('csc(1)'), closeTo(1 / 0.8414709848, 1e-8));
+    expect(engine.evaluate('cot(1)'), closeTo(1 / 1.5574077247, 1e-8));
+    expect(engine.evaluate('arcsin(1)'), closeTo(1.57079632679, 1e-10));
+    expect(engine.evaluate('arccos(1)'), closeTo(0, 1e-12));
+    expect(engine.evaluate('arctan(1)'), closeTo(0.78539816339, 1e-10));
+    expect(engine.evaluate('arccsc(2)'), closeTo(0.52359877559, 1e-10));
+    expect(engine.evaluate('arccot(1)'), closeTo(0.78539816339, 1e-10));
+    expect(engine.evaluate('log(2, 8)'), closeTo(3, 1e-12));
+    expect(engine.evaluate('tau'), closeTo(2 * 3.14159265359, 1e-10));
+    expect(
+      engine
+          .integrateDouble('x*y', lowerX: 0, upperX: 1, lowerY: 0, upperY: 1)
+          .value,
+      closeTo(0.25, 1e-8),
+    );
+    expect(
+      engine
+          .integrateTriple(
+            'x*y*z',
+            lowerX: 0,
+            upperX: 1,
+            lowerY: 0,
+            upperY: 1,
+            lowerZ: 0,
+            upperZ: 1,
+          )
+          .value,
+      closeTo(0.125, 1e-8),
+    );
+    expect(
+      engine.calculateLimit(
+        'x^2',
+        variable: 'x',
+        point: 0,
+        side: LimitSide.twoSided,
+      ),
+      closeTo(0, 1e-8),
+    );
+    expect(
+      engine.calculateLimit('x', variable: 'x', point: 0, side: LimitSide.left),
+      closeTo(0, 1e-8),
+    );
+    expect(
+      engine.calculateLimit(
+        'x',
+        variable: 'x',
+        point: 0,
+        side: LimitSide.right,
+      ),
+      closeTo(0, 1e-8),
+    );
+    expect(
+      () => engine.calculateLimit(
+        '1/x',
+        variable: 'x',
+        point: 0,
+        side: LimitSide.twoSided,
+      ),
+      throwsA(isA<MathInputException>()),
+    );
+  });
 }

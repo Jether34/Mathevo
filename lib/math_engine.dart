@@ -7,6 +7,8 @@ import 'exact_arithmetic.dart';
 
 enum MathResultKind { exact, approximate }
 
+enum LimitSide { twoSided, left, right, positiveInfinity, negativeInfinity }
+
 enum MathSupportStatus { supported, limited, planned, unsupported }
 
 class MathCapability {
@@ -144,6 +146,27 @@ class MathEngine {
   /// and `(x+1)^2(2x+3)`.
   static String _normalizeImplicitMultiplication(String source) {
     var normalized = source;
+    normalized = normalized
+        .replaceAll('π', 'pi')
+        .replaceAll('τ', '(2*pi)')
+        .replaceAll('φ', '((1+sqrt(5))/2)')
+        .replaceAll('∞', '(1e300)');
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\binfinity\b', caseSensitive: false),
+      (_) => '(1e300)',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\btau\b', caseSensitive: false),
+      (_) => '(2*pi)',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\bphi\b', caseSensitive: false),
+      (_) => '((1+sqrt(5))/2)',
+    );
+    normalized = normalized.replaceAllMapped(
+      RegExp(r'\be\b'),
+      (_) => '(2.718281828459045)',
+    );
     normalized = normalized.replaceAllMapped(
       RegExp(r'(\d)(?=(?:x|y|z|pi|e)\b)', caseSensitive: false),
       (match) => '${match[1]}*',
@@ -193,6 +216,79 @@ class MathEngine {
     }
 
     parser.functionsC.addAll({
+      'exp': (arguments) => math.exp(unary('exp', arguments)),
+      'ln': (arguments) {
+        final value = unary('ln', arguments);
+        if (value <= 0) throw ArgumentError('ln needs a positive value.');
+        return math.log(value);
+      },
+      'log': (arguments) {
+        if (arguments.length == 1) {
+          if (arguments.single <= 0) {
+            throw ArgumentError('log needs a positive value.');
+          }
+          return math.log(arguments.single) / math.ln10;
+        }
+        if (arguments.length == 2 &&
+            arguments.every((value) => value.isFinite) &&
+            arguments[0] > 0 &&
+            arguments[0] != 1 &&
+            arguments[1] > 0) {
+          return math.log(arguments[1]) / math.log(arguments[0]);
+        }
+        throw ArgumentError('log expects log(value) or log(base, value).');
+      },
+      'sec': (arguments) {
+        final cosine = math.cos(unary('sec', arguments));
+        if (cosine.abs() < 1e-15) throw ArgumentError('sec is undefined here.');
+        return 1 / cosine;
+      },
+      'csc': (arguments) {
+        final sine = math.sin(unary('csc', arguments));
+        if (sine.abs() < 1e-15) throw ArgumentError('csc is undefined here.');
+        return 1 / sine;
+      },
+      'cot': (arguments) {
+        final value = unary('cot', arguments);
+        final sine = math.sin(value);
+        if (sine.abs() < 1e-15) throw ArgumentError('cot is undefined here.');
+        return math.cos(value) / sine;
+      },
+      'arccsc': (arguments) {
+        final value = unary('arccsc', arguments);
+        if (value == 0) throw ArgumentError('arccsc needs a nonzero value.');
+        return math.asin(1 / value);
+      },
+      'arcsin': (arguments) => math.asin(unary('arcsin', arguments)),
+      'arccos': (arguments) => math.acos(unary('arccos', arguments)),
+      'arctan': (arguments) => math.atan(unary('arctan', arguments)),
+      'arccot': (arguments) {
+        final value = unary('arccot', arguments);
+        return math.atan2(1, value);
+      },
+      'arcsec': (arguments) {
+        final value = unary('arcsec', arguments);
+        if (value.abs() < 1) throw ArgumentError('arcsec needs |x| >= 1.');
+        return math.acos(1 / value);
+      },
+      'nrt': (arguments) {
+        if (arguments.length != 2 ||
+            arguments.any((value) => !value.isFinite) ||
+            arguments[0] == 0) {
+          throw ArgumentError('nrt expects a nonzero degree and a value.');
+        }
+        final degree = arguments[0];
+        final value = arguments[1];
+        if (value < 0 &&
+            degree.roundToDouble() == degree &&
+            degree.abs() % 2 == 1) {
+          return -math.pow(-value, 1 / degree).toDouble();
+        }
+        if (value < 0 && degree.roundToDouble() == degree) {
+          throw ArgumentError('An even root of a negative value is not real.');
+        }
+        return math.pow(value, 1 / degree).toDouble();
+      },
       'cbrt': (arguments) {
         final value = unary('cbrt', arguments);
         return value.sign * math.pow(value.abs(), 1 / 3).toDouble();
@@ -263,13 +359,182 @@ class MathEngine {
       final expression = _parser().parse(
         _normalizeImplicitMultiplication(source),
       );
-      final derivative = expression.derive(variable).simplify();
+      final polynomial = _polynomialTerms(expression, variable);
+      if (polynomial != null) {
+        final derivative = <int, double>{};
+        for (final term in polynomial.entries) {
+          if (term.key > 0) {
+            derivative[term.key - 1] = term.value * term.key;
+          }
+        }
+        return _formatPolynomialTerms(derivative, variable);
+      }
+      final derivative = _differentiateExpression(
+        expression,
+        variable,
+      ).simplify();
       return derivative.toString();
     } on Object {
       throw const MathInputException(
         'Could not differentiate this expression. Check its syntax.',
       );
     }
+  }
+
+  Map<int, double>? _polynomialTerms(Expression expression, String variable) {
+    if (expression is Number) return {0: (expression.value as num).toDouble()};
+    if (expression is Variable) {
+      return expression.name == variable ? {1: 1} : null;
+    }
+    if (expression is UnaryPlus) {
+      return _polynomialTerms(expression.exp, variable);
+    }
+    if (expression is UnaryMinus) {
+      final operand = _polynomialTerms(expression.exp, variable);
+      return operand?.map((degree, value) => MapEntry(degree, -value));
+    }
+    if (expression is Plus || expression is Minus) {
+      final operator = expression as BinaryOperator;
+      final left = _polynomialTerms(operator.first, variable);
+      final right = _polynomialTerms(operator.second, variable);
+      if (left == null || right == null) return null;
+      final result = Map<int, double>.from(left);
+      final sign = expression is Minus ? -1 : 1;
+      for (final term in right.entries) {
+        result.update(
+          term.key,
+          (value) => value + sign * term.value,
+          ifAbsent: () => sign * term.value,
+        );
+      }
+      result.removeWhere((_, value) => value.abs() < 1e-12);
+      return result;
+    }
+    if (expression is Times) {
+      final left = _polynomialTerms(expression.first, variable);
+      final right = _polynomialTerms(expression.second, variable);
+      if (left == null || right == null) return null;
+      final result = <int, double>{};
+      for (final a in left.entries) {
+        for (final b in right.entries) {
+          final degree = a.key + b.key;
+          if (degree > 12) return null;
+          result.update(
+            degree,
+            (value) => value + a.value * b.value,
+            ifAbsent: () => a.value * b.value,
+          );
+        }
+      }
+      return result;
+    }
+    if (expression is Divide) {
+      final numerator = _polynomialTerms(expression.first, variable);
+      final denominator = _polynomialTerms(expression.second, variable);
+      if (numerator == null ||
+          denominator == null ||
+          denominator.keys.any((degree) => degree != 0) ||
+          (denominator[0] ?? 0) == 0) {
+        return null;
+      }
+      return numerator.map(
+        (degree, value) => MapEntry(degree, value / denominator[0]!),
+      );
+    }
+    if (expression is Power && expression.second is Number) {
+      final exponent = ((expression.second as Number).value as num).toDouble();
+      if (exponent < 0 ||
+          exponent > 12 ||
+          exponent != exponent.roundToDouble()) {
+        return null;
+      }
+      final base = _polynomialTerms(expression.first, variable);
+      if (base == null) return null;
+      var result = <int, double>{0: 1};
+      for (var i = 0; i < exponent.toInt(); i++) {
+        final product = <int, double>{};
+        for (final a in result.entries) {
+          for (final b in base.entries) {
+            final degree = a.key + b.key;
+            if (degree > 12) return null;
+            product.update(
+              degree,
+              (value) => value + a.value * b.value,
+              ifAbsent: () => a.value * b.value,
+            );
+          }
+        }
+        result = product;
+      }
+      return result;
+    }
+    return null;
+  }
+
+  String _formatPolynomialTerms(
+    Map<int, double> coefficients,
+    String variable,
+  ) {
+    final terms = <String>[];
+    for (final degree
+        in coefficients.keys.toList()..sort((a, b) => b.compareTo(a))) {
+      final coefficient = coefficients[degree]!;
+      if (coefficient.abs() < 1e-12) continue;
+      final sign = coefficient.isNegative ? '-' : '';
+      final magnitude = coefficient.abs();
+      if (degree == 0) {
+        terms.add('$sign${_formatReal(magnitude)}');
+        continue;
+      }
+      final coefficientText = magnitude == 1
+          ? ''
+          : '${_formatReal(magnitude)}*';
+      final power = degree == 1 ? '' : '^$degree';
+      terms.add('$sign$coefficientText$variable$power');
+    }
+    if (terms.isEmpty) return '0';
+    return terms.join(' + ').replaceAll('+ -', '- ');
+  }
+
+  Expression _differentiateExpression(Expression expression, String variable) {
+    Expression derivative(Expression value) =>
+        _differentiateExpression(value, variable);
+    if (expression is Number) return Number(0);
+    if (expression is Variable) {
+      return Number(expression.name == variable ? 1 : 0);
+    }
+    if (expression is Plus) {
+      return Plus(derivative(expression.first), derivative(expression.second));
+    }
+    if (expression is Minus) {
+      return Minus(derivative(expression.first), derivative(expression.second));
+    }
+    if (expression is Times) {
+      return Plus(
+        Times(derivative(expression.first), expression.second),
+        Times(expression.first, derivative(expression.second)),
+      );
+    }
+    if (expression is Divide) {
+      return Divide(
+        Minus(
+          Times(derivative(expression.first), expression.second),
+          Times(expression.first, derivative(expression.second)),
+        ),
+        Power(expression.second, Number(2)),
+      );
+    }
+    if (expression is Power && expression.second is Number) {
+      final exponent = ((expression.second as Number).value as num).toDouble();
+      return Times(
+        Times(Number(exponent), Power(expression.first, Number(exponent - 1))),
+        derivative(expression.first),
+      );
+    }
+    if (expression is UnaryMinus) {
+      return UnaryMinus(derivative(expression.exp));
+    }
+    return expression.derive(variable);
   }
 
   /// Solves one-variable linear and quadratic polynomial equations.
@@ -524,6 +789,200 @@ class MathEngine {
       throw const MathInputException(
         'Could not integrate this expression over the selected bounds.',
       );
+    }
+  }
+
+  MathResult integrateDouble(
+    String input, {
+    required double lowerX,
+    required double upperX,
+    required double lowerY,
+    required double upperY,
+  }) =>
+      _integrateMultiple(input, {'x': (lowerX, upperX), 'y': (lowerY, upperY)});
+
+  MathResult integrateTriple(
+    String input, {
+    required double lowerX,
+    required double upperX,
+    required double lowerY,
+    required double upperY,
+    required double lowerZ,
+    required double upperZ,
+  }) => _integrateMultiple(input, {
+    'x': (lowerX, upperX),
+    'y': (lowerY, upperY),
+    'z': (lowerZ, upperZ),
+  });
+
+  MathResult _integrateMultiple(
+    String input,
+    Map<String, (double, double)> bounds,
+  ) {
+    final source = input.trim();
+    if (source.isEmpty) throw const MathInputException('Enter an integrand.');
+    if (bounds.values.any(
+      (range) => !range.$1.isFinite || !range.$2.isFinite,
+    )) {
+      throw const MathInputException('Use finite bounds for each variable.');
+    }
+    try {
+      final expression = _parser().parse(
+        _normalizeImplicitMultiplication(source),
+      );
+      final variables = VariableCollector().evaluate(expression).toSet();
+      if (variables.difference(bounds.keys.toSet()).isNotEmpty) {
+        throw MathInputException(
+          'The integrand may only use ${bounds.keys.join(', ')}.',
+        );
+      }
+
+      const intervals = 16;
+      final steps = <String, double>{};
+      for (final entry in bounds.entries) {
+        steps[entry.key] = (entry.value.$2 - entry.value.$1) / intervals;
+      }
+      var weightedSum = 0.0;
+      void visit(int dimension, Map<String, double> values, double weight) {
+        if (dimension == bounds.length) {
+          final context = ContextModel();
+          for (final entry in values.entries) {
+            context.bindVariableName(entry.key, Number(entry.value));
+          }
+          final value = RealEvaluator(
+            context,
+            true,
+          ).evaluate(expression).toDouble();
+          if (!value.isFinite) {
+            throw const MathInputException(
+              'The integrand is not finite throughout the selected region.',
+            );
+          }
+          weightedSum += weight * value;
+          return;
+        }
+        final variable = bounds.keys.elementAt(dimension);
+        final range = bounds[variable]!;
+        final step = steps[variable]!;
+        for (var index = 0; index <= intervals; index++) {
+          values[variable] = range.$1 + step * index;
+          final simpsonWeight = index == 0 || index == intervals
+              ? 1.0
+              : index.isOdd
+              ? 4.0
+              : 2.0;
+          visit(dimension + 1, values, weight * simpsonWeight);
+        }
+        values.remove(variable);
+      }
+
+      visit(0, {}, 1);
+      var scale = math.pow(1 / 3, bounds.length).toDouble();
+      for (final step in steps.values) {
+        scale *= step;
+      }
+      return MathResult(
+        input: source,
+        value: weightedSum * scale,
+        kind: MathResultKind.approximate,
+        significantDigits: 12,
+      );
+    } on MathInputException {
+      rethrow;
+    } on Object {
+      throw const MathInputException(
+        'Could not evaluate the multiple integral over these bounds.',
+      );
+    }
+  }
+
+  double calculateLimit(
+    String input, {
+    required String variable,
+    required double point,
+    required LimitSide side,
+  }) {
+    final source = input.trim();
+    if (source.isEmpty) throw const MathInputException('Enter a function.');
+    final towardInfinity =
+        side == LimitSide.positiveInfinity ||
+        side == LimitSide.negativeInfinity;
+    if (!towardInfinity && !point.isFinite) {
+      throw const MathInputException('Enter a finite point for this limit.');
+    }
+    try {
+      double sample(double x) => evaluateAt(source, x, variable: variable);
+      List<double> samplesFor(int direction) {
+        final samples = <double>[];
+        if (towardInfinity) {
+          final sign = side == LimitSide.positiveInfinity ? 1.0 : -1.0;
+          for (final exponent in [1, 2, 3, 4, 5, 6, 7]) {
+            try {
+              final value = sample(sign * math.pow(10, exponent).toDouble());
+              if (value.isFinite) samples.add(value);
+            } on MathInputException {
+              // Continue with larger inputs when the function is undefined.
+            }
+          }
+        } else {
+          final scale = math.max(1, point.abs());
+          for (var exponent = 1; exponent <= 8; exponent++) {
+            final offset = scale * math.pow(10, -exponent).toDouble();
+            try {
+              final value = sample(point + direction * offset);
+              if (value.isFinite) samples.add(value);
+            } on MathInputException {
+              // Domain restrictions can remove samples on one side only.
+            }
+          }
+        }
+        return samples;
+      }
+
+      double estimate(List<double> values) {
+        if (values.length < 2) {
+          throw const MathInputException(
+            'The limit is undefined from the selected direction.',
+          );
+        }
+        final previous = values[values.length - 2];
+        final last = values.last;
+        if (last.abs() > 1e8 && last.abs() > previous.abs() * 1.5) {
+          return last.isNegative ? double.negativeInfinity : double.infinity;
+        }
+        final tolerance = 1e-5 * math.max(1, last.abs());
+        if ((last - previous).abs() > tolerance) {
+          throw const MathInputException(
+            'The sampled values do not approach a stable limit.',
+          );
+        }
+        // Sampling offsets shrink by a factor of ten, so this first-order
+        // extrapolation removes the leading error for smooth functions.
+        return (10 * last - previous) / 9;
+      }
+
+      if (towardInfinity) return estimate(samplesFor(1));
+      if (side == LimitSide.left) return estimate(samplesFor(-1));
+      if (side == LimitSide.right) return estimate(samplesFor(1));
+      final left = estimate(samplesFor(-1));
+      final right = estimate(samplesFor(1));
+      if (!left.isFinite || !right.isFinite) {
+        if (left == right) return left;
+        throw const MathInputException(
+          'The left and right limits do not agree.',
+        );
+      }
+      if ((left - right).abs() >
+          1e-5 * math.max(1, math.max(left.abs(), right.abs()))) {
+        throw const MathInputException(
+          'The left and right limits do not agree.',
+        );
+      }
+      return (left + right) / 2;
+    } on MathInputException {
+      rethrow;
+    } on Object {
+      throw const MathInputException('Could not estimate this limit.');
     }
   }
 

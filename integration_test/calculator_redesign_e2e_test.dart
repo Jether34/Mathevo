@@ -90,6 +90,113 @@ void main() {
       );
     }
 
+    await _selectMode(tester, 'Integral calculus');
+    for (final operation in [
+      'First derivative',
+      'Second derivative',
+      'Partial derivative',
+    ]) {
+      expect(find.text(operation), findsOneWidget);
+    }
+    await _tap(tester, find.text('Integrals'));
+    for (final operation in [
+      'Indefinite integral',
+      'Definite integral',
+      'Double integral',
+      'Triple integral',
+    ]) {
+      expect(find.text(operation), findsOneWidget);
+    }
+    await _tap(tester, find.text('Limits'));
+    for (final operation in [
+      'Two-sided limit',
+      'Left-hand limit',
+      'Right-hand limit',
+      'Limit at infinity',
+    ]) {
+      expect(find.text(operation), findsOneWidget);
+    }
+    for (final functionKey in [
+      'f(x)',
+      'f(g(x))',
+      'f^(-1)',
+      'abs(',
+      'exp(',
+      'ln(',
+      'log10(',
+      'log(',
+      '^2',
+      '^3',
+      '^',
+      '^(-1)',
+      '^(1/2)',
+      'sqrt(',
+      'cbrt(',
+      'nrt(',
+      'sin(',
+      'cos(',
+      'tan(',
+      'csc(',
+      'sec(',
+      'cot(',
+      'arcsin(',
+      'arccos(',
+      'arctan(',
+      'arccsc(',
+      'arccot(',
+      'pi',
+      'e',
+      'tau',
+      'phi',
+      'i',
+      'infinity',
+      ' + C',
+    ]) {
+      expect(find.byKey(ValueKey('function-key-$functionKey')), findsOneWidget);
+    }
+
+    await _tap(tester, find.text('Derivatives'));
+    await _tap(tester, find.text('Second derivative'));
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
+    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('d²y/dx² = 2'),
+    );
+
+    await _tap(tester, find.text('Integrals'));
+    await _tap(tester, find.text('Double integral'));
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    await _tap(tester, find.byKey(const ValueKey('basic-key-multiply')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-y')));
+    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('≈ 1'),
+    );
+
+    await _tap(tester, find.text('Limits'));
+    await _tap(tester, find.text('Right-hand limit'));
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('0'),
+    );
+
     await _selectMode(tester, 'Discrete math');
     expect(find.byKey(const ValueKey('function-key-VAR_C')), findsOneWidget);
     expect(find.byKey(const ValueKey('function-key-C')), findsOneWidget);
