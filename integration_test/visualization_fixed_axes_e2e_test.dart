@@ -72,6 +72,18 @@ void main() {
     expect(changedLabel, contains('y axis from -6 to 6'));
     expect(changedLabel, contains('z axis from -20 to 80'));
     expect(changedLabel, isNot(initialLabel));
+
+    await tester.tap(find.text('Flip back to calculator'));
+    await tester.pumpAndSettle();
+    expect(find.byKey(const Key('calculation-result-panel')), findsOneWidget);
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('4'),
+    );
+    expect(find.textContaining('Substitute x='), findsNothing);
   });
 }
 

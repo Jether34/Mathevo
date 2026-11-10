@@ -9,6 +9,7 @@ class CalculationRecord {
     required this.createdAt,
     this.isExact = false,
     this.calculationCount = 1,
+    this.steps = const [],
   });
 
   final String expression;
@@ -16,6 +17,7 @@ class CalculationRecord {
   final DateTime createdAt;
   final bool isExact;
   final int calculationCount;
+  final List<String> steps;
 
   Map<String, Object> toJson() => {
     'expression': expression,
@@ -23,6 +25,7 @@ class CalculationRecord {
     'createdAt': createdAt.toIso8601String(),
     'isExact': isExact,
     'calculationCount': calculationCount,
+    'steps': steps,
   };
 
   factory CalculationRecord.fromJson(Map<String, dynamic> json) =>
@@ -32,6 +35,7 @@ class CalculationRecord {
         createdAt: DateTime.parse(json['createdAt'] as String),
         isExact: json['isExact'] as bool? ?? false,
         calculationCount: json['calculationCount'] as int? ?? 1,
+        steps: (json['steps'] as List<dynamic>?)?.cast<String>() ?? const [],
       );
 }
 

@@ -111,6 +111,10 @@ void main() {
       'CALC_LIMIT_RIGHT',
       'CALC_LIMIT_POS_INFINITY',
       'CALC_LIMIT_NEG_INFINITY',
+      'CALC_DERIVATIVE_T',
+      'DIFF_EQ_DX',
+      'DIFF_EQ_DY',
+      'DIFF_EQ_DZ',
     ]) {
       expect(
         find.byKey(ValueKey('function-key-$operationKey')),
@@ -156,14 +160,14 @@ void main() {
       expect(find.byKey(ValueKey('function-key-$functionKey')), findsOneWidget);
     }
 
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(
       tester,
       find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
     );
-    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -172,36 +176,65 @@ void main() {
       contains('d²y/dx² = 2'),
     );
 
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(
       tester,
       find.byKey(const ValueKey('function-key-CALC_DOUBLE_INTEGRAL')),
     );
-    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    expect(find.byKey(const Key('calculus-bounds-dialog')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('calculus-bound-0')), '0');
+    await tester.enterText(find.byKey(const ValueKey('calculus-bound-1')), '1');
+    await tester.enterText(find.byKey(const ValueKey('calculus-bound-2')), '0');
+    await tester.enterText(find.byKey(const ValueKey('calculus-bound-3')), '1');
+    await _tap(tester, find.text('Done'));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key-multiply')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-*')));
     await _tap(tester, find.byKey(const ValueKey('function-key-y')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
           .properties
           .label,
-      contains('≈ 1'),
+      contains('≈ 0.25'),
     );
 
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(
       tester,
       find.byKey(const ValueKey('function-key-CALC_LIMIT_RIGHT')),
     );
-    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    expect(find.byKey(const Key('calculus-bounds-dialog')), findsOneWidget);
+    await tester.enterText(find.byKey(const ValueKey('calculus-bound-6')), '0');
+    await _tap(tester, find.text('Done'));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
           .properties
           .label,
       contains('0'),
+    );
+
+    await _tap(tester, find.byKey(const ValueKey('function-key-C')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-DIFF_EQ_DX')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-(')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-z')));
+    await _tap(tester, find.byKey(const ValueKey('function-key--')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-b')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-)')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    await _tap(tester, find.byKey(const ValueKey('function-key--')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-d')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-y')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-CALC_EQUALS')));
+    expect(
+      tester
+          .widget<Semantics>(find.byKey(const Key('calculation-result')))
+          .properties
+          .label,
+      contains('dx/dt=(z-b)x-dy'),
     );
 
     await _selectMode(tester, 'Discrete math');

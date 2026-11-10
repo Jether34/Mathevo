@@ -13,6 +13,7 @@ void main() {
       result: '4',
       createdAt: DateTime.utc(2026, 1, 1),
       isExact: true,
+      steps: const ['Substitute x=2', 'Result: 4'],
     );
 
     await history.add(record);
@@ -22,6 +23,7 @@ void main() {
     expect(loaded.single.result, record.result);
     expect(loaded.single.createdAt, record.createdAt);
     expect(loaded.single.isExact, isTrue);
+    expect(loaded.single.steps, record.steps);
 
     for (var index = 1; index <= 100; index++) {
       await history.add(

@@ -1229,11 +1229,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _resultIsExact = false;
   Timer? _drawingDebounce;
   final List<String> _sessionBreakdown = [];
+  final List<String> _sessionSteps = [];
   String? _sessionFinalResult;
   bool _sessionIsExact = true;
   String _calculusFamily = 'Derivatives';
   String _calculusOperation = 'First derivative';
   String _derivativeNotation = 'Leibniz';
+  String _derivativeVariable = 'x';
+  String _dependentVariable = 'y';
   String _partialVariable = 'x';
   final String _integrationVariable = 'x';
   bool _limitAtPositiveInfinity = true;
@@ -1326,6 +1329,99 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _limitApproachInput,
   ];
 
+  Future<void> _showCalculusBoundsDialog() async {
+    final fields = switch (_calculusOperation) {
+      'Definite integral' => const [(0, 'Lower x'), (1, 'Upper x')],
+      'Double integral' => const [
+        (0, 'Lower x'),
+        (1, 'Upper x'),
+        (2, 'Lower y'),
+        (3, 'Upper y'),
+      ],
+      'Triple integral' => const [
+        (0, 'Lower x'),
+        (1, 'Upper x'),
+        (2, 'Lower y'),
+        (3, 'Upper y'),
+        (4, 'Lower z'),
+        (5, 'Upper z'),
+      ],
+      _ => const [(6, 'Approach value')],
+    };
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        key: const Key('calculus-bounds-dialog'),
+        title: Text('Set $_calculusOperationSymbol values'),
+        content: SizedBox(
+          width: 360,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final (index, label) in fields)
+                SizedBox(
+                  width: 145,
+                  child: TextField(
+                    key: ValueKey('calculus-bound-$index'),
+                    controller: _calculusBoundControllers[index],
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                      signed: true,
+                    ),
+                    onChanged: (_) => setState(() {}),
+                    decoration: InputDecoration(
+                      labelText: label,
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Done'),
+          ),
+        ],
+      ),
+    );
+    if (mounted) {
+      setState(() {
+        _selectedIntegralBound = null;
+        _result = null;
+        _answerShown = false;
+      });
+    }
+  }
+
+  void _clearCalculatorInputs() {
+    setState(() {
+      _input.clear();
+      _numerator.clear();
+      _denominator.clear();
+      for (final controller in _calculusBoundControllers) {
+        controller.clear();
+      }
+      _fractionBuilder = false;
+      _fractionDenominatorSelected = false;
+      _selectedIntegralBound = null;
+      _result = null;
+      _error = null;
+      _resultIsExact = false;
+      _answerShown = false;
+      _calculusFamily = 'Derivatives';
+      _calculusOperation = 'First derivative';
+      _derivativeNotation = 'Leibniz';
+      _derivativeVariable = 'x';
+      _dependentVariable = 'y';
+      _partialVariable = 'x';
+      _limitAtPositiveInfinity = true;
+    });
+  }
+
   void _insertFraction() {
     if (_numerator.text.trim().isEmpty || _denominator.text.trim().isEmpty) {
       _showCalculationError('Enter both a numerator and denominator.');
@@ -1415,9 +1511,23 @@ class _CalculatorPageState extends State<CalculatorPage> {
     var tex = source.trim();
     if (tex.isEmpty) return r'\square';
     tex = tex.replaceAll('3.141592653589793', r'\pi');
+    tex = tex
+        .replaceAll('infinity', r'\infty')
+        .replaceAll('tau', r'\tau')
+        .replaceAll('phi', r'\varphi')
+        .replaceAll('nabla', r'\nabla')
+        .replaceAll('delta', r'\Delta')
+        .replaceAll('lineIntegral', r'\oint')
+        .replaceAll('sumSymbol', r'\sum')
+        .replaceAll('productSymbol', r'\prod')
+        .replaceAll('partial', r'\partial');
     tex = tex.replaceAllMapped(
       RegExp(r'\(([^()]*)\)\s*/\s*\(([^()]*)\)'),
       (m) => '\\frac{${m[1]}}{${m[2]}}',
+    );
+    tex = tex.replaceAllMapped(
+      RegExp(r'\b(d[xyz])/dt\b'),
+      (match) => '\\frac{${match[1]}}{dt}',
     );
     tex = tex.replaceAllMapped(
       RegExp(r'(?<![A-Za-z])([A-Za-z0-9.]+)\s*/\s*([A-Za-z0-9.]+)(?![A-Za-z])'),
@@ -1482,21 +1592,39 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     final body = _mathTexFromSource(_input.text);
     if (_mode != _CalculatorMode.calculus) return body;
+    if (_input.text.trim().isEmpty &&
+        _calculusFamily == 'Derivatives' &&
+        _calculusOperation == 'First derivative') {
+      return body;
+    }
+    if (RegExp(r'^d[xyz]/dt\s*=').hasMatch(_input.text.trim())) return body;
     if (_calculusFamily == 'Derivatives') {
       final derivative = _derivativeNotation == 'Lagrange'
           ? (_calculusOperation == 'Second derivative' ? "f''" : "f'")
           : (_calculusOperation == 'Second derivative'
-                ? r'\frac{d^2}{dx^2}'
-                : r'\frac{d}{dx}');
+                ? '\\frac{d^2$_dependentVariable}{d$_derivativeVariable^2}'
+                : '\\frac{d$_dependentVariable}{d$_derivativeVariable}');
       return '$derivative\\left($body\\right)';
     }
-    if (_calculusFamily == 'Limits') return '\\lim_{x\\to a} $body';
+    if (_calculusFamily == 'Limits') {
+      final target = _calculusOperation == 'Limit at infinity'
+          ? (_limitAtPositiveInfinity ? r'\infty' : r'-\infty')
+          : _limitApproachInput.text;
+      final approach = switch (_calculusOperation) {
+        'Left-hand limit' => r'^{-}',
+        'Right-hand limit' => r'^{+}',
+        _ => '',
+      };
+      return '\\lim_{x\\to $target$approach} $body';
+    }
     return switch (_calculusOperation) {
       'Indefinite integral' => '\\int $body\\,d$_integrationVariable',
       'Definite integral' =>
         '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}} $body\\,dx',
-      'Double integral' => '\\iint $body\\,dx\\,dy',
-      _ => '\\iiint $body\\,dx\\,dy\\,dz',
+      'Double integral' =>
+        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}}\\int_{${_integralLowerYInput.text}}^{${_integralUpperYInput.text}} $body\\,dx\\,dy',
+      _ =>
+        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}}\\int_{${_integralLowerYInput.text}}^{${_integralUpperYInput.text}}\\int_{${_integralLowerZInput.text}}^{${_integralUpperZInput.text}} $body\\,dx\\,dy\\,dz',
     };
   }
 
@@ -1661,20 +1789,32 @@ class _CalculatorPageState extends State<CalculatorPage> {
         return;
       }
       if (_mode == _CalculatorMode.calculus) {
+        if (RegExp(r'^d[xyz]/dt\s*=').hasMatch(expression)) {
+          setState(() {
+            _result = expression;
+            _error = null;
+            _resultIsExact = false;
+            _answerShown = true;
+          });
+          _appendSessionEntry(expression, expression, exact: false);
+          return;
+        }
         if (_calculusFamily == 'Derivatives') {
           final variable = _calculusOperation == 'Partial derivative'
               ? _partialVariable
-              : 'x';
+              : _derivativeVariable;
           final order = _calculusOperation == 'Second derivative' ? 2 : 1;
           var derivative = expression;
           for (var i = 0; i < order; i++) {
             derivative = _engine.differentiate(derivative, variable: variable);
           }
           final notation = _calculusOperation == 'Partial derivative'
-              ? '∂/∂$variable'
+              ? '\u2202/\u2202$variable'
               : _derivativeNotation == 'Lagrange'
-              ? (order == 2 ? 'f″($variable)' : 'f′($variable)')
-              : (order == 2 ? 'd²y/d$variable²' : 'dy/d$variable');
+              ? (order == 2 ? "f''($variable)" : "f'($variable)")
+              : (order == 2
+                    ? 'd\u00b2$_dependentVariable/d$variable\u00b2'
+                    : 'd$_dependentVariable/d$variable');
           setState(() {
             _result = '$notation = $derivative';
             _error = null;
@@ -1707,8 +1847,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
             );
             return;
           }
+          final boundCount = switch (_calculusOperation) {
+            'Definite integral' => 2,
+            'Double integral' => 4,
+            _ => 6,
+          };
           final bounds = _calculusBoundControllers
-              .take(6)
+              .take(boundCount)
               .map((c) => double.parse(c.text.trim()))
               .toList();
           final MathResult result = _calculusOperation == 'Definite integral'
@@ -2023,8 +2168,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
     String expression,
     String result, {
     required bool exact,
+    List<String>? steps,
   }) {
     _sessionBreakdown.add('${_prettyExpression(expression)} = $result');
+    final stepNumber = _sessionBreakdown.length;
+    _sessionSteps.addAll(
+      (steps ?? _detailedSteps()).map(
+        (step) => 'Calculation $stepNumber: $step',
+      ),
+    );
     _sessionFinalResult = result;
     _sessionIsExact = _sessionIsExact && exact;
   }
@@ -2037,8 +2189,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
       createdAt: DateTime.now(),
       isExact: _sessionIsExact,
       calculationCount: _sessionBreakdown.length,
+      steps: List.unmodifiable(_sessionSteps),
     );
     _sessionBreakdown.clear();
+    _sessionSteps.clear();
     _sessionFinalResult = null;
     _sessionIsExact = true;
     _input.clear();
@@ -2055,6 +2209,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
           record.expression.split('\n').where((line) => line.trim().isNotEmpty),
         );
       _sessionFinalResult = record.result;
+      _sessionSteps
+        ..clear()
+        ..addAll(record.steps);
       _sessionIsExact = record.isExact;
       _input.text = record.result;
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
@@ -2720,6 +2877,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _pressFunction(String key) {
     FocusScope.of(context).unfocus();
+    if (key == 'CALC_EQUALS') {
+      _evaluate();
+      return;
+    }
+    if (key == 'C' || key == 'CALC_CLEAR_ALL') {
+      _clearCalculatorInputs();
+      return;
+    }
     if (key.startsWith('CALC_')) {
       final selection = switch (key) {
         'CALC_DERIVATIVE' || 'CALC_LEIBNIZ_FIRST' => (
@@ -2733,6 +2898,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
           'First derivative',
           'Lagrange',
           'x',
+        ),
+        'CALC_DERIVATIVE_T' => (
+          'Derivatives',
+          'First derivative',
+          'Leibniz',
+          't',
         ),
         'CALC_LEIBNIZ_SECOND' => (
           'Derivatives',
@@ -2820,6 +2991,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _derivativeNotation = selection.$3;
         if (_calculusOperation == 'Partial derivative') {
           _partialVariable = selection.$4;
+        } else if (_calculusFamily == 'Derivatives') {
+          _derivativeVariable = selection.$4;
+          _dependentVariable = key == 'CALC_DERIVATIVE_T' ? 'x' : 'y';
         }
         if (key == 'CALC_LIMIT_POS_INFINITY') _limitAtPositiveInfinity = true;
         if (key == 'CALC_LIMIT_NEG_INFINITY') _limitAtPositiveInfinity = false;
@@ -2827,6 +3001,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _result = null;
         _answerShown = false;
       });
+      if (_mode == _CalculatorMode.calculus &&
+          _calculusFamily == 'Integrals' &&
+          _calculusOperation != 'Indefinite integral') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_showCalculusBoundsDialog());
+        });
+      } else if (_mode == _CalculatorMode.calculus &&
+          _calculusFamily == 'Limits' &&
+          _calculusOperation != 'Limit at infinity') {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) unawaited(_showCalculusBoundsDialog());
+        });
+      }
+    } else if (key == 'DIFF_EQ_DX') {
+      _insert('dx/dt=');
+    } else if (key == 'DIFF_EQ_DY') {
+      _insert('dy/dt=');
+    } else if (key == 'DIFF_EQ_DZ') {
+      _insert('dz/dt=');
     } else if (key == 'PERCENT') {
       _insert('/100');
     } else if (key == 'SIGN') {
@@ -2835,11 +3028,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _insert('C');
     } else if (_mode == _CalculatorMode.calculus &&
         _selectedIntegralBound != null &&
-        (key == 'C' || key == 'DEL')) {
+        key == 'DEL') {
       final controller = _calculusBoundControllers[_selectedIntegralBound!];
-      if (key == 'C') {
-        controller.clear();
-      } else if (controller.text.isNotEmpty) {
+      if (controller.text.isNotEmpty) {
         controller.text = controller.text.substring(
           0,
           controller.text.length - 1,
@@ -2859,9 +3050,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
           controller.text.length - 1,
         );
       }
-    } else if (key == 'C') {
-      _input.clear();
-      _updateResult();
     } else if (key == 'DEL') {
       final selection = _input.selection;
       var start = selection.isValid
@@ -3049,8 +3237,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     child: _buildExpressionAnswer(context, expand: true),
                   ),
                   const SizedBox(height: 5),
-                  _buildFunctionRow(),
-                  const SizedBox(height: 3),
+                  if (_mode != _CalculatorMode.calculus) ...[
+                    _buildFunctionRow(),
+                    const SizedBox(height: 3),
+                  ],
                   _buildResponsiveKeypad(context),
                 ],
               ),
@@ -3168,7 +3358,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         if (_calculusFamily == 'Derivatives') {
           final variable = _calculusOperation == 'Partial derivative'
               ? _partialVariable
-              : 'x';
+              : _derivativeVariable;
           final order = _calculusOperation == 'Second derivative' ? 2 : 1;
           var derivative = expression;
           for (var i = 0; i < order; i++) {
@@ -3253,9 +3443,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
           return _engine.evaluateAtVariables(equation.group(2)!, {
             'x': _graphX,
             'y': 0,
+            'z': 0,
           });
         }
-        return _engine.evaluateAt(_input.text, _graphX);
+        return _engine.evaluateAtVariables(_input.text, {
+          'x': _graphX,
+          'y': 0,
+          'z': 0,
+        });
       } on Object {
         return double.nan;
       }
@@ -3421,78 +3616,92 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_mode == _CalculatorMode.geometry) {
       _geometryFirst.text = _numberForExpression(_geometryVisualFirst);
       _geometrySecond.text = _numberForExpression(_geometryVisualSecond);
-      final expression = _geometryExpression(
+      _input.text = _geometryExpression(
         _geometryVisualFirst,
         _geometryVisualSecond,
       );
-      setState(() {
-        _input.text = expression;
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
     }
     if (_mode == _CalculatorMode.calculus) {
       _integralLowerInput.text = _numberForExpression(_integralLower);
       _integralUpperInput.text = _numberForExpression(_integralUpper);
-      setState(() {
-        _answerShown = false;
-        _result = null;
-        _showVisualization = false;
-      });
-      return;
     }
     if (_mode == _CalculatorMode.trigonometry) {
       final angle = _angleDegrees ? _visualAngle : _visualAngle * math.pi / 180;
       final factor = _triangleHasCoefficient
           ? '${_numberForExpression(_visualHypotenuse)}*'
           : '';
-      setState(() {
-        _input.text =
-            '$factor$_triangleFunction(${_numberForExpression(angle)})';
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
-    }
-    if (_mode == _CalculatorMode.graphing) {
-      setState(() {
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
+      _input.text = '$factor$_triangleFunction(${_numberForExpression(angle)})';
     }
     if (_mode == _CalculatorMode.algebra) {
       final expr =
           '${_numberForExpression(_graphSlope)}*x${_graphIntercept < 0 ? '' : '+'}${_numberForExpression(_graphIntercept)}';
-      setState(() {
-        _input.text = _mode == _CalculatorMode.algebra ? '$expr=0' : expr;
-        _result = null;
-        _answerShown = false;
-        _showVisualization = false;
-      });
-      return;
+      _input.text = '$expr=0';
+    }
+    if (_mode == _CalculatorMode.graphing && _input.text.trim().isEmpty) {
+      _input.text =
+          'y=${_numberForExpression(_graphSlope)}*x${_graphIntercept < 0 ? '' : '+'}${_numberForExpression(_graphIntercept)}';
     }
     final value = _visualizationValue;
     if (!value.isFinite) {
       _showCalculationError(
         'This expression cannot be evaluated at the selected values.',
       );
-      setState(() {
-        _showVisualization = false;
-      });
+      setState(() => _showVisualization = false);
       return;
     }
-    final answer = value.toStringAsFixed(4);
-    _input.text = answer;
-    _input.selection = TextSelection.collapsed(offset: _input.text.length);
-    _result = answer;
-    _resultIsExact = false;
-    _answerShown = false;
-    setState(() => _showVisualization = false);
+    final answer = '≈ ${formatApproximateValue(value)}';
+    final adjustedExpression = switch (_mode) {
+      _CalculatorMode.calculus when _calculusOperation == 'Definite integral' =>
+        '∫[${_integralLowerInput.text},${_integralUpperInput.text}] ${_input.text} dx',
+      _CalculatorMode.calculus => '$_calculusOperation: ${_input.text}',
+      _CalculatorMode.graphing =>
+        '$_visualizationFormula; x=$_graphX; y=0; z=0',
+      _ => _visualizationFormula,
+    };
+    final computationSteps = switch (_mode) {
+      _CalculatorMode.geometry => [
+        'Adjusted inputs: a=${_numberForExpression(_geometryVisualFirst)}, b=${_numberForExpression(_geometryVisualSecond)}',
+        'Selected formula: $adjustedExpression',
+        'Substitute the adjusted inputs into the selected formula.',
+        'Computed result: $answer',
+      ],
+      _CalculatorMode.trigonometry => [
+        'Adjusted angle: ${_numberForExpression(_visualAngle)} degrees',
+        'Selected function: $_triangleFunction',
+        'Evaluate $_triangleFunction(${_numberForExpression(_visualAngle)}°)${_triangleHasCoefficient ? ' × ${_numberForExpression(_visualHypotenuse)}' : ''}.',
+        'Computed result: $answer',
+      ],
+      _CalculatorMode.calculus => [
+        'Selected operation: $_calculusOperation',
+        'Expression: ${_input.text.trim().isEmpty ? 'x^2' : _input.text.trim()}',
+        if (_calculusOperation == 'Definite integral')
+          'Adjusted bounds: x=${_numberForExpression(_integralLower)} to ${_numberForExpression(_integralUpper)}',
+        'Evaluate the selected operation with the adjusted visualization values.',
+        'Computed result: $answer',
+      ],
+      _CalculatorMode.graphing => [
+        'Adjusted equation: ${_input.text.trim().isEmpty ? adjustedExpression : _input.text.trim()}',
+        'Substitute x=${_numberForExpression(_graphX)}, y=0, z=0.',
+        'Computed result: $answer',
+      ],
+      _ => [
+        'Adjusted expression: $adjustedExpression',
+        'Computed result: $answer',
+      ],
+    };
+    setState(() {
+      _result = answer;
+      _resultIsExact = false;
+      _error = null;
+      _answerShown = true;
+      _showVisualization = false;
+    });
+    _appendSessionEntry(
+      adjustedExpression,
+      answer,
+      exact: false,
+      steps: computationSteps,
+    );
   }
 
   Widget _buildVisualization(BuildContext context) {
@@ -4396,7 +4605,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         key: const Key('calculation-result-panel'),
         height: cardHeight,
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 3),
         decoration: BoxDecoration(
           color: panelColor,
           borderRadius: BorderRadius.circular(16),
@@ -4406,19 +4615,35 @@ class _CalculatorPageState extends State<CalculatorPage> {
           type: MaterialType.transparency,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                _resultIsExact ? 'Exact answer' : 'Answer',
-                style: Theme.of(context).textTheme.labelMedium,
+                'Expression',
+                style: Theme.of(
+                  context,
+                ).textTheme.labelSmall?.copyWith(fontSize: 9, height: 1),
               ),
-              const SizedBox(height: 2),
+              SizedBox(
+                height: 17,
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Align(
+                    alignment: Alignment.centerLeft,
+                    child: Math.tex(
+                      _expressionTex,
+                      mathStyle: MathStyle.text,
+                      textStyle: const TextStyle(fontSize: 14),
+                      onErrorFallback: (_) => _rawExpressionFallback(),
+                    ),
+                  ),
+                ),
+              ),
               Expanded(
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Semantics(
                     key: const Key('calculation-result'),
-                    label: _result ?? '--',
+                    label:
+                        '${_resultIsExact ? 'Exact answer' : 'Answer'}: ${_result ?? '--'}',
                     child: FittedBox(
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
@@ -4427,7 +4652,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                         key: const Key('calculation-result-math'),
                         mathStyle: MathStyle.display,
                         textStyle: const TextStyle(
-                          fontSize: 27,
+                          fontSize: 20,
                           fontWeight: FontWeight.w800,
                         ),
                         onErrorFallback: (_) => Text(_result ?? '--'),
@@ -4436,52 +4661,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ),
                 ),
               ),
-              if (_mode != _CalculatorMode.calculus)
-                ExpansionTile(
-                  key: const Key('calculation-steps-dropdown'),
-                  tilePadding: EdgeInsets.zero,
-                  childrenPadding: const EdgeInsets.only(bottom: 4),
-                  title: const Text('Step-by-step calculation'),
-                  leading: const Icon(Icons.expand_more_rounded),
-                  children: [
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxHeight: 220),
-                      child: SingleChildScrollView(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final (index, step)
-                                in _detailedSteps().indexed)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 5,
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SizedBox(
-                                      width: 26,
-                                      child: Text('${index + 1}.'),
-                                    ),
-                                    Expanded(
-                                      child: Math.tex(
-                                        _mathTexFromSource(step),
-                                        mathStyle: MathStyle.display,
-                                        textStyle: const TextStyle(
-                                          fontSize: 17,
-                                        ),
-                                        onErrorFallback: (_) => Text(step),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
             ],
           ),
         ),
@@ -4489,7 +4668,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     return Container(
       height: cardHeight,
-      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 3),
       decoration: BoxDecoration(
         color: panelColor,
         borderRadius: BorderRadius.circular(16),
@@ -4500,7 +4679,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
         children: [
           const Align(
             alignment: Alignment.centerLeft,
-            child: Text('Expression'),
+            child: Text(
+              'Expression',
+              style: TextStyle(fontSize: 10, height: 1),
+            ),
           ),
           Expanded(
             child: GestureDetector(
@@ -4530,14 +4712,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   : SizedBox.expand(
                       child:
                           _input.text.trim().isEmpty &&
-                              _mode != _CalculatorMode.geometry
+                              _mode != _CalculatorMode.geometry &&
+                              _mode != _CalculatorMode.calculus
                           ? const Align(
                               alignment: Alignment.topLeft,
                               child: Text(
                                 'Use the calculator keys to enter an expression',
                                 style: TextStyle(
                                   color: Colors.black45,
-                                  fontSize: 16,
+                                  fontSize: 14,
                                 ),
                               ),
                             )
@@ -4549,7 +4732,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                   _expressionTex,
                                   mathStyle: MathStyle.display,
                                   textStyle: const TextStyle(
-                                    fontSize: 22,
+                                    fontSize: 18,
                                     fontWeight: FontWeight.w500,
                                   ),
                                   onErrorFallback: (_) =>
@@ -4693,46 +4876,153 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ),
         ),
         if (boundFields.isNotEmpty)
-          Wrap(
-            spacing: 6,
-            runSpacing: 4,
-            children: [
-              for (final field in boundFields)
-                SizedBox(
-                  width: 120,
-                  child: TextField(
-                    controller: field.$1,
-                    readOnly: true,
-                    keyboardType: TextInputType.none,
-                    onTap: () =>
-                        setState(() => _selectedIntegralBound = field.$3),
-                    decoration: InputDecoration(
-                      labelText: field.$2,
-                      isDense: true,
-                      border: const OutlineInputBorder(),
-                    ),
-                  ),
-                ),
-            ],
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const Key('calculus-edit-bounds'),
+              onPressed: _showCalculusBoundsDialog,
+              icon: const Icon(Icons.tune_rounded, size: 16),
+              label: Text(_calculusBoundsSummary),
+              style: OutlinedButton.styleFrom(
+                visualDensity: VisualDensity.compact,
+                padding: const EdgeInsets.symmetric(horizontal: 10),
+              ),
+            ),
           ),
       ],
     );
   }
 
   String get _calculusOperationSymbol => switch (_calculusOperation) {
-    'First derivative' => _derivativeNotation == 'Lagrange' ? 'f′(x)' : 'dy/dx',
+    'First derivative' =>
+      _derivativeNotation == 'Lagrange'
+          ? "f'($_derivativeVariable)"
+          : 'd$_dependentVariable/d$_derivativeVariable',
     'Second derivative' =>
-      _derivativeNotation == 'Lagrange' ? 'f″(x)' : 'd²y/dx²',
-    'Partial derivative' => '∂/∂$_partialVariable',
-    'Indefinite integral' => '∫',
-    'Definite integral' => '∫ₐᵇ',
-    'Double integral' => '∬',
-    'Triple integral' => '∭',
-    'Two-sided limit' => 'limₓ→ₐ',
-    'Left-hand limit' => 'limₓ→ₐ⁻',
-    'Right-hand limit' => 'limₓ→ₐ⁺',
-    _ => _limitAtPositiveInfinity ? 'limₓ→∞' : 'limₓ→−∞',
+      _derivativeNotation == 'Lagrange'
+          ? "f''($_derivativeVariable)"
+          : 'd^2$_dependentVariable/d$_derivativeVariable^2',
+    'Partial derivative' => 'd/d$_partialVariable',
+    'Indefinite integral' => 'integral',
+    'Definite integral' => 'integral with bounds',
+    'Double integral' => 'double integral',
+    'Triple integral' => 'triple integral',
+    'Two-sided limit' => 'limit from both sides',
+    'Left-hand limit' => 'left-hand limit',
+    'Right-hand limit' => 'right-hand limit',
+    _ =>
+      _limitAtPositiveInfinity
+          ? 'limit at positive infinity'
+          : 'limit at negative infinity',
   };
+  String get _calculusBoundsSummary => switch (_calculusOperation) {
+    'Definite integral' =>
+      '[${_integralLowerInput.text}, ${_integralUpperInput.text}]',
+    'Double integral' =>
+      'x[${_integralLowerInput.text}, ${_integralUpperInput.text}]  y[${_integralLowerYInput.text}, ${_integralUpperYInput.text}]',
+    'Triple integral' =>
+      'x[${_integralLowerInput.text}, ${_integralUpperInput.text}]  y[${_integralLowerYInput.text}, ${_integralUpperYInput.text}]  z[${_integralLowerZInput.text}, ${_integralUpperZInput.text}]',
+    _ => 'x → ${_limitApproachInput.text}',
+  };
+
+  List<(String, String)> get _calculusKeyItems => [
+    ('dy/dx', 'CALC_LEIBNIZ_FIRST'),
+    ("f′", 'CALC_LAGRANGE_FIRST'),
+    ('d²y/dx²', 'CALC_LEIBNIZ_SECOND'),
+    ("f″", 'CALC_LAGRANGE_SECOND'),
+    ('∂/∂x', 'CALC_PARTIAL_X'),
+    ('∂/∂y', 'CALC_PARTIAL_Y'),
+    ('∂/∂z', 'CALC_PARTIAL_Z'),
+    ('∫', 'CALC_INTEGRAL'),
+    ('∫ₐᵇ', 'CALC_DEFINITE_INTEGRAL'),
+    ('∬', 'CALC_DOUBLE_INTEGRAL'),
+    ('∭', 'CALC_TRIPLE_INTEGRAL'),
+    ('limₓ→ₐ', 'CALC_LIMIT_TWO'),
+    ('limₓ→ₐ⁻', 'CALC_LIMIT_LEFT'),
+    ('limₓ→ₐ⁺', 'CALC_LIMIT_RIGHT'),
+    ('limₓ→∞', 'CALC_LIMIT_POS_INFINITY'),
+    ('limₓ→−∞', 'CALC_LIMIT_NEG_INFINITY'),
+    ('dx/dt', 'DIFF_EQ_DX'),
+    ('dy/dt', 'DIFF_EQ_DY'),
+    ('dz/dt', 'DIFF_EQ_DZ'),
+    ('d/dt', 'CALC_DERIVATIVE_T'),
+    ('dx', 'dx'),
+    ('dy', 'dy'),
+    ('dz', 'dz'),
+    ('dt', 'dt'),
+    for (final variable in [
+      'x',
+      'y',
+      'z',
+      't',
+      'a',
+      'b',
+      'c',
+      'd',
+      'u',
+      'v',
+      'w',
+    ])
+      (variable, variable),
+    ('f(x)', 'f(x)'),
+    ('f(g(x))', 'f(g(x))'),
+    ('f⁻¹(x)', 'f^(-1)'),
+    ('|x|', 'abs('),
+    ('exp', 'exp('),
+    ('ln', 'ln('),
+    ('log₁₀', 'log10('),
+    ('logₐ', 'log('),
+    ('x²', '^2'),
+    ('x³', '^3'),
+    ('xⁿ', '^'),
+    ('x⁻¹', '^(-1)'),
+    ('x^(m/n)', '^(1/2)'),
+    ('√x', 'sqrt('),
+    ('∛x', 'cbrt('),
+    ('ⁿ√x', 'nrt('),
+    for (final function in ['sin', 'cos', 'tan', 'csc', 'sec', 'cot'])
+      (function, '$function('),
+    for (final function in [
+      'arcsin',
+      'arccos',
+      'arctan',
+      'arccsc',
+      'arcsec',
+      'arccot',
+    ])
+      (function, '$function('),
+    ('π', 'pi'),
+    ('e', 'e'),
+    ('τ', 'tau'),
+    ('φ', 'phi'),
+    ('i', 'i'),
+    ('∞', 'infinity'),
+    ('∇', 'nabla'),
+    ('Δ', 'delta'),
+    ('∮', 'lineIntegral'),
+    ('∑', 'sumSymbol'),
+    ('∏', 'productSymbol'),
+    ('∂', 'partial'),
+    ('=', 'CALC_EQUALS'),
+    ('+', '+'),
+    ('−', '-'),
+    ('×', '*'),
+    ('÷', '/'),
+    ('±', 'SIGN'),
+    ('%', 'PERCENT'),
+    ('a/b', 'a/b'),
+    ('(', '('),
+    (')', ')'),
+    ('[', '['),
+    (']', ']'),
+    ('{', '{'),
+    ('}', '}'),
+    (',', ','),
+    (';', ';'),
+    ('+ C', ' + C'),
+    ('C', 'C'),
+    ('DEL', 'DEL'),
+  ];
 
   Widget _buildFunctionRow() {
     final List<(String, String)> functions = switch (_mode) {
@@ -4753,68 +5043,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('C', 'C'),
         ('DEL', 'DEL'),
       ],
-      _CalculatorMode.calculus => [
-        ('dy/dx', 'CALC_LEIBNIZ_FIRST'),
-        ('f′', 'CALC_LAGRANGE_FIRST'),
-        ('d²y/dx²', 'CALC_LEIBNIZ_SECOND'),
-        ('f″', 'CALC_LAGRANGE_SECOND'),
-        ('∂/∂x', 'CALC_PARTIAL_X'),
-        ('∂/∂y', 'CALC_PARTIAL_Y'),
-        ('∂/∂z', 'CALC_PARTIAL_Z'),
-        ('∫', 'CALC_INTEGRAL'),
-        ('∫ₐᵇ', 'CALC_DEFINITE_INTEGRAL'),
-        ('∬', 'CALC_DOUBLE_INTEGRAL'),
-        ('∭', 'CALC_TRIPLE_INTEGRAL'),
-        ('limₓ→ₐ', 'CALC_LIMIT_TWO'),
-        ('limₓ→ₐ⁻', 'CALC_LIMIT_LEFT'),
-        ('limₓ→ₐ⁺', 'CALC_LIMIT_RIGHT'),
-        ('limₓ→∞', 'CALC_LIMIT_POS_INFINITY'),
-        ('limₓ→−∞', 'CALC_LIMIT_NEG_INFINITY'),
-        ('x', 'x'),
-        ('y', 'y'),
-        ('z', 'z'),
-        ('f(x)', 'f(x)'),
-        ('f(g(x))', 'f(g(x))'),
-        ('f⁻¹(x)', 'f^(-1)'),
-        ('|x|', 'abs('),
-        ('exp', 'exp('),
-        ('ln', 'ln('),
-        ('log₁₀', 'log10('),
-        ('log base', 'log('),
-        ('x²', '^2'),
-        ('x³', '^3'),
-        ('xⁿ', '^'),
-        ('x⁻¹', '^(-1)'),
-        ('x^(m/n)', '^(1/2)'),
-        ('√x', 'sqrt('),
-        ('∛x', 'cbrt('),
-        ('ⁿ√x', 'nrt('),
-        ('sin', 'sin('),
-        ('cos', 'cos('),
-        ('tan', 'tan('),
-        ('csc', 'csc('),
-        ('sec', 'sec('),
-        ('cot', 'cot('),
-        ('arcsin', 'arcsin('),
-        ('arccos', 'arccos('),
-        ('arctan', 'arctan('),
-        ('arccsc', 'arccsc('),
-        ('arccot', 'arccot('),
-        ('π', 'pi'),
-        ('e', 'e'),
-        ('τ', 'tau'),
-        ('φ', 'phi'),
-        ('i', 'i'),
-        ('∞', 'infinity'),
-        ('+ C', ' + C'),
-        ('±', 'SIGN'),
-        ('a/b', 'a/b'),
-        (',', ','),
-        ('(', '('),
-        (')', ')'),
-        ('C', 'C'),
-        ('DEL', 'DEL'),
-      ],
+      _CalculatorMode.calculus => _calculusKeyItems,
       _CalculatorMode.statistics => [
         ('xʸ', '^'),
         ('mean(', 'mean('),
@@ -5128,6 +5357,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
       '/' => r'\div',
       'CALC_DERIVATIVE' || 'CALC_LEIBNIZ_FIRST' => r'\frac{dy}{dx}',
       'CALC_LAGRANGE_FIRST' => r"f'(x)",
+      'CALC_DERIVATIVE_T' => r'\frac{d}{dt}',
+      'DIFF_EQ_DX' => r'\frac{dx}{dt}=',
+      'DIFF_EQ_DY' => r'\frac{dy}{dt}=',
+      'DIFF_EQ_DZ' => r'\frac{dz}{dt}=',
       'CALC_LEIBNIZ_SECOND' => r'\frac{d^2y}{dx^2}',
       'CALC_LAGRANGE_SECOND' => r"f''(x)",
       'CALC_PARTIAL_X' => r'\frac{\partial}{\partial x}',
@@ -5142,6 +5375,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'CALC_LIMIT_RIGHT' => r'\lim_{x\to a^+}',
       'CALC_LIMIT_POS_INFINITY' => r'\lim_{x\to\infty}',
       'CALC_LIMIT_NEG_INFINITY' => r'\lim_{x\to-\infty}',
+      'nabla' => r'\nabla',
+      'delta' => r'\Delta',
+      'lineIntegral' => r'\oint',
+      'sumSymbol' => r'\sum',
+      'productSymbol' => r'\prod',
+      'partial' => r'\partial',
       'mean(' => r'\operatorname{mean}(',
       'median(' => r'\operatorname{median}(',
       'mode(' => r'\operatorname{mode}(',
@@ -5176,6 +5415,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Widget _buildResponsiveKeypad(BuildContext context) {
+    if (_mode == _CalculatorMode.calculus) {
+      return _buildCalculusKeypad(context);
+    }
     final screen = MediaQuery.sizeOf(context);
     final keyHeight = (screen.height * .043).clamp(27.0, 36.0).toDouble();
     final gap = screen.width < 360 ? 4.0 : 6.0;
@@ -5292,6 +5534,92 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ),
                 ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCalculusKeypad(BuildContext context) {
+    final screen = MediaQuery.sizeOf(context);
+    final keyHeight = (screen.height * .03).clamp(20.0, 25.0).toDouble();
+    const gap = 3.0;
+    const numberKeys = [
+      '7',
+      '8',
+      '9',
+      '4',
+      '5',
+      '6',
+      '1',
+      '2',
+      '3',
+      '0',
+      '.',
+      '00',
+    ];
+    final leftKeys = _calculusKeyItems;
+    final leftRows = (leftKeys.length / 6).ceil();
+    final height = leftRows * keyHeight + (leftRows - 1) * gap;
+    return SizedBox(
+      key: const Key('calculus-compact-keypad'),
+      height: height,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 7,
+            child: GridView.count(
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 6,
+              mainAxisExtent: keyHeight,
+              mainAxisSpacing: gap,
+              crossAxisSpacing: gap,
+              children: [
+                for (final (label, key) in leftKeys)
+                  SizedBox.expand(
+                    key: ValueKey('function-key-$key'),
+                    child: OutlinedButton(
+                      onPressed: () => _pressFunction(key),
+                      style: OutlinedButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: Size.zero,
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: _functionKeyVisual(label, key),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 5),
+          Expanded(
+            flex: 3,
+            child: SizedBox(
+              height: keyHeight * 4 + gap * 3,
+              child: GridView.count(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 3,
+                mainAxisExtent: keyHeight,
+                mainAxisSpacing: gap,
+                crossAxisSpacing: gap,
+                children: [
+                  for (final key in numberKeys)
+                    _calculatorKey(
+                      context,
+                      key,
+                      () => _insert(key),
+                      key: ValueKey('basic-key-$key'),
+                    ),
+                ],
+              ),
             ),
           ),
         ],
@@ -7613,10 +7941,12 @@ class _CalculationDetailPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final steps = record.expression
-        .split('\n')
-        .where((line) => line.trim().isNotEmpty)
-        .toList();
+    final steps = record.steps.isNotEmpty
+        ? record.steps
+        : record.expression
+              .split('\n')
+              .where((line) => line.trim().isNotEmpty)
+              .toList();
     final localDate = record.createdAt.toLocal();
     return Scaffold(
       appBar: AppBar(title: const Text('Calculation details')),
