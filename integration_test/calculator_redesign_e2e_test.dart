@@ -160,6 +160,28 @@ void main() {
       expect(find.byKey(ValueKey('function-key-$functionKey')), findsOneWidget);
     }
 
+    final calculusDigit = tester.getRect(
+      find.byKey(const ValueKey('basic-key-7')),
+    );
+    final calculusFunction = tester.getRect(
+      find.byKey(const ValueKey('function-key-CALC_INTEGRAL')),
+    );
+    final addKey = tester.getRect(find.byKey(const ValueKey('function-key-+')));
+    final divideKey = tester.getRect(
+      find.byKey(const ValueKey('function-key-/')),
+    );
+    final clearKey = tester.getRect(
+      find.byKey(const ValueKey('function-key-C')),
+    );
+    final deleteKey = tester.getRect(
+      find.byKey(const ValueKey('function-key-DEL')),
+    );
+    expect(calculusDigit.height, greaterThan(calculusFunction.height));
+    expect(addKey.top, greaterThan(calculusDigit.bottom));
+    expect(divideKey.top, greaterThan(calculusDigit.bottom));
+    expect(clearKey.top, greaterThan(divideKey.bottom));
+    expect(deleteKey.top, greaterThan(divideKey.bottom));
+
     await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(
       tester,

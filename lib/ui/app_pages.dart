@@ -5003,11 +5003,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ('∑', 'sumSymbol'),
     ('∏', 'productSymbol'),
     ('∂', 'partial'),
-    ('=', 'CALC_EQUALS'),
-    ('+', '+'),
-    ('−', '-'),
-    ('×', '*'),
-    ('÷', '/'),
     ('±', 'SIGN'),
     ('%', 'PERCENT'),
     ('a/b', 'a/b'),
@@ -5020,8 +5015,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
     (',', ','),
     (';', ';'),
     ('+ C', ' + C'),
-    ('C', 'C'),
-    ('DEL', 'DEL'),
   ];
 
   Widget _buildFunctionRow() {
@@ -5545,6 +5538,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final screen = MediaQuery.sizeOf(context);
     final keyHeight = (screen.height * .03).clamp(20.0, 25.0).toDouble();
     const gap = 3.0;
+    final numberHeight = (keyHeight * 1.4).clamp(28.0, 34.0).toDouble();
+    final operatorHeight = (keyHeight * 1.12).clamp(24.0, 29.0).toDouble();
+    final actionHeight = (keyHeight * 1.12).clamp(24.0, 29.0).toDouble();
     const numberKeys = [
       '7',
       '8',
@@ -5559,9 +5555,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
       '.',
       '00',
     ];
+    const arithmeticKeys = [('+', '+'), ('−', '-'), ('×', '*'), ('÷', '/')];
     final leftKeys = _calculusKeyItems;
     final leftRows = (leftKeys.length / 6).ceil();
-    final height = leftRows * keyHeight + (leftRows - 1) * gap;
+    final leftHeight = leftRows * keyHeight + (leftRows - 1) * gap;
+    final numberGridHeight = numberHeight * 4 + gap * 3;
+    final operatorGridHeight = operatorHeight * 2 + gap;
+    final rightHeight =
+        numberGridHeight + operatorGridHeight + actionHeight + gap * 2;
+    final height = math.max(leftHeight, rightHeight);
     return SizedBox(
       key: const Key('calculus-compact-keypad'),
       height: height,
@@ -5569,7 +5571,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Expanded(
-            flex: 7,
+            flex: 6,
             child: GridView.count(
               padding: EdgeInsets.zero,
               physics: const NeverScrollableScrollPhysics(),
@@ -5600,26 +5602,89 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ),
           const SizedBox(width: 5),
           Expanded(
-            flex: 3,
-            child: SizedBox(
-              height: keyHeight * 4 + gap * 3,
-              child: GridView.count(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 3,
-                mainAxisExtent: keyHeight,
-                mainAxisSpacing: gap,
-                crossAxisSpacing: gap,
-                children: [
-                  for (final key in numberKeys)
-                    _calculatorKey(
-                      context,
-                      key,
-                      () => _insert(key),
-                      key: ValueKey('basic-key-$key'),
-                    ),
-                ],
-              ),
+            flex: 4,
+            child: Column(
+              children: [
+                SizedBox(
+                  height: numberGridHeight,
+                  child: GridView.count(
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 3,
+                    mainAxisExtent: numberHeight,
+                    mainAxisSpacing: gap,
+                    crossAxisSpacing: gap,
+                    children: [
+                      for (final key in numberKeys)
+                        _calculatorKey(
+                          context,
+                          key,
+                          () => _insert(key),
+                          fontSize: 20,
+                          key: ValueKey('basic-key-$key'),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: gap),
+                SizedBox(
+                  height: operatorGridHeight,
+                  child: GridView.count(
+                    padding: EdgeInsets.zero,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    mainAxisExtent: operatorHeight,
+                    mainAxisSpacing: gap,
+                    crossAxisSpacing: gap,
+                    children: [
+                      for (final (label, operator) in arithmeticKeys)
+                        _calculatorKey(
+                          context,
+                          label,
+                          () => _pressFunction(operator),
+                          fontSize: 18,
+                          key: ValueKey('function-key-$operator'),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: gap),
+                SizedBox(
+                  height: actionHeight,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _calculatorKey(
+                          context,
+                          'C',
+                          () => _pressFunction('C'),
+                          key: const ValueKey('function-key-C'),
+                        ),
+                      ),
+                      const SizedBox(width: gap),
+                      Expanded(
+                        child: _calculatorKey(
+                          context,
+                          'DEL',
+                          () => _pressFunction('DEL'),
+                          key: const ValueKey('function-key-DEL'),
+                        ),
+                      ),
+                      const SizedBox(width: gap),
+                      Expanded(
+                        child: _calculatorKey(
+                          context,
+                          '=',
+                          () => _pressFunction('CALC_EQUALS'),
+                          primary: true,
+                          fontSize: 18,
+                          key: const ValueKey('function-key-CALC_EQUALS'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -5633,6 +5698,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     VoidCallback onPressed, {
     bool emphasized = false,
     bool primary = false,
+    double fontSize = 14,
     Key? key,
   }) => SizedBox.expand(
     key: key,
@@ -5647,7 +5713,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(child: _basicKeyVisual(label)),
+            child: FittedBox(child: _basicKeyVisual(label, fontSize: fontSize)),
           )
         : OutlinedButton(
             onPressed: onPressed,
@@ -5664,7 +5730,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 borderRadius: BorderRadius.circular(14),
               ),
             ),
-            child: FittedBox(child: _basicKeyVisual(label)),
+            child: FittedBox(child: _basicKeyVisual(label, fontSize: fontSize)),
           ),
   );
 
@@ -5972,7 +6038,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ),
   );
 
-  Widget _basicKeyVisual(String label) {
+  Widget _basicKeyVisual(String label, {double fontSize = 14}) {
     if (label == 'DEL') return const Icon(Icons.backspace_outlined, size: 16);
     final tex = switch (label) {
       '\u00D7' => r'\times',
@@ -5980,11 +6046,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
       '−' => '-',
       _ => null,
     };
-    if (tex == null) return Text(label);
+    if (tex == null) {
+      return Text(
+        label,
+        style: TextStyle(fontSize: fontSize, fontWeight: FontWeight.w600),
+      );
+    }
     return Math.tex(
       tex,
       mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 15),
+      textStyle: TextStyle(fontSize: fontSize),
     );
   }
 
