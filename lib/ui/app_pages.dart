@@ -2721,16 +2721,109 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void _pressFunction(String key) {
     FocusScope.of(context).unfocus();
     if (key.startsWith('CALC_')) {
+      final selection = switch (key) {
+        'CALC_DERIVATIVE' || 'CALC_LEIBNIZ_FIRST' => (
+          'Derivatives',
+          'First derivative',
+          'Leibniz',
+          'x',
+        ),
+        'CALC_LAGRANGE_FIRST' => (
+          'Derivatives',
+          'First derivative',
+          'Lagrange',
+          'x',
+        ),
+        'CALC_LEIBNIZ_SECOND' => (
+          'Derivatives',
+          'Second derivative',
+          'Leibniz',
+          'x',
+        ),
+        'CALC_LAGRANGE_SECOND' => (
+          'Derivatives',
+          'Second derivative',
+          'Lagrange',
+          'x',
+        ),
+        'CALC_PARTIAL_X' => (
+          'Derivatives',
+          'Partial derivative',
+          'Leibniz',
+          'x',
+        ),
+        'CALC_PARTIAL_Y' => (
+          'Derivatives',
+          'Partial derivative',
+          'Leibniz',
+          'y',
+        ),
+        'CALC_PARTIAL_Z' => (
+          'Derivatives',
+          'Partial derivative',
+          'Leibniz',
+          'z',
+        ),
+        'CALC_INTEGRAL' => (
+          'Integrals',
+          'Indefinite integral',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_DEFINITE_INTEGRAL' => (
+          'Integrals',
+          'Definite integral',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_DOUBLE_INTEGRAL' => (
+          'Integrals',
+          'Double integral',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_TRIPLE_INTEGRAL' => (
+          'Integrals',
+          'Triple integral',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_LIMIT_LEFT' => (
+          'Limits',
+          'Left-hand limit',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_LIMIT_RIGHT' => (
+          'Limits',
+          'Right-hand limit',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_LIMIT_POS_INFINITY' => (
+          'Limits',
+          'Limit at infinity',
+          _derivativeNotation,
+          'x',
+        ),
+        'CALC_LIMIT_NEG_INFINITY' => (
+          'Limits',
+          'Limit at infinity',
+          _derivativeNotation,
+          'x',
+        ),
+        _ => ('Limits', 'Two-sided limit', _derivativeNotation, 'x'),
+      };
       setState(() {
-        if (key == 'CALC_DERIVATIVE') {
-          _calculusFamily = 'Derivatives';
-          _calculusOperation = 'First derivative';
-        } else {
-          _calculusFamily = 'Integrals';
-          _calculusOperation = key == 'CALC_INTEGRAL'
-              ? 'Indefinite integral'
-              : 'Definite integral';
+        _calculusFamily = selection.$1;
+        _calculusOperation = selection.$2;
+        _derivativeNotation = selection.$3;
+        if (_calculusOperation == 'Partial derivative') {
+          _partialVariable = selection.$4;
         }
+        if (key == 'CALC_LIMIT_POS_INFINITY') _limitAtPositiveInfinity = true;
+        if (key == 'CALC_LIMIT_NEG_INFINITY') _limitAtPositiveInfinity = false;
+        _selectedIntegralBound = null;
         _result = null;
         _answerShown = false;
       });
@@ -2855,7 +2948,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               _CalculatorMode.trigonometry => 'Trigonometry',
                               _CalculatorMode.graphing => 'Graphing',
                               _CalculatorMode.algebra => 'Algebra',
-                              _CalculatorMode.calculus => 'Integral calculus',
+                              _CalculatorMode.calculus => 'Calculus',
                               _CalculatorMode.numberSystem => 'Number systems',
                               _CalculatorMode.discreteMath => 'Discrete math',
                               _CalculatorMode.statistics => 'Statistics',
@@ -4563,22 +4656,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
 
   Widget _buildCalculusControls() {
-    const families = ['Derivatives', 'Integrals', 'Limits'];
-    final operations = switch (_calculusFamily) {
-      'Integrals' => [
-        'Indefinite integral',
-        'Definite integral',
-        'Double integral',
-        'Triple integral',
-      ],
-      'Limits' => [
-        'Two-sided limit',
-        'Left-hand limit',
-        'Right-hand limit',
-        'Limit at infinity',
-      ],
-      _ => ['First derivative', 'Second derivative', 'Partial derivative'],
-    };
     final boundFields = switch (_calculusOperation) {
       'Definite integral' => <(TextEditingController, String, int)>[
         (_integralLowerInput, 'Lower bound', 0),
@@ -4608,83 +4685,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Wrap(
-          spacing: 6,
-          children: [
-            for (final family in families)
-              ChoiceChip(
-                label: Text(family),
-                selected: _calculusFamily == family,
-                onSelected: (_) => setState(() {
-                  _calculusFamily = family;
-                  _calculusOperation = family == 'Integrals'
-                      ? 'Indefinite integral'
-                      : family == 'Limits'
-                      ? 'Two-sided limit'
-                      : 'First derivative';
-                  _selectedIntegralBound = null;
-                  _result = null;
-                  _answerShown = false;
-                }),
-              ),
-          ],
-        ),
-        Wrap(
-          spacing: 4,
-          children: [
-            for (final operation in operations)
-              ChoiceChip(
-                label: Text(operation),
-                selected: _calculusOperation == operation,
-                onSelected: (_) => setState(() {
-                  _calculusOperation = operation;
-                  _selectedIntegralBound = null;
-                  _result = null;
-                  _answerShown = false;
-                }),
-              ),
-          ],
-        ),
-        if (_calculusFamily == 'Derivatives')
-          Wrap(
-            spacing: 6,
-            children: [
-              const Text('Notation'),
-              for (final notation in ['Lagrange', 'Leibniz'])
-                ChoiceChip(
-                  label: Text(notation),
-                  selected: _derivativeNotation == notation,
-                  onSelected: (_) =>
-                      setState(() => _derivativeNotation = notation),
-                ),
-              if (_calculusOperation == 'Partial derivative')
-                for (final variable in ['x', 'y', 'z'])
-                  ChoiceChip(
-                    label: Text('∂/$variable'),
-                    selected: _partialVariable == variable,
-                    onSelected: (_) =>
-                        setState(() => _partialVariable = variable),
-                  ),
-            ],
+        Semantics(
+          label: 'Selected calculus operation: $_calculusOperation',
+          child: Text(
+            _calculusOperationSymbol,
+            style: Theme.of(context).textTheme.titleSmall,
           ),
-        if (_calculusOperation == 'Limit at infinity')
-          Wrap(
-            spacing: 6,
-            children: [
-              ChoiceChip(
-                label: const Text('+∞'),
-                selected: _limitAtPositiveInfinity,
-                onSelected: (_) =>
-                    setState(() => _limitAtPositiveInfinity = true),
-              ),
-              ChoiceChip(
-                label: const Text('−∞'),
-                selected: !_limitAtPositiveInfinity,
-                onSelected: (_) =>
-                    setState(() => _limitAtPositiveInfinity = false),
-              ),
-            ],
-          ),
+        ),
         if (boundFields.isNotEmpty)
           Wrap(
             spacing: 6,
@@ -4712,6 +4719,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
+  String get _calculusOperationSymbol => switch (_calculusOperation) {
+    'First derivative' => _derivativeNotation == 'Lagrange' ? 'f′(x)' : 'dy/dx',
+    'Second derivative' =>
+      _derivativeNotation == 'Lagrange' ? 'f″(x)' : 'd²y/dx²',
+    'Partial derivative' => '∂/∂$_partialVariable',
+    'Indefinite integral' => '∫',
+    'Definite integral' => '∫ₐᵇ',
+    'Double integral' => '∬',
+    'Triple integral' => '∭',
+    'Two-sided limit' => 'limₓ→ₐ',
+    'Left-hand limit' => 'limₓ→ₐ⁻',
+    'Right-hand limit' => 'limₓ→ₐ⁺',
+    _ => _limitAtPositiveInfinity ? 'limₓ→∞' : 'limₓ→−∞',
+  };
+
   Widget _buildFunctionRow() {
     final List<(String, String)> functions = switch (_mode) {
       _CalculatorMode.algebra => [
@@ -4732,6 +4754,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('DEL', 'DEL'),
       ],
       _CalculatorMode.calculus => [
+        ('dy/dx', 'CALC_LEIBNIZ_FIRST'),
+        ('f′', 'CALC_LAGRANGE_FIRST'),
+        ('d²y/dx²', 'CALC_LEIBNIZ_SECOND'),
+        ('f″', 'CALC_LAGRANGE_SECOND'),
+        ('∂/∂x', 'CALC_PARTIAL_X'),
+        ('∂/∂y', 'CALC_PARTIAL_Y'),
+        ('∂/∂z', 'CALC_PARTIAL_Z'),
+        ('∫', 'CALC_INTEGRAL'),
+        ('∫ₐᵇ', 'CALC_DEFINITE_INTEGRAL'),
+        ('∬', 'CALC_DOUBLE_INTEGRAL'),
+        ('∭', 'CALC_TRIPLE_INTEGRAL'),
+        ('limₓ→ₐ', 'CALC_LIMIT_TWO'),
+        ('limₓ→ₐ⁻', 'CALC_LIMIT_LEFT'),
+        ('limₓ→ₐ⁺', 'CALC_LIMIT_RIGHT'),
+        ('limₓ→∞', 'CALC_LIMIT_POS_INFINITY'),
+        ('limₓ→−∞', 'CALC_LIMIT_NEG_INFINITY'),
         ('x', 'x'),
         ('y', 'y'),
         ('z', 'z'),
@@ -4769,9 +4807,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('i', 'i'),
         ('∞', 'infinity'),
         ('+ C', ' + C'),
-        ('d/dx', 'CALC_DERIVATIVE'),
-        ('∫', 'CALC_INTEGRAL'),
-        ('∫ₐᵇ', 'CALC_DEFINITE_INTEGRAL'),
         ('±', 'SIGN'),
         ('a/b', 'a/b'),
         (',', ','),
@@ -5091,9 +5126,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'ceil(' => r'\lceil\square\rceil',
       '*' => r'\times',
       '/' => r'\div',
-      'CALC_DERIVATIVE' => r'\frac{d}{dx}',
+      'CALC_DERIVATIVE' || 'CALC_LEIBNIZ_FIRST' => r'\frac{dy}{dx}',
+      'CALC_LAGRANGE_FIRST' => r"f'(x)",
+      'CALC_LEIBNIZ_SECOND' => r'\frac{d^2y}{dx^2}',
+      'CALC_LAGRANGE_SECOND' => r"f''(x)",
+      'CALC_PARTIAL_X' => r'\frac{\partial}{\partial x}',
+      'CALC_PARTIAL_Y' => r'\frac{\partial}{\partial y}',
+      'CALC_PARTIAL_Z' => r'\frac{\partial}{\partial z}',
       'CALC_INTEGRAL' => r'\int \square\,dx',
       'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
+      'CALC_DOUBLE_INTEGRAL' => r'\iint \square\,dx\,dy',
+      'CALC_TRIPLE_INTEGRAL' => r'\iiint \square\,dx\,dy\,dz',
+      'CALC_LIMIT_TWO' => r'\lim_{x\to a}',
+      'CALC_LIMIT_LEFT' => r'\lim_{x\to a^-}',
+      'CALC_LIMIT_RIGHT' => r'\lim_{x\to a^+}',
+      'CALC_LIMIT_POS_INFINITY' => r'\lim_{x\to\infty}',
+      'CALC_LIMIT_NEG_INFINITY' => r'\lim_{x\to-\infty}',
       'mean(' => r'\operatorname{mean}(',
       'median(' => r'\operatorname{median}(',
       'mode(' => r'\operatorname{mode}(',

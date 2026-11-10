@@ -159,7 +159,7 @@ void main() {
     expect(_answer(tester), 'x = 2, y = 1');
 
     // Symbolic derivative, indefinite integral, and definite integral.
-    await _selectMode(tester, 'Integral calculus');
+    await _selectMode(tester, 'Calculus');
     await _enterExpression(tester, 'x^3');
     await _pressEquals(tester);
     expect(_answer(tester), contains('d/dx'));
@@ -258,7 +258,7 @@ void main() {
       'Trigonometry',
       'Graphing',
       'Algebra',
-      'Integral calculus',
+      'Calculus',
     ]) {
       await _selectMode(tester, mode);
       final visualButton = find.byTooltip('Flip to visualization');

@@ -75,7 +75,7 @@ void main() {
       ('Scientific', 'sin('),
       ('Trigonometry', 'arcsin('),
       ('Algebra', ';'),
-      ('Integral calculus', 'CALC_INTEGRAL'),
+      ('Calculus', 'CALC_INTEGRAL'),
       ('Discrete math', 'gcd('),
       ('Statistics', 'mean('),
       ('Probability', 'binomial('),
@@ -90,31 +90,32 @@ void main() {
       );
     }
 
-    await _selectMode(tester, 'Integral calculus');
-    for (final operation in [
-      'First derivative',
-      'Second derivative',
-      'Partial derivative',
+    await _selectMode(tester, 'Calculus');
+    expect(find.text('Derivatives'), findsNothing);
+    expect(find.text('Integrals'), findsNothing);
+    expect(find.text('Limits'), findsNothing);
+    for (final operationKey in [
+      'CALC_LEIBNIZ_FIRST',
+      'CALC_LAGRANGE_FIRST',
+      'CALC_LEIBNIZ_SECOND',
+      'CALC_LAGRANGE_SECOND',
+      'CALC_PARTIAL_X',
+      'CALC_PARTIAL_Y',
+      'CALC_PARTIAL_Z',
+      'CALC_INTEGRAL',
+      'CALC_DEFINITE_INTEGRAL',
+      'CALC_DOUBLE_INTEGRAL',
+      'CALC_TRIPLE_INTEGRAL',
+      'CALC_LIMIT_TWO',
+      'CALC_LIMIT_LEFT',
+      'CALC_LIMIT_RIGHT',
+      'CALC_LIMIT_POS_INFINITY',
+      'CALC_LIMIT_NEG_INFINITY',
     ]) {
-      expect(find.text(operation), findsOneWidget);
-    }
-    await _tap(tester, find.text('Integrals'));
-    for (final operation in [
-      'Indefinite integral',
-      'Definite integral',
-      'Double integral',
-      'Triple integral',
-    ]) {
-      expect(find.text(operation), findsOneWidget);
-    }
-    await _tap(tester, find.text('Limits'));
-    for (final operation in [
-      'Two-sided limit',
-      'Left-hand limit',
-      'Right-hand limit',
-      'Limit at infinity',
-    ]) {
-      expect(find.text(operation), findsOneWidget);
+      expect(
+        find.byKey(ValueKey('function-key-$operationKey')),
+        findsOneWidget,
+      );
     }
     for (final functionKey in [
       'f(x)',
@@ -155,8 +156,10 @@ void main() {
       expect(find.byKey(ValueKey('function-key-$functionKey')), findsOneWidget);
     }
 
-    await _tap(tester, find.text('Derivatives'));
-    await _tap(tester, find.text('Second derivative'));
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
+    );
     await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
@@ -169,8 +172,10 @@ void main() {
       contains('d²y/dx² = 2'),
     );
 
-    await _tap(tester, find.text('Integrals'));
-    await _tap(tester, find.text('Double integral'));
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_DOUBLE_INTEGRAL')),
+    );
     await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     await _tap(tester, find.byKey(const ValueKey('basic-key-multiply')));
@@ -184,8 +189,10 @@ void main() {
       contains('≈ 1'),
     );
 
-    await _tap(tester, find.text('Limits'));
-    await _tap(tester, find.text('Right-hand limit'));
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LIMIT_RIGHT')),
+    );
     await _tap(tester, find.byKey(const ValueKey('function-key-C')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     await _tap(tester, find.byKey(const ValueKey('basic-key-equals')));
