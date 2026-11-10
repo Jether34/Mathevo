@@ -137,6 +137,24 @@ void main() {
       closeTo(0, 1e-8),
     );
     expect(
+      engine.calculateLimit(
+        '1/x',
+        variable: 'x',
+        point: 0,
+        side: LimitSide.positiveInfinity,
+      ),
+      closeTo(0, 1e-8),
+    );
+    expect(
+      engine.calculateLimit(
+        'x^2',
+        variable: 'x',
+        point: 0,
+        side: LimitSide.positiveInfinity,
+      ),
+      double.infinity,
+    );
+    expect(
       () => engine.calculateLimit(
         '1/x',
         variable: 'x',
