@@ -203,8 +203,8 @@ void main() {
     final deleteKey = tester.getRect(
       find.byKey(const ValueKey('basic-key-DEL')),
     );
-    expect(addKey.top, lessThan(calculusDigit.top));
-    expect(divideKey.top, lessThan(calculusDigit.top));
+    expect(addKey.top, lessThanOrEqualTo(calculusDigit.top));
+    expect(divideKey.top, greaterThan(calculusDigit.top));
     expect(clearKey.top, greaterThan(divideKey.bottom));
     expect(deleteKey.top, greaterThan(divideKey.bottom));
     await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));

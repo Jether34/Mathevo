@@ -1279,7 +1279,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
     super.dispose();
   }
 
+  void _closeExpressionEditorForKeypad() {
+    if (!_expressionEditing) return;
+    final selection = _input.selection;
+    _expressionFocus.unfocus();
+    setState(() => _expressionEditing = false);
+    if (selection.isValid) _input.selection = selection;
+  }
+
   void _insert(String value) {
+    _closeExpressionEditorForKeypad();
     FocusScope.of(context).unfocus();
     if (_mode == _CalculatorMode.numberSystem) {
       if (!_conversionOnly &&
@@ -1808,6 +1817,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Future<void> _evaluate() async {
+    _closeExpressionEditorForKeypad();
     final showDetails = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(
@@ -2926,6 +2936,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _pressFunction(String key) {
+    _closeExpressionEditorForKeypad();
     FocusScope.of(context).unfocus();
     if (key == 'CALC_EQUALS') {
       _evaluate();
@@ -5698,7 +5709,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _buildCurrentKeypad(BuildContext context) => _advancedKeypadVisible
       ? _buildAdvancedKeypad(context)
-      : _buildResponsiveKeypad(context);
+      : Align(
+          alignment: Alignment.topCenter,
+          child: _buildResponsiveKeypad(context),
+        );
 
   Widget _buildAdvancedKeypad(BuildContext context) {
     final functions = _mode == _CalculatorMode.basic
@@ -5922,120 +5936,96 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _buildResponsiveKeypad(BuildContext context) {
     final screen = MediaQuery.sizeOf(context);
-    final keyHeight = (screen.height * .043).clamp(27.0, 36.0).toDouble();
+    final keyHeight = (screen.height * .043).clamp(34.0, 48.0).toDouble();
     final gap = screen.width < 360 ? 4.0 : 6.0;
-    final numberGridHeight = keyHeight * 4 + gap * 3;
-    final keypadHeight = keyHeight * 6 + gap * 5;
-    const numberKeys = [
+    const keys = [
       '7',
       '8',
       '9',
+      '+',
       '4',
       '5',
       '6',
+      '-',
       '1',
       '2',
       '3',
+      '\u00D7',
       '0',
       '.',
       '00',
+      '\u00F7',
     ];
+    Widget keyWidget(String label) {
+      if (label == 'C') {
+        return _calculatorKey(
+          context,
+          label,
+          () => _pressFunction('C'),
+          key: const ValueKey('basic-key-C'),
+        );
+      }
+      if (label == 'DEL') {
+        return _calculatorKey(
+          context,
+          label,
+          () => _pressFunction('DEL'),
+          key: const ValueKey('basic-key-DEL'),
+        );
+      }
+      if (label == '=') {
+        return _calculatorKey(
+          context,
+          label,
+          _evaluate,
+          primary: true,
+          key: const ValueKey('basic-key-equals'),
+        );
+      }
+      final value = switch (label) {
+        '\u00D7' => '*',
+        '\u00F7' => '/',
+        _ => label,
+      };
+      final keyName = switch (label) {
+        '\u00D7' => 'multiply',
+        '\u00F7' => 'divide',
+        _ => label,
+      };
+      return _calculatorKey(
+        context,
+        label,
+        () => _insert(value),
+        emphasized: const {'+', '-', '\u00D7', '\u00F7'}.contains(label),
+        key: ValueKey('basic-key-$keyName'),
+      );
+    }
+
     return SizedBox(
-      height: keypadHeight,
-      child: Row(
+      height: keyHeight * 5 + gap * 4,
+      child: Column(
         children: [
           Expanded(
-            flex: 3,
-            child: Align(
-              alignment: Alignment.center,
-              child: SizedBox(
-                height: numberGridHeight,
-                child: GridView.count(
-                  padding: EdgeInsets.zero,
-                  physics: const NeverScrollableScrollPhysics(),
-                  crossAxisCount: 3,
-                  mainAxisExtent: keyHeight,
-                  mainAxisSpacing: gap,
-                  crossAxisSpacing: gap,
-                  children: [
-                    for (final key in numberKeys)
-                      _calculatorKey(
-                        context,
-                        key,
-                        () => _insert(key),
-                        key: ValueKey('basic-key-$key'),
-                      ),
-                  ],
-                ),
-              ),
+            child: GridView.count(
+              padding: EdgeInsets.zero,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 4,
+              mainAxisExtent: keyHeight,
+              mainAxisSpacing: gap,
+              crossAxisSpacing: gap,
+              children: [for (final key in keys) keyWidget(key)],
             ),
           ),
-          SizedBox(width: gap),
-          Expanded(
-            child: Column(
+          SizedBox(height: gap),
+          SizedBox(
+            height: keyHeight,
+            child: Row(
               children: [
-                for (final (label, value) in const [
-                  ('+', '+'),
-                  ('-', '-'),
-                  ('×', '*'),
-                  ('÷', '/'),
-                ]) ...[
-                  SizedBox(
-                    height: keyHeight,
-                    width: double.infinity,
-                    child: _calculatorKey(
-                      context,
-                      label,
-                      () => _insert(value),
-                      emphasized: true,
-                      key: ValueKey(
-                        'basic-key-${value == '*'
-                            ? 'multiply'
-                            : value == '/'
-                            ? 'divide'
-                            : value}',
-                      ),
-                    ),
-                  ),
-                  SizedBox(height: gap),
-                ],
-                SizedBox(
-                  height: keyHeight,
-                  width: double.infinity,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _calculatorKey(
-                          context,
-                          'C',
-                          () => _pressFunction('C'),
-                          key: const ValueKey('basic-key-C'),
-                        ),
-                      ),
-                      SizedBox(width: gap),
-                      Expanded(
-                        child: _calculatorKey(
-                          context,
-                          'DEL',
-                          () => _pressFunction('DEL'),
-                          key: const ValueKey('basic-key-DEL'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                SizedBox(height: gap),
-                SizedBox(
-                  height: keyHeight,
-                  width: double.infinity,
-                  child: _calculatorKey(
-                    context,
-                    '=',
-                    _evaluate,
-                    primary: true,
-                    key: const ValueKey('basic-key-equals'),
-                  ),
-                ),
+                Expanded(child: keyWidget('C')),
+                SizedBox(width: gap),
+                Expanded(child: keyWidget('DEL')),
+                SizedBox(width: gap),
+                Expanded(flex: 2, child: keyWidget('=')),
               ],
             ),
           ),
