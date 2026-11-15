@@ -174,29 +174,37 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('Scientific'), findsOneWidget);
       expect(find.text('Graphing'), findsOneWidget);
-      await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-      await tester.pumpAndSettle();
-      await tester.enterText(
-        find.byKey(const Key('expression-input')),
-        '3 * 5 + 7',
-      );
-      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('basic-key-3')));
+      await tester.tap(find.byKey(const ValueKey('basic-key-multiply')));
+      await tester.tap(find.byKey(const ValueKey('basic-key-5')));
+      await tester.tap(find.byKey(const ValueKey('basic-key-+')));
+      await tester.tap(find.byKey(const ValueKey('basic-key-7')));
       await tester.tap(find.text('=').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const Key('answer-simplified-choice')));
       await tester.pumpAndSettle();
       expect(
         tester
             .widget<Semantics>(find.byKey(const Key('calculation-result')))
             .properties
             .label,
-        '≈ 22',
+        contains('22'),
       );
       expect(find.text('Solution steps'), findsNothing);
       expect(find.text('Calculate'), findsNothing);
-      await tester.ensureVisible(find.byKey(const Key('function-key-a/b')));
+      await tester.tap(find.text('Advanced functions'));
       await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('function-key-a/b')));
+      await tester.ensureVisible(
+        find.byKey(const Key('advanced-basic-key-a/b')),
+      );
       await tester.pumpAndSettle();
-      expect(find.byType(TextField), findsNWidgets(2));
+      await tester.tap(find.byKey(const Key('advanced-basic-key-a/b')));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('fraction-numerator-input')), findsOneWidget);
+      expect(
+        find.byKey(const Key('fraction-denominator-input')),
+        findsOneWidget,
+      );
       expect(find.byKey(const Key('fraction-insert')), findsOneWidget);
     },
   );

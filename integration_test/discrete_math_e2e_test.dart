@@ -139,6 +139,8 @@ Future<void> _pressEquals(WidgetTester tester, String expected) async {
   await tester.pump(const Duration(milliseconds: 250));
   await tester.tap(equals);
   await tester.pump(const Duration(milliseconds: 350));
+  await tester.tap(find.byKey(const Key('answer-simplified-choice')));
+  await tester.pump(const Duration(milliseconds: 350));
 
   final result = find.byKey(const Key('calculation-result'));
   expect(result, findsOneWidget);

@@ -46,6 +46,8 @@ void main() {
     await tester.ensureVisible(equals);
     await tester.tap(equals);
     await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('answer-simplified-choice')));
+    await tester.pumpAndSettle();
     final result = tester.widget<Semantics>(
       find.byKey(const Key('calculation-result')),
     );
@@ -54,6 +56,14 @@ void main() {
     final visualization = find.byTooltip('Flip to visualization');
     await tester.ensureVisible(visualization);
     await tester.tap(visualization);
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const Key('visualization-steps-toggle')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const Key('visualization-calculation-steps')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const Key('visualization-steps-toggle')));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('visualization-plot-toggle')));
     await tester.pumpAndSettle();

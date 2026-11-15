@@ -1161,8 +1161,11 @@ class CalculatorPage extends StatefulWidget {
 
 class _CalculatorPageState extends State<CalculatorPage> {
   final _input = TextEditingController();
+  final _expressionFocus = FocusNode();
   final _numerator = TextEditingController();
   final _denominator = TextEditingController();
+  final _numeratorFocus = FocusNode();
+  final _denominatorFocus = FocusNode();
   final _numberA = TextEditingController();
   final _numberB = TextEditingController();
   final _geometryFirst = TextEditingController();
@@ -1182,6 +1185,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   _CalculatorMode _mode = _CalculatorMode.basic;
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
+  bool _showAdvancedBasicKeys = false;
   int? _selectedIntegralBound;
   bool _errorDialogOpen = false;
   bool _conversionOnly = true;
@@ -1191,8 +1195,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _drawingSolveSuggested = false;
   bool _buildingSymbolExpression = false;
   bool _answerShown = false;
+  bool _showDetailedAnswer = false;
+  bool _expressionEditing = false;
   bool _showVisualization = false;
   bool _showVisualizationDetails = false;
+  bool _showVisualizationSteps = false;
   bool _showExpressionPlot = false;
   bool _visualIs3D = false;
   double _visualZoom = 1;
@@ -1249,8 +1256,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void dispose() {
     _drawingDebounce?.cancel();
     _input.dispose();
+    _expressionFocus.dispose();
     _numerator.dispose();
     _denominator.dispose();
+    _numeratorFocus.dispose();
+    _denominatorFocus.dispose();
     _numberA.dispose();
     _numberB.dispose();
     _geometryFirst.dispose();
@@ -1767,7 +1777,30 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return '${match.group(1)} = ${match.group(2)}';
   }
 
-  void _evaluate() {
+  Future<void> _evaluate() async {
+    final showDetails = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Choose an answer view'),
+        content: const Text(
+          'Show a simplified answer or the calculation steps?',
+        ),
+        actions: [
+          TextButton(
+            key: const Key('answer-simplified-choice'),
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Simplified answer'),
+          ),
+          FilledButton.tonal(
+            key: const Key('answer-steps-choice'),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Show steps'),
+          ),
+        ],
+      ),
+    );
+    if (showDetails == null || !mounted) return;
+    setState(() => _showDetailedAnswer = showDetails);
     FocusScope.of(context).unfocus();
     final expression = _input.text.trim();
     if (expression.isEmpty) return;
@@ -3116,6 +3149,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _numerator.clear();
         _denominator.clear();
       });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _numeratorFocus.requestFocus();
+      });
     } else if (key == 'EVAL') {
       _evaluate();
     } else {
@@ -3798,6 +3834,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               TextButton.icon(
                 key: const Key('visualization-details-toggle'),
                 onPressed: () => setState(() {
+                  _showVisualizationSteps = false;
                   _showExpressionPlot = false;
                   _showVisualizationDetails = !_showVisualizationDetails;
                 }),
@@ -3807,6 +3844,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       : Icons.flip_rounded,
                 ),
                 label: Text(_showVisualizationDetails ? 'Model' : 'Details'),
+              ),
+              TextButton.icon(
+                key: const Key('visualization-steps-toggle'),
+                onPressed: () => setState(() {
+                  _showVisualizationSteps = !_showVisualizationSteps;
+                  _showVisualizationDetails = false;
+                  _showExpressionPlot = false;
+                }),
+                icon: const Icon(Icons.format_list_numbered_rounded),
+                label: Text(_showVisualizationSteps ? 'Plot' : 'Steps'),
               ),
             ],
           ),
@@ -3856,7 +3903,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 child: child,
                               ),
                             ),
-                        child: _showVisualizationDetails
+                        child: _showVisualizationSteps
+                            ? _buildVisualizationSteps()
+                            : _showVisualizationDetails
                             ? _buildVisualizationDetails(context)
                             : Semantics(
                                 key: const Key('visualization-chart-semantics'),
@@ -4258,6 +4307,72 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ),
             ),
           ],
+        ),
+      ],
+    ),
+  );
+
+  Widget _buildVisualizationSteps() => Container(
+    key: const Key('visualization-calculation-steps'),
+    width: double.infinity,
+    height: double.infinity,
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(
+      color: const Color(0xFF1E2230),
+      borderRadius: BorderRadius.circular(18),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Calculation steps',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Expanded(
+          child: ListView(
+            children: [
+              for (final (index, step) in _detailedSteps().indexed)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${index + 1}. ',
+                        style: const TextStyle(color: Colors.white70),
+                      ),
+                      Expanded(
+                        child: Math.tex(
+                          _mathTexFromSource(step),
+                          mathStyle: MathStyle.text,
+                          textStyle: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                          ),
+                          onErrorFallback: (_) => Text(
+                            step,
+                            style: const TextStyle(color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              if (_result != null)
+                Text(
+                  'Answer: $_result',
+                  style: const TextStyle(
+                    color: Color(0xFFFFC66D),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          ),
         ),
       ],
     ),
@@ -4674,21 +4789,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ).textTheme.labelSmall?.copyWith(fontSize: 9, height: 1),
               ),
               SizedBox(
-                height: 17,
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Semantics(
-                      key: const Key('calculator-expression-display'),
-                      label: _expressionDisplaySemanticsLabel,
-                      child: Math.tex(
-                        _expressionTex,
-                        mathStyle: MathStyle.text,
-                        textStyle: const TextStyle(fontSize: 14),
-                        onErrorFallback: (_) => _rawExpressionFallback(),
-                      ),
-                    ),
+                height: 34,
+                width: double.infinity,
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Semantics(
+                    key: const Key('calculator-expression-display'),
+                    label: _expressionDisplaySemanticsLabel,
+                    child: _wrappedMathExpression(_input.text, fontSize: 14),
                   ),
                 ),
               ),
@@ -4716,6 +4824,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ),
                 ),
               ),
+              if (_showDetailedAnswer)
+                SizedBox(
+                  height: 58,
+                  child: ListView(
+                    key: const Key('calculation-steps'),
+                    children: [
+                      for (final step in _detailedSteps())
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Math.tex(
+                            _mathTexFromSource(step),
+                            mathStyle: MathStyle.text,
+                            textStyle: const TextStyle(fontSize: 12),
+                            onErrorFallback: (_) => Text(step),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
             ],
           ),
         ),
@@ -4732,12 +4859,41 @@ class _CalculatorPageState extends State<CalculatorPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          const Align(
-            alignment: Alignment.centerLeft,
-            child: Text(
-              'Expression',
-              style: TextStyle(fontSize: 10, height: 1),
-            ),
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Expression',
+                  style: TextStyle(fontSize: 10, height: 1),
+                ),
+              ),
+              IconButton(
+                key: const Key('expression-edit-toggle'),
+                tooltip: _expressionEditing
+                    ? 'Finish editing'
+                    : 'Edit expression',
+                visualDensity: VisualDensity.compact,
+                constraints: const BoxConstraints.tightFor(
+                  width: 28,
+                  height: 24,
+                ),
+                padding: EdgeInsets.zero,
+                onPressed: () {
+                  setState(() => _expressionEditing = !_expressionEditing);
+                  if (_expressionEditing) {
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (mounted) _expressionFocus.requestFocus();
+                    });
+                  } else {
+                    _expressionFocus.unfocus();
+                  }
+                },
+                icon: Icon(
+                  _expressionEditing ? Icons.check_rounded : Icons.edit_rounded,
+                  size: 16,
+                ),
+              ),
+            ],
           ),
           Expanded(
             child: GestureDetector(
@@ -4765,42 +4921,60 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       ],
                     )
                   : SizedBox.expand(
-                      child:
-                          _input.text.trim().isEmpty &&
-                              _mode != _CalculatorMode.geometry &&
-                              _mode != _CalculatorMode.calculus
-                          ? const Align(
-                              alignment: Alignment.topLeft,
-                              child: Text(
-                                'Use the calculator keys to enter an expression',
-                                style: TextStyle(
-                                  color: Colors.black45,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            )
-                          : SingleChildScrollView(
-                              scrollDirection: Axis.horizontal,
-                              child: Align(
-                                alignment: Alignment.centerLeft,
-                                child: Semantics(
-                                  key: const Key(
-                                    'calculator-expression-display',
-                                  ),
-                                  label: _expressionDisplaySemanticsLabel,
-                                  child: Math.tex(
-                                    _expressionTex,
-                                    mathStyle: MathStyle.display,
-                                    textStyle: const TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w500,
+                      child: Semantics(
+                        key: const Key('calculator-expression-display'),
+                        label: _expressionDisplaySemanticsLabel,
+                        child: Stack(
+                          alignment: Alignment.centerLeft,
+                          children: [
+                            Positioned.fill(
+                              child:
+                                  _input.text.trim().isEmpty &&
+                                      _mode != _CalculatorMode.geometry &&
+                                      _mode != _CalculatorMode.calculus
+                                  ? const Align(
+                                      alignment: Alignment.topLeft,
+                                      child: Text(
+                                        'Use the calculator keys to enter an expression',
+                                        style: TextStyle(
+                                          color: Colors.black45,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    )
+                                  : _wrappedMathExpression(
+                                      _input.text,
+                                      fontSize: 20,
+                                      displayStyle: true,
                                     ),
-                                    onErrorFallback: (_) =>
-                                        _rawExpressionFallback(),
-                                  ),
-                                ),
+                            ),
+                            TextField(
+                              key: const Key('expression-input'),
+                              controller: _input,
+                              focusNode: _expressionFocus,
+                              readOnly: !_expressionEditing,
+                              showCursor: true,
+                              keyboardType: TextInputType.none,
+                              onChanged: (_) => _updateResult(),
+                              maxLines: null,
+                              expands: true,
+                              textAlignVertical: TextAlignVertical.top,
+                              style: const TextStyle(
+                                color: Colors.transparent,
+                                fontSize: 20,
+                                height: 1.4,
+                              ),
+                              cursorColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
                               ),
                             ),
+                          ],
+                        ),
+                      ),
                     ),
             ),
           ),
@@ -4809,20 +4983,34 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _rawExpressionFallback() {
-    final visible = _input.text
-        .replaceAll('*', '×')
-        .replaceAll('/', '÷')
-        .replaceAll('pi', 'π');
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Align(
-        alignment: Alignment.centerLeft,
-        child: Text(
-          visible.isEmpty ? '□' : visible,
-          maxLines: 1,
-          softWrap: false,
-          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w500),
+  Widget _wrappedMathExpression(
+    String expression, {
+    required double fontSize,
+    bool displayStyle = false,
+  }) {
+    final tokens =
+        RegExp(r'[A-Za-z]+\([^()]*\)|[0-9]+(?:\.[0-9]*)?|[A-Za-z]+|.')
+            .allMatches(expression)
+            .map((match) => match.group(0)!)
+            .where((token) => token.trim().isNotEmpty);
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: SizedBox(
+          width: constraints.maxWidth,
+          child: Wrap(
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 1,
+            runSpacing: 0,
+            children: [
+              for (final token in tokens)
+                Math.tex(
+                  _mathTexFromSource(token),
+                  mathStyle: displayStyle ? MathStyle.display : MathStyle.text,
+                  textStyle: TextStyle(fontSize: fontSize),
+                  onErrorFallback: (_) => Text(token),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -4863,11 +5051,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('Numerator', style: TextStyle(fontSize: 10)),
             SizedBox(height: 34, child: _fractionField(_numerator, false)),
             Container(height: 2, color: Theme.of(context).colorScheme.primary),
             SizedBox(height: 34, child: _fractionField(_denominator, true)),
-            const Text('Denominator', style: TextStyle(fontSize: 10)),
           ],
         ),
       ),
@@ -4888,12 +5074,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
               : 'fraction-numerator-input',
         ),
         controller: controller,
+        focusNode: denominator ? _denominatorFocus : _numeratorFocus,
         readOnly: true,
+        showCursor: true,
+        keyboardType: TextInputType.none,
         textAlign: TextAlign.center,
-        onTap: () => setState(() => _fractionDenominatorSelected = denominator),
+        onTap: () {
+          controller.selection = TextSelection.collapsed(
+            offset: controller.text.length,
+          );
+          setState(() => _fractionDenominatorSelected = denominator);
+        },
         decoration: const InputDecoration(
-          hintText: '\u25A1',
-          border: OutlineInputBorder(),
+          hintText: '?',
+          border: InputBorder.none,
           isDense: true,
           contentPadding: EdgeInsets.zero,
         ),
@@ -5086,6 +5280,69 @@ class _CalculatorPageState extends State<CalculatorPage> {
   ];
 
   Widget _buildFunctionRow() {
+    if (_mode == _CalculatorMode.basic) {
+      const functions = <(String, String)>[
+        ('π', 'pi'),
+        ('sqrt', 'sqrt('),
+        ('x²', '^2'),
+        ('xʸ', '^'),
+        ('sin', 'sin('),
+        ('cos', 'cos('),
+        ('tan', 'tan('),
+        ('ln', 'ln('),
+        ('log', 'log10('),
+        ('a/b', 'a/b'),
+        ('(', '('),
+        (')', ')'),
+        ('±', 'SIGN'),
+      ];
+      return Column(
+        children: [
+          SegmentedButton<bool>(
+            key: const Key('basic-advanced-key-toggle'),
+            segments: const [
+              ButtonSegment(value: false, label: Text('Basic keys')),
+              ButtonSegment(value: true, label: Text('Advanced functions')),
+            ],
+            selected: {_showAdvancedBasicKeys},
+            onSelectionChanged: (selection) =>
+                setState(() => _showAdvancedBasicKeys = selection.first),
+          ),
+          if (_showAdvancedBasicKeys) ...[
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 34,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final (label, key) in functions)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 5),
+                        child: SizedBox(
+                          height: 32,
+                          child: OutlinedButton(
+                            key: ValueKey('advanced-basic-key-$key'),
+                            onPressed: () => _pressFunction(key),
+                            style: OutlinedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                              ),
+                              minimumSize: const Size(36, 32),
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: _functionKeyVisual(label, key),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ],
+      );
+    }
     final List<(String, String)> functions = switch (_mode) {
       _CalculatorMode.algebra => [
         ('x', 'x'),

@@ -50,7 +50,11 @@ void main() {
     expect(_answer(tester), '19');
 
     // Powers remain available on the keypad and evaluate with normal order.
-    expect(find.byKey(const ValueKey('function-key-^')), findsOneWidget);
+    await tester.tap(find.text('Advanced functions'));
+    await _pumpForUi(tester);
+    expect(find.byKey(const ValueKey('advanced-basic-key-^')), findsOneWidget);
+    await tester.tap(find.text('Basic keys'));
+    await _pumpForUi(tester);
     await _enterExpression(tester, '2^10');
     await _pressEquals(tester);
     expect(_answer(tester), '1024');
@@ -60,7 +64,7 @@ void main() {
     await _pumpForUi(tester);
     expect(find.byKey(const Key('calculation-result')), findsNothing);
     await _enterExpression(tester, '123');
-    await tester.tap(find.byKey(const Key('function-key-DEL')));
+    await tester.tap(find.byKey(const ValueKey('basic-key-DEL')));
     await _pumpForUi(tester);
     await tester.tap(find.byKey(const Key('expression-edit-toggle')));
     await _pumpForUi(tester);
@@ -160,19 +164,28 @@ void main() {
 
     // Symbolic derivative, indefinite integral, and definite integral.
     await _selectMode(tester, 'Calculus');
+    await tester.tap(
+      find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_FIRST')),
+    );
+    await _pumpForUi(tester);
     await _enterExpression(tester, 'x^3');
     await _pressEquals(tester);
-    expect(_answer(tester), contains('d/dx'));
-    await tester.tap(find.text('Indefinite integral'));
+    expect(_answer(tester), contains('dy/dx'));
+    await tester.tap(find.byKey(const ValueKey('function-key-CALC_INTEGRAL')));
     await _pumpForUi(tester);
     await _enterExpression(tester, 'x^2');
     await _pressEquals(tester);
     expect(_answer(tester), contains('+ C'));
-    await tester.tap(find.text('Definite integral'));
+    await tester.tap(
+      find.byKey(const ValueKey('function-key-CALC_DEFINITE_INTEGRAL')),
+    );
+    await _pumpForUi(tester);
+    await _pumpForUi(tester);
+    await tester.enterText(_boundField('Lower x'), '0');
+    await tester.enterText(_boundField('Upper x'), '3');
+    await tester.tap(find.text('Done'));
     await _pumpForUi(tester);
     await _enterExpression(tester, 'x^2');
-    await tester.enterText(_boundField('Lower bound'), '0');
-    await tester.enterText(_boundField('Upper bound'), '3');
     await _pressEquals(tester);
     expect(_answer(tester), contains('9'));
 
@@ -346,14 +359,11 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 
 Future<void> _enterExpression(WidgetTester tester, String expression) async {
   final editToggle = find.byKey(const Key('expression-edit-toggle'));
-  if (find.byKey(const Key('expression-input')).evaluate().isEmpty) {
-    if (find
-        .byKey(const Key('calculation-result-panel'))
-        .evaluate()
-        .isNotEmpty) {
-      await _tapVisible(tester, find.text('C').last);
-      await _pumpForUi(tester);
-    }
+  if (find.byKey(const Key('calculation-result-panel')).evaluate().isNotEmpty) {
+    await _tapVisible(tester, find.text('C').last);
+    await _pumpForUi(tester);
+  }
+  if (find.byTooltip('Edit expression').evaluate().isNotEmpty) {
     await tester.tap(editToggle);
     await _pumpForUi(tester);
   }
@@ -361,8 +371,10 @@ Future<void> _enterExpression(WidgetTester tester, String expression) async {
   await tester.ensureVisible(input);
   await tester.enterText(input, expression);
   await _pumpForUi(tester);
-  await tester.tap(editToggle);
-  await _pumpForUi(tester);
+  if (find.byTooltip('Finish editing').evaluate().isNotEmpty) {
+    await tester.tap(editToggle);
+    await _pumpForUi(tester);
+  }
 }
 
 Future<void> _pressEquals(WidgetTester tester) async {
@@ -370,6 +382,11 @@ Future<void> _pressEquals(WidgetTester tester) async {
   await tester.ensureVisible(equals.last);
   await tester.tap(equals.last);
   await _pumpForUi(tester);
+  final simplified = find.byKey(const Key('answer-simplified-choice'));
+  if (simplified.evaluate().isNotEmpty) {
+    await tester.tap(simplified);
+    await _pumpForUi(tester);
+  }
 }
 
 String _answer(WidgetTester tester) {
@@ -377,6 +394,7 @@ String _answer(WidgetTester tester) {
   if (finder.evaluate().isNotEmpty) {
     return (tester.widget<Semantics>(finder.first).properties.label ?? '')
         .trim()
+        .replaceFirst(RegExp(r'^(?:Exact answer|Answer):\s*'), '')
         .replaceFirst(RegExp(r'^\u2248\s*'), '');
   }
   final candidates = find.byType(SelectableText).evaluate();
