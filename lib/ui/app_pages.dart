@@ -4954,27 +4954,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                         child: Stack(
                           alignment: Alignment.centerLeft,
                           children: [
-                            Positioned.fill(
-                              child:
-                                  _input.text.trim().isEmpty &&
-                                      _mode != _CalculatorMode.geometry &&
-                                      _mode != _CalculatorMode.calculus
-                                  ? const Align(
-                                      alignment: Alignment.topLeft,
-                                      child: Text(
-                                        'Use the calculator keys to enter an expression',
-                                        style: TextStyle(
-                                          color: Colors.black45,
-                                          fontSize: 14,
-                                        ),
-                                      ),
-                                    )
-                                  : _wrappedMathExpression(
-                                      _input.text,
-                                      fontSize: 20,
-                                      displayStyle: true,
-                                    ),
-                            ),
                             if (_expressionEditing)
                               TextField(
                                 key: const Key('expression-input'),
@@ -5000,6 +4979,29 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                   contentPadding: EdgeInsets.zero,
                                 ),
                               ),
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child:
+                                    _input.text.trim().isEmpty &&
+                                        _mode != _CalculatorMode.geometry &&
+                                        _mode != _CalculatorMode.calculus
+                                    ? const Align(
+                                        alignment: Alignment.topLeft,
+                                        child: Text(
+                                          'Use the calculator keys to enter an expression',
+                                          style: TextStyle(
+                                            color: Colors.black45,
+                                            fontSize: 14,
+                                          ),
+                                        ),
+                                      )
+                                    : _wrappedMathExpression(
+                                        _input.text,
+                                        fontSize: 20,
+                                        displayStyle: true,
+                                      ),
+                              ),
+                            ),
                           ],
                         ),
                       ),
@@ -5579,28 +5581,117 @@ class _CalculatorPageState extends State<CalculatorPage> {
   Widget _buildFunctionRow() {
     final basicMode = _mode == _CalculatorMode.basic;
     final showingAdvanced = _advancedKeypadVisible;
-    return OutlinedButton.icon(
-      key: Key(
-        basicMode ? 'basic-advanced-key-toggle' : 'mode-specific-key-toggle',
-      ),
-      onPressed: () => setState(() {
-        if (basicMode) {
-          _showAdvancedBasicKeys = !_showAdvancedBasicKeys;
-        } else {
-          _showModeSpecificKeys = !_showModeSpecificKeys;
-        }
-      }),
-      icon: Icon(
-        showingAdvanced
-            ? Icons.keyboard_return_rounded
-            : Icons.emoji_symbols_rounded,
-      ),
-      label: Text(
-        showingAdvanced
-            ? 'Back to basic keys'
-            : basicMode
-            ? 'More functions'
-            : 'More math keys',
+    final quickFunctions = basicMode
+        ? const <(String, String)>[
+            ('sin', 'sin('),
+            ('sqrt', 'sqrt('),
+            ('x\u00B2', '^2'),
+          ]
+        : switch (_mode) {
+            _CalculatorMode.scientific || _CalculatorMode.trigonometry => [
+              ('sin', 'sin('),
+              ('cos', 'cos('),
+              ('tan', 'tan('),
+            ],
+            _CalculatorMode.algebra || _CalculatorMode.graphing => [
+              ('x', 'x'),
+              ('y', 'y'),
+              ('\u03C0', 'pi'),
+            ],
+            _CalculatorMode.calculus => [
+              ('dy/dx', 'CALC_LEIBNIZ_FIRST'),
+              ('\u222B', 'CALC_INTEGRAL'),
+              ('lim', 'CALC_LIMIT_RIGHT'),
+            ],
+            _CalculatorMode.statistics => [
+              ('mean(', 'mean('),
+              ('median(', 'median('),
+              ('sum(', 'sum('),
+            ],
+            _CalculatorMode.probability => [
+              ('P(', 'probability('),
+              ('binomial(', 'binomial('),
+              ('nCr(', 'combination('),
+            ],
+            _CalculatorMode.physics => [
+              ('distance', 'distance('),
+              ('velocity', 'velocity('),
+              ('time', 'time('),
+            ],
+            _CalculatorMode.numberSystem => [
+              ('0', 'NUM_DIGIT_0'),
+              ('1', 'NUM_DIGIT_1'),
+              ('2', 'NUM_DIGIT_2'),
+            ],
+            _CalculatorMode.discreteMath => [
+              ('gcd(', 'gcd('),
+              ('lcm(', 'lcm('),
+              ('nCr(', 'nCr('),
+            ],
+            _CalculatorMode.geometry => [
+              ('\u03C0', 'pi'),
+              ('x\u00B2', '^2'),
+              ('\u00F7', '/'),
+            ],
+            _ => _modeFunctionItems.take(3).toList(),
+          };
+    return SizedBox(
+      height: 38,
+      child: Row(
+        children: [
+          if (!showingAdvanced)
+            Expanded(
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: [
+                    for (final (label, key) in quickFunctions)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 5),
+                        child: OutlinedButton(
+                          key: ValueKey('quick-function-key-$key'),
+                          onPressed: () => _pressFunction(key),
+                          style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(52, 32),
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: FittedBox(
+                            child: _functionKeyVisual(label, key),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            )
+          else
+            const Spacer(),
+          IconButton.filledTonal(
+            key: Key(
+              basicMode
+                  ? 'basic-advanced-key-toggle'
+                  : 'mode-specific-key-toggle',
+            ),
+            tooltip: showingAdvanced
+                ? 'Back to basic keys'
+                : basicMode
+                ? 'More functions'
+                : 'More math keys',
+            onPressed: () => setState(() {
+              if (basicMode) {
+                _showAdvancedBasicKeys = !_showAdvancedBasicKeys;
+              } else {
+                _showModeSpecificKeys = !_showModeSpecificKeys;
+              }
+            }),
+            icon: Icon(
+              showingAdvanced
+                  ? Icons.keyboard_return_rounded
+                  : Icons.emoji_symbols_rounded,
+            ),
+          ),
+        ],
       ),
     );
   }

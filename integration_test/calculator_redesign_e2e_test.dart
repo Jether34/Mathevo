@@ -35,12 +35,12 @@ void main() {
     );
     expect(standardKeys, findsNWidgets(19));
     expect(find.byKey(const Key('advanced-basic-key-sqrt(')), findsNothing);
-    await tester.tap(find.text('More functions'));
+    await tester.tap(find.byKey(const Key('basic-advanced-key-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('advanced-basic-key-sqrt(')), findsOneWidget);
     expect(standardKeys, findsNWidgets(3));
     expect(find.byKey(const ValueKey('basic-key-7')), findsNothing);
-    await tester.tap(find.text('Back to basic keys'));
+    await tester.tap(find.byKey(const Key('basic-advanced-key-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('advanced-basic-key-sqrt(')), findsNothing);
     expect(standardKeys, findsNWidgets(19));
@@ -80,7 +80,7 @@ void main() {
     );
 
     await _selectMode(tester, 'Graphing');
-    await tester.tap(find.text('More math keys'));
+    await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('function-key-x')), findsOneWidget);
     expect(find.byKey(const ValueKey('function-key-y')), findsOneWidget);
@@ -99,7 +99,7 @@ void main() {
     ];
     for (final (mode, functionKey) in modeKeys) {
       await _selectMode(tester, mode);
-      await tester.tap(find.text('More math keys'));
+      await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
       await tester.pumpAndSettle();
       expect(find.byKey(const Key('advanced-math-keyboard')), findsOneWidget);
       expect(standardKeys, findsNWidgets(3));
@@ -112,7 +112,7 @@ void main() {
     }
 
     await _selectMode(tester, 'Calculus');
-    await tester.tap(find.text('More math keys'));
+    await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
     await tester.pumpAndSettle();
     expect(find.text('Derivatives'), findsNothing);
     expect(find.text('Integrals'), findsNothing);
@@ -190,7 +190,7 @@ void main() {
     expect(calculusFunction.height, greaterThan(0));
     expect(standardKeys, findsNWidgets(3));
     expect(find.byKey(const ValueKey('basic-key-7')), findsNothing);
-    await tester.tap(find.text('Back to basic keys'));
+    await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
     await tester.pumpAndSettle();
     final calculusDigit = tester.getRect(
       find.byKey(const ValueKey('basic-key-7')),
@@ -207,7 +207,7 @@ void main() {
     expect(divideKey.top, lessThan(calculusDigit.top));
     expect(clearKey.top, greaterThan(divideKey.bottom));
     expect(deleteKey.top, greaterThan(divideKey.bottom));
-    await tester.tap(find.text('More math keys'));
+    await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
     await tester.pumpAndSettle();
 
     await _tap(tester, find.byKey(const ValueKey('basic-key-C')));
@@ -359,7 +359,7 @@ void main() {
     );
 
     await _selectMode(tester, 'Discrete math');
-    await tester.tap(find.text('More math keys'));
+    await tester.tap(find.byKey(const Key('mode-specific-key-toggle')));
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('function-key-VAR_C')), findsOneWidget);
     expect(find.byKey(const ValueKey('function-key-C')), findsOneWidget);
