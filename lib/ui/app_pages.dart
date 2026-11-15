@@ -1186,6 +1186,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
   bool _showAdvancedBasicKeys = false;
+  bool _showModeSpecificKeys = false;
   int? _selectedIntegralBound;
   bool _errorDialogOpen = false;
   bool _conversionOnly = true;
@@ -1280,6 +1281,35 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _insert(String value) {
     FocusScope.of(context).unfocus();
+    if (_mode == _CalculatorMode.numberSystem) {
+      if (!_conversionOnly &&
+          const {'+', '-', '*', '/', '%', '&', '|', '^'}.contains(value)) {
+        setState(() => _numberOperator = value);
+        _calculateNumberSystem();
+      } else if (RegExp(r'^\d+$').hasMatch(value) ||
+          const {'A', 'B', 'C', 'D', 'E', 'F'}.contains(value.toUpperCase())) {
+        _insertNumberSystemKey(value);
+      }
+      return;
+    }
+    if (_mode == _CalculatorMode.geometry && !_fractionBuilder) {
+      final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
+      if (_answerShown) {
+        controller.clear();
+        _answerShown = false;
+      }
+      final selection = controller.selection;
+      final start = selection.isValid
+          ? selection.start
+          : controller.text.length;
+      final end = selection.isValid ? selection.end : controller.text.length;
+      controller.value = TextEditingValue(
+        text: controller.text.replaceRange(start, end, value),
+        selection: TextSelection.collapsed(offset: start + value.length),
+      );
+      _calculateGeometry();
+      return;
+    }
     if (_mode == _CalculatorMode.calculus && _selectedIntegralBound != null) {
       if (RegExp(r'^[0-9.\-]$').hasMatch(value)) {
         final controller = _calculusBoundControllers[_selectedIntegralBound!];
@@ -1820,6 +1850,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _calculateGeometry(commit: true);
         return;
       }
+      if (_mode == _CalculatorMode.numberSystem) {
+        _calculateNumberSystem(commit: true);
+        return;
+      }
       if (_mode == _CalculatorMode.algebra) {
         final answer = expression.contains(';')
             ? _engine.solveLinearSystem(expression).display
@@ -2178,64 +2212,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'Sphere surface area' => '4*$pi*($a)^2',
       _ => a,
     };
-  }
-
-  void _pressGeometryDigit(String key) {
-    FocusScope.of(context).unfocus();
-    if (_fractionBuilder) {
-      if (key == 'C' || key == 'DEL') {
-        _pressFunction(key);
-      } else if (key == '±') {
-        _toggleSign();
-      } else {
-        _insert(switch (key) {
-          '×' => '*',
-          '÷' => '/',
-          'π' => 'pi',
-          '√' => 'sqrt(',
-          _ => key,
-        });
-      }
-      return;
-    }
-    final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
-    if (key == 'C') {
-      controller.clear();
-      _input.clear();
-    } else if (key == '±') {
-      final value = controller.text;
-      controller.text = value.startsWith('-') ? value.substring(1) : '-$value';
-      controller.selection = TextSelection.collapsed(
-        offset: controller.text.length,
-      );
-    } else {
-      final inserted = switch (key) {
-        '×' => '*',
-        '÷' => '/',
-        _ => key,
-      };
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      final value = key == 'DEL'
-          ? controller.text.replaceRange(
-              start == end && start > 0 ? start - 1 : start,
-              end,
-              '',
-            )
-          : controller.text.replaceRange(start, end, inserted);
-      controller.value = TextEditingValue(
-        text: value,
-        selection: TextSelection.collapsed(
-          offset: key == 'DEL' && start == end && start > 0
-              ? start - 1
-              : start + inserted.length,
-        ),
-      );
-    }
-    _calculateGeometry();
   }
 
   void _appendSessionEntry(
@@ -2955,6 +2931,46 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _evaluate();
       return;
     }
+    if (_mode == _CalculatorMode.numberSystem && key.startsWith('NUM_DIGIT_')) {
+      final value = int.parse(key.substring('NUM_DIGIT_'.length));
+      _insertNumberSystemKey(value.toRadixString(16).toUpperCase());
+      return;
+    }
+    if (_mode == _CalculatorMode.numberSystem &&
+        key.startsWith('NUM_OPERATOR_')) {
+      setState(() => _numberOperator = key.substring('NUM_OPERATOR_'.length));
+      _calculateNumberSystem();
+      return;
+    }
+    if (_mode == _CalculatorMode.numberSystem && key == 'C') {
+      _insertNumberSystemKey('C');
+      return;
+    }
+    if (_mode == _CalculatorMode.numberSystem && key == 'DEL') {
+      _insertNumberSystemKey('DEL');
+      return;
+    }
+    if (_mode == _CalculatorMode.geometry && key == 'C') {
+      final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
+      controller.clear();
+      _input.clear();
+      _calculateGeometry();
+      return;
+    }
+    if (_mode == _CalculatorMode.geometry && key == 'DEL') {
+      final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
+      final selection = controller.selection;
+      final end = selection.isValid ? selection.end : controller.text.length;
+      final start = selection.isValid
+          ? selection.start
+          : math.max(0, controller.text.length - 1);
+      controller.value = TextEditingValue(
+        text: controller.text.replaceRange(start, end, ''),
+        selection: TextSelection.collapsed(offset: start),
+      );
+      _calculateGeometry();
+      return;
+    }
     if (key == 'C' || key == 'CALC_CLEAR_ALL') {
       _clearCalculatorInputs();
       return;
@@ -3236,6 +3252,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 if (mode != _CalculatorMode.drawing) {
                                   _drawingSolveSuggested = false;
                                 }
+                                _showAdvancedBasicKeys = false;
+                                _showModeSpecificKeys = false;
                               });
                               widget.onFullscreenChanged(
                                 mode == _CalculatorMode.drawing,
@@ -3282,11 +3300,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
             const SizedBox(height: 4),
           ],
           if (_mode == _CalculatorMode.numberSystem)
-            _buildNumberSystemCalculator(context)
+            Expanded(child: _buildNumberSystemCalculator(context))
           else if (_mode == _CalculatorMode.drawing)
             _buildDrawingCalculator(context)
           else if (_mode == _CalculatorMode.geometry)
-            Expanded(child: _buildGeometryCalculator(context, fill: true))
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Expanded(
+                    child: _buildGeometryCalculator(context, fill: true),
+                  ),
+                  const SizedBox(height: 4),
+                  _buildFunctionRow(),
+                  const SizedBox(height: 3),
+                  _buildResponsiveKeypad(context),
+                ],
+              ),
+            )
           else
             Expanded(
               child: Column(
@@ -3313,14 +3344,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     ),
                     const SizedBox(height: 5),
                   ],
-                  Expanded(
-                    child: _buildExpressionAnswer(context, expand: true),
-                  ),
+                  _buildExpressionAnswer(context, height: 132),
                   const SizedBox(height: 5),
-                  if (_mode != _CalculatorMode.calculus) ...[
-                    _buildFunctionRow(),
-                    const SizedBox(height: 3),
-                  ],
+                  _buildFunctionRow(),
+                  const SizedBox(height: 3),
                   _buildResponsiveKeypad(context),
                 ],
               ),
@@ -4948,30 +4975,31 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                       displayStyle: true,
                                     ),
                             ),
-                            TextField(
-                              key: const Key('expression-input'),
-                              controller: _input,
-                              focusNode: _expressionFocus,
-                              readOnly: !_expressionEditing,
-                              showCursor: true,
-                              keyboardType: TextInputType.none,
-                              onChanged: (_) => _updateResult(),
-                              maxLines: null,
-                              expands: true,
-                              textAlignVertical: TextAlignVertical.top,
-                              style: const TextStyle(
-                                color: Colors.transparent,
-                                fontSize: 20,
-                                height: 1.4,
+                            if (_expressionEditing)
+                              TextField(
+                                key: const Key('expression-input'),
+                                controller: _input,
+                                focusNode: _expressionFocus,
+                                readOnly: !_expressionEditing,
+                                showCursor: true,
+                                keyboardType: TextInputType.none,
+                                onChanged: (_) => _updateResult(),
+                                maxLines: null,
+                                expands: true,
+                                textAlignVertical: TextAlignVertical.top,
+                                style: const TextStyle(
+                                  color: Colors.transparent,
+                                  fontSize: 20,
+                                  height: 1.4,
+                                ),
+                                cursorColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                decoration: const InputDecoration(
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
                               ),
-                              cursorColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                              decoration: const InputDecoration(
-                                border: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
-                              ),
-                            ),
                           ],
                         ),
                       ),
@@ -5298,15 +5326,19 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ];
       return Column(
         children: [
-          SegmentedButton<bool>(
+          OutlinedButton.icon(
             key: const Key('basic-advanced-key-toggle'),
-            segments: const [
-              ButtonSegment(value: false, label: Text('Basic keys')),
-              ButtonSegment(value: true, label: Text('Advanced functions')),
-            ],
-            selected: {_showAdvancedBasicKeys},
-            onSelectionChanged: (selection) =>
-                setState(() => _showAdvancedBasicKeys = selection.first),
+            onPressed: () => setState(
+              () => _showAdvancedBasicKeys = !_showAdvancedBasicKeys,
+            ),
+            icon: Icon(
+              _showAdvancedBasicKeys
+                  ? Icons.keyboard_return_rounded
+                  : Icons.functions_rounded,
+            ),
+            label: Text(
+              _showAdvancedBasicKeys ? 'Back to basic keys' : 'More functions',
+            ),
           ),
           if (_showAdvancedBasicKeys) ...[
             const SizedBox(height: 4),
@@ -5414,6 +5446,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
         (')', ')'),
         ('C', 'C'),
         ('DEL', 'DEL'),
+      ],
+      _CalculatorMode.numberSystem => [
+        for (var digit = 0; digit < _sourceBase; digit++)
+          (digit.toRadixString(16).toUpperCase(), 'NUM_DIGIT_$digit'),
+        for (final operation in [
+          '+',
+          '-',
+          '*',
+          '/',
+          '%',
+          '&',
+          '|',
+          '^',
+          'pow',
+          '<<',
+          '>>',
+        ])
+          (operation == 'pow' ? 'xʸ' : operation, 'NUM_OPERATOR_$operation'),
       ],
       _CalculatorMode.graphing => [
         ('x', 'x'),
@@ -5589,32 +5639,50 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ('DEL', 'DEL'),
       ],
     };
-    return SizedBox(
-      height: 34,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            for (final (label, key) in functions)
-              Padding(
-                padding: const EdgeInsets.only(right: 5),
-                child: SizedBox(
-                  height: 32,
-                  child: OutlinedButton(
-                    key: ValueKey('function-key-$key'),
-                    onPressed: () => _pressFunction(key),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(horizontal: 10),
-                      minimumSize: const Size(36, 32),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    ),
-                    child: _functionKeyVisual(label, key),
-                  ),
-                ),
-              ),
-          ],
+    return Column(
+      children: [
+        OutlinedButton.icon(
+          key: const Key('mode-specific-key-toggle'),
+          onPressed: () =>
+              setState(() => _showModeSpecificKeys = !_showModeSpecificKeys),
+          icon: Icon(
+            _showModeSpecificKeys
+                ? Icons.keyboard_return_rounded
+                : Icons.emoji_symbols_rounded,
+          ),
+          label: Text(
+            _showModeSpecificKeys ? 'Back to basic keys' : 'More math keys',
+          ),
         ),
-      ),
+        if (_showModeSpecificKeys)
+          SizedBox(
+            height: 38,
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  for (final (label, key) in functions)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 5),
+                      child: SizedBox(
+                        height: 32,
+                        child: OutlinedButton(
+                          key: ValueKey('function-key-$key'),
+                          onPressed: () => _pressFunction(key),
+                          style: OutlinedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(horizontal: 10),
+                            minimumSize: const Size(36, 32),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          ),
+                          child: _functionKeyVisual(label, key),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+      ],
     );
   }
 
@@ -5733,9 +5801,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Widget _buildResponsiveKeypad(BuildContext context) {
-    if (_mode == _CalculatorMode.calculus) {
-      return _buildCalculusKeypad(context);
-    }
     final screen = MediaQuery.sizeOf(context);
     final keyHeight = (screen.height * .043).clamp(27.0, 36.0).toDouble();
     final gap = screen.width < 360 ? 4.0 : 6.0;
@@ -5859,164 +5924,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
   }
 
-  Widget _buildCalculusKeypad(BuildContext context) {
-    final screen = MediaQuery.sizeOf(context);
-    final keyHeight = (screen.height * .03).clamp(20.0, 25.0).toDouble();
-    const gap = 3.0;
-    final numberHeight = (keyHeight * 1.4).clamp(28.0, 34.0).toDouble();
-    final operatorHeight = (keyHeight * 1.12).clamp(24.0, 29.0).toDouble();
-    final actionHeight = (keyHeight * 1.12).clamp(24.0, 29.0).toDouble();
-    const numberKeys = [
-      '7',
-      '8',
-      '9',
-      '4',
-      '5',
-      '6',
-      '1',
-      '2',
-      '3',
-      '0',
-      '.',
-      '00',
-    ];
-    const arithmeticKeys = [('+', '+'), ('−', '-'), ('×', '*'), ('÷', '/')];
-    final leftKeys = _calculusKeyItems;
-    final leftRows = (leftKeys.length / 6).ceil();
-    final leftHeight = leftRows * keyHeight + (leftRows - 1) * gap;
-    final numberGridHeight = numberHeight * 4 + gap * 3;
-    final operatorGridHeight = operatorHeight * 2 + gap;
-    final rightHeight =
-        numberGridHeight + operatorGridHeight + actionHeight + gap * 2;
-    final height = math.max(leftHeight, rightHeight);
-    return SizedBox(
-      key: const Key('calculus-compact-keypad'),
-      height: height,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 6,
-            child: GridView.count(
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 6,
-              mainAxisExtent: keyHeight,
-              mainAxisSpacing: gap,
-              crossAxisSpacing: gap,
-              children: [
-                for (final (label, key) in leftKeys)
-                  SizedBox.expand(
-                    key: ValueKey('function-key-$key'),
-                    child: OutlinedButton(
-                      onPressed: () => _pressFunction(key),
-                      style: OutlinedButton.styleFrom(
-                        padding: EdgeInsets.zero,
-                        minimumSize: Size.zero,
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        child: _functionKeyVisual(label, key),
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 5),
-          Expanded(
-            flex: 4,
-            child: Column(
-              children: [
-                SizedBox(
-                  height: numberGridHeight,
-                  child: GridView.count(
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 3,
-                    mainAxisExtent: numberHeight,
-                    mainAxisSpacing: gap,
-                    crossAxisSpacing: gap,
-                    children: [
-                      for (final key in numberKeys)
-                        _calculatorKey(
-                          context,
-                          key,
-                          () => _insert(key),
-                          fontSize: 20,
-                          key: ValueKey('basic-key-$key'),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: gap),
-                SizedBox(
-                  height: operatorGridHeight,
-                  child: GridView.count(
-                    padding: EdgeInsets.zero,
-                    physics: const NeverScrollableScrollPhysics(),
-                    crossAxisCount: 2,
-                    mainAxisExtent: operatorHeight,
-                    mainAxisSpacing: gap,
-                    crossAxisSpacing: gap,
-                    children: [
-                      for (final (label, operator) in arithmeticKeys)
-                        _calculatorKey(
-                          context,
-                          label,
-                          () => _pressFunction(operator),
-                          fontSize: 18,
-                          key: ValueKey('function-key-$operator'),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: gap),
-                SizedBox(
-                  height: actionHeight,
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: _calculatorKey(
-                          context,
-                          'C',
-                          () => _pressFunction('C'),
-                          key: const ValueKey('function-key-C'),
-                        ),
-                      ),
-                      const SizedBox(width: gap),
-                      Expanded(
-                        child: _calculatorKey(
-                          context,
-                          'DEL',
-                          () => _pressFunction('DEL'),
-                          key: const ValueKey('function-key-DEL'),
-                        ),
-                      ),
-                      const SizedBox(width: gap),
-                      Expanded(
-                        child: _calculatorKey(
-                          context,
-                          '=',
-                          () => _pressFunction('CALC_EQUALS'),
-                          primary: true,
-                          fontSize: 18,
-                          key: const ValueKey('function-key-CALC_EQUALS'),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _calculatorKey(
     BuildContext context,
     String label,
@@ -6061,10 +5968,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   Widget _buildNumberSystemCalculator(BuildContext context) {
     const bases = [2, 8, 10, 16];
-    final inputDigitKeys = List.generate(
-      _sourceBase,
-      (digit) => digit.toRadixString(16).toUpperCase(),
-    );
     Widget picker(String label, int value, ValueChanged<int?> onChanged) =>
         Expanded(
           child: InputDecorator(
@@ -6128,42 +6031,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
               }),
             ],
           ),
-          if (!_answerShown) ...[
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final digit in inputDigitKeys)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: SizedBox(
-                        width: 40,
-                        height: 38,
-                        child: _calculatorKey(
-                          context,
-                          digit,
-                          () => _insertNumberSystemKey(digit),
-                        ),
-                      ),
-                    ),
-                  for (final key in const ['\u00B1', 'DEL', 'C'])
-                    Padding(
-                      padding: const EdgeInsets.only(right: 4),
-                      child: SizedBox(
-                        width: 44,
-                        height: 38,
-                        child: _calculatorKey(
-                          context,
-                          key,
-                          () => _insertNumberSystemKey(key),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ],
           if (_answerShown) ...[
             const SizedBox(height: 14),
             Container(
@@ -6224,42 +6091,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ),
             if (!_conversionOnly) ...[
               const SizedBox(height: 8),
-              Wrap(
-                spacing: 4,
-                children: [
-                  for (final operation in [
-                    '+',
-                    '-',
-                    '*',
-                    '/',
-                    '%',
-                    '&',
-                    '|',
-                    '^',
-                    'pow',
-                    '<<',
-                    '>>',
-                  ])
-                    ChoiceChip(
-                      label: Text(
-                        {
-                              '%': 'mod',
-                              '&': 'AND',
-                              '|': 'OR',
-                              '^': 'XOR',
-                              'pow': 'xʸ',
-                            }[operation] ??
-                            operation,
-                      ),
-                      selected: operation == _numberOperator,
-                      onSelected: (_) {
-                        setState(() => _numberOperator = operation);
-                        _calculateNumberSystem();
-                      },
-                    ),
-                ],
-              ),
-              const SizedBox(height: 8),
               TextField(
                 controller: _numberB,
                 onTap: () => setState(() => _numberBSelected = true),
@@ -6274,15 +6105,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 ),
               ),
             ],
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
-                onPressed: () => _calculateNumberSystem(commit: true),
-                child: const Text('='),
-              ),
-            ),
           ],
+          const SizedBox(height: 4),
+          _buildFunctionRow(),
+          const SizedBox(height: 3),
+          _buildResponsiveKeypad(context),
         ],
       ),
     );
@@ -6411,10 +6238,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
       'Cone volume',
       'Cone surface area',
     }.contains(_geometryOperation);
-    final geometryGridHeight =
-        (((MediaQuery.sizeOf(context).width - 24) / 4 / 3.9) * 6 + 20)
-            .clamp(145.0, 154.0)
-            .toDouble();
     String firstLabel = switch (_geometryOperation) {
       'Rectangle area' || 'Rectangle perimeter' => 'Length',
       'Triangle area' => 'Base',
@@ -6438,10 +6261,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (fill)
-          Expanded(child: _buildExpressionAnswer(context, expand: true))
-        else
-          _buildExpressionAnswer(context),
+        _buildExpressionAnswer(context, height: fill ? 132 : null),
         const SizedBox(height: 5),
         DropdownButtonFormField<String>(
           initialValue: _geometryOperation,
@@ -6512,74 +6332,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ],
         ),
         const SizedBox(height: 8),
-        SizedBox(
-          height: geometryGridHeight,
-          child: GridView.count(
-            physics: const NeverScrollableScrollPhysics(),
-            padding: EdgeInsets.zero,
-            crossAxisCount: 4,
-            mainAxisSpacing: 3,
-            crossAxisSpacing: 3,
-            childAspectRatio: 3.9,
-            children: [
-              for (final key in [
-                '7',
-                '8',
-                '9',
-                '+',
-                '4',
-                '5',
-                '6',
-                '-',
-                '1',
-                '2',
-                '3',
-                '×',
-                'a/b',
-                '0',
-                '.',
-                '÷',
-                'DEL',
-                '(',
-                ')',
-                'x\u02B8',
-                'C',
-                '√',
-                'π',
-                '±',
-              ])
-                OutlinedButton(
-                  key: ValueKey('geometry-key-$key'),
-                  onPressed: () {
-                    if (key == 'a/b') {
-                      _pressFunction('a/b');
-                    } else if (key == 'x\u02B8') {
-                      _pressFunction('^');
-                    } else {
-                      _pressGeometryDigit(key);
-                    }
-                  },
-                  style: OutlinedButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: key == 'x\u02B8'
-                      ? _functionKeyVisual('x\u02B8', '^')
-                      : Text(
-                          key,
-                          style: Theme.of(context).textTheme.labelSmall,
-                        ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        FilledButton.icon(
-          onPressed: () => _calculateGeometry(commit: true),
-          icon: const Icon(Icons.calculate_outlined),
-          label: const Text('Calculate'),
-        ),
       ],
     );
   }
