@@ -38,9 +38,12 @@ void main() {
     await tester.tap(find.text('More functions'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('advanced-basic-key-sqrt(')), findsOneWidget);
+    expect(standardKeys, findsNWidgets(3));
+    expect(find.byKey(const ValueKey('basic-key-7')), findsNothing);
     await tester.tap(find.text('Back to basic keys'));
     await tester.pumpAndSettle();
     expect(find.byKey(const Key('advanced-basic-key-sqrt(')), findsNothing);
+    expect(standardKeys, findsNWidgets(19));
 
     final plus = find.byKey(const ValueKey('basic-key-+'));
     final clear = find.byKey(const ValueKey('basic-key-C'));
@@ -98,6 +101,9 @@ void main() {
       await _selectMode(tester, mode);
       await tester.tap(find.text('More math keys'));
       await tester.pumpAndSettle();
+      expect(find.byKey(const Key('advanced-math-keyboard')), findsOneWidget);
+      expect(standardKeys, findsNWidgets(3));
+      expect(find.byKey(const ValueKey('basic-key-7')), findsNothing);
       expect(
         find.byKey(ValueKey('function-key-$functionKey')),
         findsOneWidget,
@@ -178,11 +184,16 @@ void main() {
       expect(find.byKey(ValueKey('function-key-$functionKey')), findsOneWidget);
     }
 
-    final calculusDigit = tester.getRect(
-      find.byKey(const ValueKey('basic-key-7')),
-    );
     final calculusFunction = tester.getRect(
       find.byKey(const ValueKey('function-key-CALC_INTEGRAL')),
+    );
+    expect(calculusFunction.height, greaterThan(0));
+    expect(standardKeys, findsNWidgets(3));
+    expect(find.byKey(const ValueKey('basic-key-7')), findsNothing);
+    await tester.tap(find.text('Back to basic keys'));
+    await tester.pumpAndSettle();
+    final calculusDigit = tester.getRect(
+      find.byKey(const ValueKey('basic-key-7')),
     );
     final addKey = tester.getRect(find.byKey(const ValueKey('basic-key-+')));
     final divideKey = tester.getRect(
@@ -192,11 +203,12 @@ void main() {
     final deleteKey = tester.getRect(
       find.byKey(const ValueKey('basic-key-DEL')),
     );
-    expect(calculusDigit.height, greaterThan(calculusFunction.height));
     expect(addKey.top, lessThan(calculusDigit.top));
-    expect(divideKey.top, greaterThan(calculusDigit.top));
+    expect(divideKey.top, lessThan(calculusDigit.top));
     expect(clearKey.top, greaterThan(divideKey.bottom));
     expect(deleteKey.top, greaterThan(divideKey.bottom));
+    await tester.tap(find.text('More math keys'));
+    await tester.pumpAndSettle();
 
     await _tap(tester, find.byKey(const ValueKey('basic-key-C')));
     await _tap(tester, find.byKey(const ValueKey('function-key-z')));
@@ -235,10 +247,7 @@ void main() {
     );
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -259,12 +268,9 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('calculus-bound-3')), '1');
     await _tap(tester, find.text('Done'));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key-multiply')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-*')));
     await _tap(tester, find.byKey(const ValueKey('function-key-y')));
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -282,10 +288,7 @@ void main() {
     await tester.enterText(find.byKey(const ValueKey('calculus-bound-6')), '0');
     await _tap(tester, find.text('Done'));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -298,17 +301,14 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('function-key-DIFF_EQ_DX')));
     await _tap(tester, find.byKey(const ValueKey('function-key-(')));
     await _tap(tester, find.byKey(const ValueKey('function-key-z')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key--')));
+    await _tap(tester, find.byKey(const ValueKey('function-key--')));
     await _tap(tester, find.byKey(const ValueKey('function-key-b')));
     await _tap(tester, find.byKey(const ValueKey('function-key-)')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    await _tap(tester, find.byKey(const ValueKey('basic-key--')));
+    await _tap(tester, find.byKey(const ValueKey('function-key--')));
     await _tap(tester, find.byKey(const ValueKey('function-key-d')));
     await _tap(tester, find.byKey(const ValueKey('function-key-y')));
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -331,10 +331,7 @@ void main() {
           .label,
       'z=t^2',
     );
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
@@ -352,10 +349,7 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('function-key-EQUALS_SIGN')));
     await _tap(tester, find.byKey(const ValueKey('function-key-t')));
     await _tap(tester, find.byKey(const ValueKey('function-key-^2')));
-    await _tapEquals(
-      tester,
-      find.byKey(const ValueKey('basic-key-equals')),
-    );
+    await _tapEquals(tester, find.byKey(const ValueKey('basic-key-equals')));
     expect(
       tester
           .widget<Semantics>(find.byKey(const Key('calculation-result')))
