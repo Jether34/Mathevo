@@ -1124,6 +1124,8 @@ enum _CalculatorMode {
   drawing,
 }
 
+enum _CalculatorKeyboardLayer { numbers, symbols, functions }
+
 enum _DrawingResultMode { automatic, suggest, off }
 
 enum _DrawingTool { pen, highlighter, eraser }
@@ -1183,10 +1185,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
   TextRecognizer? _recognizer;
   StrokeSymbolModel? _strokeSymbolModel;
   _CalculatorMode _mode = _CalculatorMode.basic;
+  _CalculatorKeyboardLayer _keyboardLayer = _CalculatorKeyboardLayer.numbers;
+  int _functionKeyPage = 0;
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
-  bool _showAdvancedBasicKeys = false;
-  bool _showModeSpecificKeys = false;
   int? _selectedIntegralBound;
   bool _errorDialogOpen = false;
   bool _conversionOnly = true;
@@ -3256,6 +3258,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               FocusScope.of(context).unfocus();
                               setState(() {
                                 _mode = mode;
+                                _functionKeyPage = 0;
                                 _showVisualization = false;
                                 _error = null;
                                 _result = null;
@@ -3263,8 +3266,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 if (mode != _CalculatorMode.drawing) {
                                   _drawingSolveSuggested = false;
                                 }
-                                _showAdvancedBasicKeys = false;
-                                _showModeSpecificKeys = false;
                               });
                               widget.onFullscreenChanged(
                                 mode == _CalculatorMode.drawing,
@@ -3323,8 +3324,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     child: _buildGeometryCalculator(context, fill: true),
                   ),
                   const SizedBox(height: 4),
-                  _buildFunctionRow(),
-                  const SizedBox(height: 3),
                   Expanded(child: _buildCurrentKeypad(context)),
                 ],
               ),
@@ -3357,8 +3356,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   ],
                   _buildExpressionAnswer(context, height: 132),
                   const SizedBox(height: 5),
-                  _buildFunctionRow(),
-                  const SizedBox(height: 3),
                   Expanded(child: _buildCurrentKeypad(context)),
                 ],
               ),
@@ -5585,497 +5582,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ],
   };
 
-  bool get _advancedKeypadVisible => _mode == _CalculatorMode.basic
-      ? _showAdvancedBasicKeys
-      : _showModeSpecificKeys;
-
-  Widget _buildFunctionRow() {
-    final basicMode = _mode == _CalculatorMode.basic;
-    final showingAdvanced = _advancedKeypadVisible;
-    final quickFunctions = basicMode
-        ? const <(String, String)>[
-            ('sin', 'sin('),
-            ('sqrt', 'sqrt('),
-            ('x\u00B2', '^2'),
-          ]
-        : switch (_mode) {
-            _CalculatorMode.scientific || _CalculatorMode.trigonometry => [
-              ('sin', 'sin('),
-              ('cos', 'cos('),
-              ('tan', 'tan('),
-            ],
-            _CalculatorMode.algebra || _CalculatorMode.graphing => [
-              ('x', 'x'),
-              ('y', 'y'),
-              ('\u03C0', 'pi'),
-            ],
-            _CalculatorMode.calculus => [
-              ('dy/dx', 'CALC_LEIBNIZ_FIRST'),
-              ('\u222B', 'CALC_INTEGRAL'),
-              ('lim', 'CALC_LIMIT_RIGHT'),
-            ],
-            _CalculatorMode.statistics => [
-              ('mean(', 'mean('),
-              ('median(', 'median('),
-              ('sum(', 'sum('),
-            ],
-            _CalculatorMode.probability => [
-              ('P(', 'probability('),
-              ('binomial(', 'binomial('),
-              ('nCr(', 'combination('),
-            ],
-            _CalculatorMode.physics => [
-              ('distance', 'distance('),
-              ('velocity', 'velocity('),
-              ('time', 'time('),
-            ],
-            _CalculatorMode.numberSystem => [
-              ('0', 'NUM_DIGIT_0'),
-              ('1', 'NUM_DIGIT_1'),
-              ('2', 'NUM_DIGIT_2'),
-            ],
-            _CalculatorMode.discreteMath => [
-              ('gcd(', 'gcd('),
-              ('lcm(', 'lcm('),
-              ('nCr(', 'nCr('),
-            ],
-            _CalculatorMode.geometry => [
-              ('\u03C0', 'pi'),
-              ('x\u00B2', '^2'),
-              ('\u00F7', '/'),
-            ],
-            _ => _modeFunctionItems.take(3).toList(),
-          };
-    return SizedBox(
-      height: 38,
-      child: Row(
-        children: [
-          if (!showingAdvanced)
-            Expanded(
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    for (final (label, key) in quickFunctions)
-                      Padding(
-                        padding: const EdgeInsets.only(right: 5),
-                        child: OutlinedButton(
-                          key: ValueKey('quick-function-key-$key'),
-                          onPressed: () => _pressFunction(key),
-                          style: OutlinedButton.styleFrom(
-                            minimumSize: const Size(52, 32),
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: const Color(0xFF3E3E3E),
-                            foregroundColor: Colors.white,
-                            side: BorderSide.none,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: FittedBox(
-                            child: _functionKeyVisual(label, key),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            )
-          else
-            const Spacer(),
-          IconButton.filledTonal(
-            key: Key(
-              basicMode
-                  ? 'basic-advanced-key-toggle'
-                  : 'mode-specific-key-toggle',
-            ),
-            tooltip: showingAdvanced
-                ? 'Back to basic keys'
-                : basicMode
-                ? 'More functions'
-                : 'More math keys',
-            onPressed: () => setState(() {
-              if (basicMode) {
-                _showAdvancedBasicKeys = !_showAdvancedBasicKeys;
-              } else {
-                _showModeSpecificKeys = !_showModeSpecificKeys;
-              }
-            }),
-            icon: Icon(
-              showingAdvanced
-                  ? Icons.keyboard_return_rounded
-                  : Icons.emoji_symbols_rounded,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildCurrentKeypad(BuildContext context) => _advancedKeypadVisible
-      ? _buildAdvancedKeypad(context)
-      : Align(
-          alignment: Alignment.topCenter,
-          child: _buildResponsiveKeypad(context),
-        );
-
-  Widget _buildAdvancedKeypad(BuildContext context) {
-    final functions = _mode == _CalculatorMode.basic
-        ? const <(String, String)>[
-            ('\u03C0', 'pi'),
-            ('+', '+'),
-            ('-', '-'),
-            ('×', '*'),
-            ('÷', '/'),
-            ('sqrt', 'sqrt('),
-            ('x\u00B2', '^2'),
-            ('x\u02B8', '^'),
-            ('sin', 'sin('),
-            ('cos', 'cos('),
-            ('tan', 'tan('),
-            ('ln', 'ln('),
-            ('log', 'log10('),
-            ('a/b', 'a/b'),
-            ('(', '('),
-            (')', ')'),
-            ('\u00B1', 'SIGN'),
-          ]
-        : <(String, String)>[
-            ('+', '+'),
-            ('-', '-'),
-            ('×', '*'),
-            ('÷', '/'),
-            ..._modeFunctionItems,
-          ];
-    return Column(
-      children: [
-        Expanded(
-          child: LayoutBuilder(
-            builder: (context, constraints) => SingleChildScrollView(
-              key: const Key('advanced-math-keyboard'),
-              padding: const EdgeInsets.symmetric(vertical: 4),
-              child: SizedBox(
-                width: constraints.maxWidth,
-                child: Wrap(
-                  spacing: 5,
-                  runSpacing: 5,
-                  children: [
-                    for (final (label, key) in functions)
-                      SizedBox(
-                        width: 72,
-                        height: 44,
-                        child: OutlinedButton(
-                          key: ValueKey(
-                            _mode == _CalculatorMode.basic
-                                ? 'advanced-basic-key-$key'
-                                : 'function-key-$key',
-                          ),
-                          onPressed: () => _pressFunction(key),
-                          style: OutlinedButton.styleFrom(
-                            padding: const EdgeInsets.all(4),
-                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            backgroundColor: const Color(0xFF3E3E3E),
-                            foregroundColor: Colors.white,
-                            side: BorderSide.none,
-                            elevation: 2,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: FittedBox(
-                            child: _functionKeyVisual(label, key),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-        const SizedBox(height: 4),
-        SizedBox(
-          height: 44,
-          child: Row(
-            children: [
-              Expanded(
-                child: _calculatorKey(
-                  context,
-                  'C',
-                  () => _pressFunction('C'),
-                  key: const ValueKey('basic-key-C'),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: _calculatorKey(
-                  context,
-                  'DEL',
-                  () => _pressFunction('DEL'),
-                  key: const ValueKey('basic-key-DEL'),
-                ),
-              ),
-              const SizedBox(width: 5),
-              Expanded(
-                child: _calculatorKey(
-                  context,
-                  '=',
-                  _evaluate,
-                  primary: true,
-                  key: const ValueKey('basic-key-equals'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _functionKeyVisual(String label, String key) {
-    if (key == 'DEL') return const Icon(Icons.backspace_outlined, size: 17);
-    if (_mode == _CalculatorMode.physics) {
-      final physicsTex = switch (label) {
-        'd = v × t' => r'd=v\times t',
-        'v = d ÷ t' => r'v=\frac{d}{t}',
-        't = d ÷ v' => r't=\frac{d}{v}',
-        _ => null,
-      };
-      if (physicsTex != null) {
-        return Math.tex(
-          physicsTex,
-          mathStyle: MathStyle.text,
-          textStyle: const TextStyle(fontSize: 12),
-        );
-      }
-    }
-    final tex = switch (key) {
-      'pi' => r'\pi',
-      'sqrt(' => r'\sqrt{\square}',
-      'cbrt(' => r'\sqrt[3]{\square}',
-      'a/b' => r'\frac{\square}{\square}',
-      'pow(' => r'\square^{\square}',
-      '^' when _mode == _CalculatorMode.discreteMath => r'\oplus',
-      '^' => r'\square^{\square}',
-      'e^(' => r'e^x',
-      'pi' || '3.141592653589793' => r'\pi',
-      'abs(' => r'|x|',
-      'sin(' => r'\sin(\square)',
-      'cos(' => r'\cos(\square)',
-      'tan(' => r'\tan(\square)',
-      'sec(' => r'\sec(\square)',
-      'csc(' => r'\csc(\square)',
-      'cot(' => r'\cot(\square)',
-      'arcsin(' => r'\arcsin(\square)',
-      'arccos(' => r'\arccos(\square)',
-      'arctan(' => r'\arctan(\square)',
-      'ln(' => r'\ln(\square)',
-      'log10(' => r'\log_{10}(\square)',
-      'log(' => r'\log_{\square}(\square)',
-      'nrt(' => r'\sqrt[\square]{\square}',
-      'union(' => r'\cup',
-      'intersection(' => r'\cap',
-      'difference(' => r'\setminus',
-      'symmetricDifference(' => r'\triangle',
-      'sinh(' => r'\sinh(\square)',
-      'cosh(' => r'\cosh(\square)',
-      'tanh(' => r'\tanh(\square)',
-      'asinh(' => r'\operatorname{asinh}(\square)',
-      'acosh(' => r'\operatorname{acosh}(\square)',
-      'atanh(' => r'\operatorname{atanh}(\square)',
-      'floor(' => r'\lfloor\square\rfloor',
-      'ceil(' => r'\lceil\square\rceil',
-      '*' => r'\times',
-      '/' => r'\div',
-      'CALC_DERIVATIVE' || 'CALC_LEIBNIZ_FIRST' => r'\frac{dy}{dx}',
-      'CALC_LAGRANGE_FIRST' => r"f'(x)",
-      'CALC_DERIVATIVE_T' => r'\frac{d}{dt}',
-      'DIFF_EQ_DX' => r'\frac{dx}{dt}=',
-      'DIFF_EQ_DY' => r'\frac{dy}{dt}=',
-      'DIFF_EQ_DZ' => r'\frac{dz}{dt}=',
-      'CALC_LEIBNIZ_SECOND' => r'\frac{d^2y}{dx^2}',
-      'CALC_LAGRANGE_SECOND' => r"f''(x)",
-      'CALC_PARTIAL_X' => r'\frac{\partial}{\partial x}',
-      'CALC_PARTIAL_Y' => r'\frac{\partial}{\partial y}',
-      'CALC_PARTIAL_Z' => r'\frac{\partial}{\partial z}',
-      'CALC_INTEGRAL' => r'\int \square\,dx',
-      'CALC_DEFINITE_INTEGRAL' => r'\int_{a}^{b}\square\,dx',
-      'CALC_DOUBLE_INTEGRAL' => r'\iint \square\,dx\,dy',
-      'CALC_TRIPLE_INTEGRAL' => r'\iiint \square\,dx\,dy\,dz',
-      'CALC_LIMIT_TWO' => r'\lim_{x\to a}',
-      'CALC_LIMIT_LEFT' => r'\lim_{x\to a^-}',
-      'CALC_LIMIT_RIGHT' => r'\lim_{x\to a^+}',
-      'CALC_LIMIT_POS_INFINITY' => r'\lim_{x\to\infty}',
-      'CALC_LIMIT_NEG_INFINITY' => r'\lim_{x\to-\infty}',
-      'nabla' => r'\nabla',
-      'delta' => r'\Delta',
-      'lineIntegral' => r'\oint',
-      'sumSymbol' => r'\sum',
-      'productSymbol' => r'\prod',
-      'partial' => r'\partial',
-      'mean(' => r'\operatorname{mean}(',
-      'median(' => r'\operatorname{median}(',
-      'mode(' => r'\operatorname{mode}(',
-      'range(' => r'\operatorname{range}(',
-      'variance(' => r'\operatorname{Var}(',
-      'sampleVariance(' => r's^2(',
-      'stdev(' => r'\sigma(',
-      'sampleStdev(' => r's(',
-      'probability(' => r'P(',
-      'complement(' => r'P^c(',
-      'binomial(' => r'P(X=k)=',
-      'combination(' => r'\binom{n}{r}',
-      'permutation(' => r'nP_r',
-      'velocity(' => r'v(',
-      'time(' => r't(',
-      'distance(' => r'\operatorname{distance}(',
-      '×' => r'\times',
-      '÷' => r'\div',
-      '&&' => r'\land',
-      '||' => r'\lor',
-      '->' => r'\to',
-      '<->' => r'\leftrightarrow',
-      _ => null,
-    };
-    if (tex == null) return Text(label);
-    return Math.tex(
-      tex,
-      mathStyle: MathStyle.text,
-      textStyle: const TextStyle(fontSize: 12),
-      onErrorFallback: (_) => Text(label),
-    );
-  }
-
-  Widget _buildResponsiveKeypad(BuildContext context) {
-    final screen = MediaQuery.sizeOf(context);
-    final keyHeight = (screen.height * .043).clamp(34.0, 48.0).toDouble();
-    final gap = screen.width < 360 ? 4.0 : 6.0;
-    const keys = [
-      '7',
-      '8',
-      '9',
-      '+',
-      '4',
-      '5',
-      '6',
-      '-',
-      '1',
-      '2',
-      '3',
-      '\u00D7',
-      '0',
-      '.',
-      '00',
-      '\u00F7',
-    ];
-    Widget keyWidget(String label) {
-      if (label == 'C') {
-        return _calculatorKey(
-          context,
-          label,
-          () => _pressFunction('C'),
-          key: const ValueKey('basic-key-C'),
-        );
-      }
-      if (label == 'DEL') {
-        return _calculatorKey(
-          context,
-          label,
-          () => _pressFunction('DEL'),
-          key: const ValueKey('basic-key-DEL'),
-        );
-      }
-      if (label == '=') {
-        return _calculatorKey(
-          context,
-          label,
-          _evaluate,
-          primary: true,
-          key: const ValueKey('basic-key-equals'),
-        );
-      }
-      final value = switch (label) {
-        '\u00D7' => '*',
-        '\u00F7' => '/',
-        _ => label,
-      };
-      final keyName = switch (label) {
-        '\u00D7' => 'multiply',
-        '\u00F7' => 'divide',
-        _ => label,
-      };
-      return _calculatorKey(
-        context,
-        label,
-        () => _insert(value),
-        emphasized: const {'+', '-', '\u00D7', '\u00F7'}.contains(label),
-        key: ValueKey('basic-key-$keyName'),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(5),
-      decoration: BoxDecoration(
-        color: const Color(0xFF242424),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: SizedBox(
-        height: keyHeight * 5 + gap * 4,
-        child: Column(
-          children: [
-            Expanded(
-              child: GridView.count(
-                padding: EdgeInsets.zero,
-                physics: const NeverScrollableScrollPhysics(),
-                crossAxisCount: 4,
-                mainAxisExtent: keyHeight,
-                mainAxisSpacing: gap,
-                crossAxisSpacing: gap,
-                children: [for (final key in keys) keyWidget(key)],
-              ),
-            ),
-            SizedBox(height: gap),
-            SizedBox(
-              height: keyHeight,
-              child: Row(
-                children: [
-                  Expanded(child: keyWidget('C')),
-                  SizedBox(width: gap),
-                  Expanded(child: keyWidget('DEL')),
-                  SizedBox(width: gap),
-                  Expanded(
-                    flex: 3,
-                    child: _calculatorKey(
-                      context,
-                      'space',
-                      () => _insert(' '),
-                      fontSize: 11,
-                      key: const ValueKey('calculator-space-key'),
-                    ),
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(
-                    flex: 2,
-                    child: _calculatorKey(
-                      context,
-                      'MODE',
-                      _showCalculatorDomains,
-                      fontSize: 10,
-                      key: const ValueKey('calculator-domain-picker'),
-                    ),
-                  ),
-                  SizedBox(width: gap),
-                  Expanded(flex: 2, child: keyWidget('=')),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildCurrentKeypad(BuildContext context) =>
+      _buildMobileMathKeyboard(context);
 
   Future<void> _showCalculatorDomains() async {
     final selected = await showModalBottomSheet<_CalculatorMode>(
@@ -6109,8 +5617,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (selected == null || !mounted) return;
     setState(() {
       _mode = selected;
-      _showAdvancedBasicKeys = false;
-      _showModeSpecificKeys = false;
+      _keyboardLayer = _CalculatorKeyboardLayer.functions;
+      _functionKeyPage = 0;
     });
   }
 
@@ -6129,6 +5637,275 @@ class _CalculatorPageState extends State<CalculatorPage> {
     _CalculatorMode.physics => 'Physics',
     _CalculatorMode.drawing => 'Draw',
   };
+
+  Widget _buildMobileMathKeyboard(BuildContext context) {
+    const numberKeys = <(String, String)>[
+      ('1', '1'),
+      ('2', '2'),
+      ('3', '3'),
+      ('4', '4'),
+      ('5', '5'),
+      ('6', '6'),
+      ('7', '7'),
+      ('8', '8'),
+      ('9', '9'),
+      ('0', '0'),
+      ('+', '+'),
+      ('−', '-'),
+      ('×', '*'),
+      ('÷', '/'),
+      ('=', 'CALC_EQUALS'),
+      ('.', '.'),
+      ('00', '00'),
+      ('%', 'PERCENT'),
+      ('C', 'C'),
+      ('DEL', 'DEL'),
+      ('(', '('),
+      (')', ')'),
+      ('^', '^'),
+      ('π', 'pi'),
+      ('e', 'e'),
+    ];
+    const symbolKeys = <(String, String)>[
+      ('+', '+'),
+      ('−', '-'),
+      ('×', '*'),
+      ('÷', '/'),
+      ('=', 'CALC_EQUALS'),
+      ('%', 'PERCENT'),
+      ('^', '^'),
+      ('√', 'sqrt('),
+      ('π', 'pi'),
+      ('e', 'e'),
+      ('(', '('),
+      (')', ')'),
+      ('[', '['),
+      (']', ']'),
+      ('{', '{'),
+      ('}', '}'),
+      (',', ','),
+      (';', ';'),
+      ('!', '!'),
+      ('±', 'SIGN'),
+      ('.', '.'),
+      ('a/b', 'a/b'),
+      ('∞', 'infinity'),
+      ('DEL', 'DEL'),
+      ('C', 'C'),
+    ];
+    final functions = _mode == _CalculatorMode.basic
+        ? const <(String, String)>[
+            ('sin', 'sin('),
+            ('cos', 'cos('),
+            ('tan', 'tan('),
+            ('√', 'sqrt('),
+            ('x²', '^2'),
+            ('xʸ', '^'),
+            ('ln', 'ln('),
+            ('log', 'log10('),
+            ('π', 'pi'),
+            ('e', 'e'),
+            ('abs', 'abs('),
+            ('!', '!'),
+          ]
+        : _modeFunctionItems
+              .where((item) => item.$2 != 'C' && item.$2 != 'DEL')
+              .toList();
+    final numericLayerKeys = _mode == _CalculatorMode.numberSystem
+        ? _modeFunctionItems
+        : numberKeys;
+    final functionPageCount = (functions.length / 30).ceil().clamp(1, 99);
+    final visibleFunctions = functions
+        .skip(_functionKeyPage * 30)
+        .take(30)
+        .toList();
+    final keys = switch (_keyboardLayer) {
+      _CalculatorKeyboardLayer.numbers => numericLayerKeys,
+      _CalculatorKeyboardLayer.symbols => symbolKeys,
+      _CalculatorKeyboardLayer.functions => visibleFunctions,
+    };
+    final media = MediaQuery.sizeOf(context);
+    final keyHeight = (media.height * .047).clamp(36.0, 48.0).toDouble();
+    final gap = media.width < 380 ? 3.0 : 5.0;
+
+    Widget keyButton((String, String) item) {
+      final (label, action) = item;
+      return Expanded(
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: gap / 2),
+          child: _calculatorKey(
+            context,
+            label,
+            () => _pressMathKeyboardKey(action),
+            fontSize: label.length > 3 ? 10 : 14,
+            emphasized: const {
+              '+',
+              '−',
+              '×',
+              '÷',
+              '=',
+              'CALC_EQUALS',
+            }.contains(label),
+          ),
+        ),
+      );
+    }
+
+    final rows = <Widget>[];
+    for (var start = 0; start < 30; start += 10) {
+      final rowItems = keys.skip(start).take(10).toList();
+      if (rowItems.isEmpty) break;
+      final emptyKeys = 10 - rowItems.length;
+      final indent = rowItems.length == 10 && start == 10
+          ? media.width * .025
+          : 0.0;
+      rows.add(
+        Padding(
+          padding: EdgeInsets.only(left: indent, right: indent),
+          child: SizedBox(
+            height: keyHeight,
+            child: Row(
+              children: [
+                for (var i = 0; i < emptyKeys ~/ 2; i++) const Spacer(),
+                for (final item in rowItems) keyButton(item),
+                for (var i = 0; i < emptyKeys - emptyKeys ~/ 2; i++)
+                  const Spacer(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+    while (rows.length < 3) {
+      rows.add(SizedBox(height: keyHeight));
+    }
+
+    Widget layerKey(String label, _CalculatorKeyboardLayer layer) => Expanded(
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: gap / 2),
+        child: _calculatorKey(
+          context,
+          layer == _CalculatorKeyboardLayer.functions && functionPageCount > 1
+              ? '$label›'
+              : label,
+          () => setState(() {
+            if (layer == _CalculatorKeyboardLayer.functions &&
+                _keyboardLayer == layer &&
+                functionPageCount > 1) {
+              _functionKeyPage = (_functionKeyPage + 1) % functionPageCount;
+            } else {
+              _keyboardLayer = layer;
+              _functionKeyPage = 0;
+            }
+          }),
+          fontSize: 10,
+          emphasized: _keyboardLayer == layer,
+        ),
+      ),
+    );
+
+    final keyboardHeight = keyHeight * 4 + gap * 3 + 11;
+    return Align(
+      alignment: Alignment.bottomCenter,
+      child: SizedBox(
+        height: keyboardHeight,
+        child: Container(
+          padding: const EdgeInsets.all(5),
+          decoration: BoxDecoration(
+            color: const Color(0xFF242424),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            children: [
+              for (var i = 0; i < rows.length; i++) ...[
+                if (i > 0) SizedBox(height: gap),
+                rows[i],
+              ],
+              SizedBox(height: gap + 1),
+              SizedBox(
+                height: keyHeight,
+                child: Row(
+                  children: [
+                    layerKey('123', _CalculatorKeyboardLayer.numbers),
+                    layerKey('#+=', _CalculatorKeyboardLayer.symbols),
+                    layerKey('ƒx', _CalculatorKeyboardLayer.functions),
+                    Expanded(
+                      flex: 3,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: gap / 2),
+                        child: _calculatorKey(
+                          context,
+                          'space',
+                          () => _insert(' '),
+                          fontSize: 10,
+                          key: const ValueKey('calculator-space-key'),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: gap / 2),
+                        child: _calculatorKey(
+                          context,
+                          'MODE',
+                          _showCalculatorDomains,
+                          fontSize: 10,
+                          key: const ValueKey('calculator-domain-picker'),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: gap / 2),
+                        child: _calculatorKey(
+                          context,
+                          'DEL',
+                          () => _pressFunction('DEL'),
+                          key: const ValueKey('calculator-keyboard-delete'),
+                        ),
+                      ),
+                    ),
+                    Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(horizontal: gap / 2),
+                        child: _calculatorKey(
+                          context,
+                          '↵',
+                          _evaluate,
+                          primary: true,
+                          key: const ValueKey('calculator-keyboard-enter'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _pressMathKeyboardKey(String key) {
+    if (key == 'CALC_EQUALS') {
+      _evaluate();
+    } else if (key == 'C' ||
+        key == 'DEL' ||
+        key.startsWith('CALC_') ||
+        key == 'PERCENT' ||
+        key == 'SIGN' ||
+        key == 'a/b' ||
+        key.startsWith('NUM_') ||
+        key == 'CALC_INTEGRAL') {
+      _pressFunction(key);
+    } else if (key == '00') {
+      _insert('00');
+    } else {
+      _pressFunction(key);
+    }
+  }
 
   Widget _calculatorKey(
     BuildContext context,
@@ -6317,8 +6094,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ],
           ],
           const SizedBox(height: 4),
-          _buildFunctionRow(),
-          const SizedBox(height: 3),
           Expanded(child: _buildCurrentKeypad(context)),
         ],
       ),
