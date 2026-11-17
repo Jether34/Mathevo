@@ -1124,7 +1124,7 @@ enum _CalculatorMode {
   drawing,
 }
 
-enum _CalculatorKeyboardLayer { numbers, symbols, functions }
+enum _CalculatorKeyboardLayer { letters, numbers, symbols, functions }
 
 enum _DrawingResultMode { automatic, suggest, off }
 
@@ -1185,7 +1185,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   TextRecognizer? _recognizer;
   StrokeSymbolModel? _strokeSymbolModel;
   _CalculatorMode _mode = _CalculatorMode.basic;
-  _CalculatorKeyboardLayer _keyboardLayer = _CalculatorKeyboardLayer.numbers;
+  _CalculatorKeyboardLayer _keyboardLayer = _CalculatorKeyboardLayer.letters;
   int _functionKeyPage = 0;
   bool _fractionBuilder = false;
   bool _fractionDenominatorSelected = false;
@@ -3258,6 +3258,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                               FocusScope.of(context).unfocus();
                               setState(() {
                                 _mode = mode;
+                                _keyboardLayer =
+                                    _CalculatorKeyboardLayer.letters;
                                 _functionKeyPage = 0;
                                 _showVisualization = false;
                                 _error = null;
@@ -5617,7 +5619,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (selected == null || !mounted) return;
     setState(() {
       _mode = selected;
-      _keyboardLayer = _CalculatorKeyboardLayer.functions;
+      _keyboardLayer = _CalculatorKeyboardLayer.letters;
       _functionKeyPage = 0;
     });
   }
@@ -5714,12 +5716,34 @@ class _CalculatorPageState extends State<CalculatorPage> {
     final numericLayerKeys = _mode == _CalculatorMode.numberSystem
         ? _modeFunctionItems
         : numberKeys;
+    final letterActions = _mode == _CalculatorMode.basic
+        ? const <(String, String)>[
+            ('sin', 'sin('),
+            ('cos', 'cos('),
+            ('tan', 'tan('),
+            ('sqrt', 'sqrt('),
+            ('x²', '^2'),
+            ('xʸ', '^'),
+            ('ln', 'ln('),
+            ('log', 'log10('),
+            ('π', 'pi'),
+            ('e', 'e'),
+            ('abs', 'abs('),
+          ]
+        : _modeFunctionItems
+              .where((item) => item.$2 != 'C' && item.$2 != 'DEL')
+              .toList();
+    final letterKeys = [
+      for (final letter in 'QWERTYUIOPASDFGHJKLZXCVBNM'.split(''))
+        (letter, _calculatorLetterAction(letter, letterActions)),
+    ];
     final functionPageCount = (functions.length / 30).ceil().clamp(1, 99);
     final visibleFunctions = functions
         .skip(_functionKeyPage * 30)
         .take(30)
         .toList();
     final keys = switch (_keyboardLayer) {
+      _CalculatorKeyboardLayer.letters => letterKeys,
       _CalculatorKeyboardLayer.numbers => numericLayerKeys,
       _CalculatorKeyboardLayer.symbols => symbolKeys,
       _CalculatorKeyboardLayer.functions => visibleFunctions,
@@ -5752,11 +5776,22 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
 
     final rows = <Widget>[];
-    for (var start = 0; start < 30; start += 10) {
-      final rowItems = keys.skip(start).take(10).toList();
+    final rowSizes = _keyboardLayer == _CalculatorKeyboardLayer.letters
+        ? const [10, 9, 7]
+        : const [10, 10, 10];
+    var start = 0;
+    for (var rowIndex = 0; rowIndex < rowSizes.length; rowIndex++) {
+      final rowSize = rowSizes[rowIndex];
+      final rowItems = keys.skip(start).take(rowSize).toList();
       if (rowItems.isEmpty) break;
-      final emptyKeys = 10 - rowItems.length;
-      final indent = rowItems.length == 10 && start == 10
+      final emptyKeys = rowSize - rowItems.length;
+      final indent = _keyboardLayer == _CalculatorKeyboardLayer.letters
+          ? rowIndex == 1
+                ? media.width * .035
+                : rowIndex == 2
+                ? media.width * .105
+                : 0.0
+          : rowItems.length == rowSize && rowIndex == 1
           ? media.width * .025
           : 0.0;
       rows.add(
@@ -5775,6 +5810,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           ),
         ),
       );
+      start += rowItems.length;
     }
     while (rows.length < 3) {
       rows.add(SizedBox(height: keyHeight));
@@ -5826,6 +5862,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 height: keyHeight,
                 child: Row(
                   children: [
+                    layerKey('ABC', _CalculatorKeyboardLayer.letters),
                     layerKey('123', _CalculatorKeyboardLayer.numbers),
                     layerKey('#+=', _CalculatorKeyboardLayer.symbols),
                     layerKey('ƒx', _CalculatorKeyboardLayer.functions),
@@ -5905,6 +5942,57 @@ class _CalculatorPageState extends State<CalculatorPage> {
     } else {
       _pressFunction(key);
     }
+  }
+
+  String _calculatorLetterAction(
+    String letter,
+    List<(String, String)> domainActions,
+  ) {
+    final normalized = letter.toUpperCase();
+    final alphabetIndex = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.indexOf(normalized);
+    if (alphabetIndex < 0 || domainActions.isEmpty) return normalized;
+
+    if (_mode == _CalculatorMode.numberSystem) {
+      if (_sourceBase == 16 && alphabetIndex < 6) {
+        return 'NUM_DIGIT_${alphabetIndex + 10}';
+      }
+      final operators = domainActions
+          .where((item) => item.$2.startsWith('NUM_OPERATOR_'))
+          .toList();
+      if (operators.isNotEmpty) {
+        return operators[(alphabetIndex - 6) % operators.length].$2;
+      }
+    }
+
+    if (_mode == _CalculatorMode.discreteMath && alphabetIndex < 8) {
+      final variable = domainActions.where((item) => item.$1 == normalized);
+      if (variable.isNotEmpty) return variable.first.$2;
+    }
+
+    if ({
+          _CalculatorMode.algebra,
+          _CalculatorMode.graphing,
+          _CalculatorMode.calculus,
+        }.contains(_mode) &&
+        const {'X', 'Y', 'Z'}.contains(normalized)) {
+      final variable = domainActions.where(
+        (item) => item.$1.toUpperCase() == normalized,
+      );
+      if (variable.isNotEmpty) return variable.first.$2;
+    }
+
+    final matchingActions = domainActions.where((item) {
+      final label = item.$1.toUpperCase();
+      final action = item.$2.toUpperCase();
+      return label.startsWith(normalized) ||
+          action.startsWith(normalized) ||
+          action.startsWith('CALC_$normalized');
+    }).toList();
+    if (matchingActions.isNotEmpty) {
+      return matchingActions[alphabetIndex % matchingActions.length].$2;
+    }
+
+    return domainActions[alphabetIndex % domainActions.length].$2;
   }
 
   Widget _calculatorKey(
