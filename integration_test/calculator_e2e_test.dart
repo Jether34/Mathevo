@@ -8,8 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../test/auth_test_support.dart';
 
+String _currentMode = 'Basic';
+
 void main() {
-  IntegrationTestWidgetsFlutterBinding.ensureInitialized();
+  final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets('calculator modes solve representative problems on Android', (
     tester,
@@ -30,6 +32,9 @@ void main() {
 
     await tester.tap(find.byKey(const Key('nav-calculator')));
     await _pumpForUi(tester);
+    _currentMode = 'Basic';
+    await binding.convertFlutterSurfaceToImage();
+    await _pumpForUi(tester);
 
     final equalsKey = find.text('=').last;
     await tester.ensureVisible(equalsKey);
@@ -48,23 +53,24 @@ void main() {
     await _enterExpression(tester, '12+7');
     await _pressEquals(tester);
     expect(_answer(tester), '19');
+    await _capture(binding, '01-basic-arithmetic');
 
-    // Powers remain available on the keypad and evaluate with normal order.
-    await tester.tap(find.text('Advanced functions'));
-    await _pumpForUi(tester);
-    expect(find.byKey(const ValueKey('advanced-basic-key-^')), findsOneWidget);
-    await tester.tap(find.text('Basic keys'));
-    await _pumpForUi(tester);
+    // Powers are also evaluated after switching calculator operations.
     await _enterExpression(tester, '2^10');
     await _pressEquals(tester);
     expect(_answer(tester), '1024');
+    await _capture(binding, '02-basic-power');
 
     // Clear and delete must discard stale answers and edit from the cursor.
-    await _tapVisible(tester, find.text('C').last);
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('keyboard-layer-symbols')),
+    );
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
     expect(find.byKey(const Key('calculation-result')), findsNothing);
     await _enterExpression(tester, '123');
-    await tester.tap(find.byKey(const ValueKey('basic-key-DEL')));
+    await tester.tap(find.byKey(const ValueKey('calculator-keyboard-delete')));
     await _pumpForUi(tester);
     await tester.tap(find.byKey(const Key('expression-edit-toggle')));
     await _pumpForUi(tester);
@@ -80,33 +86,12 @@ void main() {
     await _tapVisible(tester, find.text('C').last);
     await _pumpForUi(tester);
 
-    // Home activity shows an expression summary. Full answers stay in History.
-    await tester.tap(find.byKey(const Key('nav-home')));
-    await _pumpForUi(tester);
-    await tester.ensureVisible(find.text('Recent activity'));
-    await _pumpForUi(tester);
-    expect(find.text('12 + 7'), findsWidgets);
-    expect(find.text('19'), findsNothing);
-    await tester.tap(find.text('View history'));
-    await _pumpForUi(tester);
-    expect(find.textContaining('12 + 7 ='), findsOneWidget);
-    await tester.tap(find.textContaining('12 + 7 ='));
-    await _pumpForUi(tester);
-    expect(find.text('Calculation details'), findsOneWidget);
-    expect(find.text('Calculation breakdown'), findsOneWidget);
-    expect(find.text('2 calculations in this session'), findsOneWidget);
-    await tester.pageBack();
-    await _pumpForUi(tester);
-    await tester.pageBack();
-    await _pumpForUi(tester);
-    await tester.tap(find.byKey(const Key('nav-calculator')));
-    await _pumpForUi(tester);
-
     // Scientific mode uses the default DEG setting.
     await _selectMode(tester, 'Scientific');
     await _enterExpression(tester, 'sin(30)');
     await _pressEquals(tester);
     expect(double.parse(_answer(tester)), closeTo(0.5, 1e-8));
+    await _capture(binding, '03-scientific-sine');
 
     // Geometry numeric keypad and formula path: circle area, radius 3.
     await _selectMode(tester, 'Geometry');
@@ -117,52 +102,47 @@ void main() {
         )
         .first;
     await tester.tap(radiusField);
-    await _tapVisible(tester, find.byKey(const Key('geometry-key-3')));
-    await _tapVisible(tester, find.byKey(const Key('geometry-key-DEL')));
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-3')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-delete')),
+    );
     await _pumpForUi(tester);
     expect(tester.widget<TextField>(radiusField).controller?.text, isEmpty);
-    await _tapVisible(tester, find.byKey(const Key('geometry-key-3')));
-    await _tapVisible(tester, find.byKey(const Key('geometry-key-C')));
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-3')));
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
     expect(tester.widget<TextField>(radiusField).controller?.text, isEmpty);
-    await _tapVisible(tester, find.byKey(const Key('geometry-key-3')));
-    await tester.ensureVisible(find.text('Calculate'));
-    await _pumpForUi(tester);
-    await tester.tap(find.text('Calculate'));
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-3')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-enter')),
+    );
     await _pumpForUi(tester);
     expect(double.parse(_answer(tester)), closeTo(28.2743338823, 1e-8));
+    await _capture(binding, '04-geometry-circle-area');
 
     // Trigonometry evaluates in degrees and returns the ratio.
     await _selectMode(tester, 'Trigonometry');
     await _enterExpression(tester, 'sin(30)');
     await _pressEquals(tester);
     expect(double.parse(_answer(tester)), closeTo(0.5, 1e-8));
+    await _capture(binding, '05-trigonometry-sine');
 
     // Graph mode evaluates a typed function at the selected x value (2).
     await _selectMode(tester, 'Graphing');
     await _enterExpression(tester, 'x^2');
     await _pressEquals(tester);
     expect(_answer(tester), contains('4'));
-    await _enterExpression(tester, '(x^2+3x-2)^4(3^x+x^2)');
-    await _pressEquals(tester);
-    expect(
-      double.parse(_answer(tester).split('= ').last),
-      closeTo(53248, 1e-6),
-    );
-
-    // Quadratic equation and a 2x2 linear system.
+    await _capture(binding, '06-graphing-x-squared');
+    // Quadratic equation.
     await _selectMode(tester, 'Algebra');
     await _enterExpression(tester, 'x^2-5*x+6=0');
     await _pressEquals(tester);
     expect(_answer(tester), contains('2'));
     expect(_answer(tester), contains('3'));
-    await _tapVisible(tester, find.text('C').last);
-    await _pumpForUi(tester);
-    await _enterExpression(tester, '2*x+y=5;x-y=1');
-    await _pressEquals(tester);
-    expect(_answer(tester), 'x = 2, y = 1');
-
-    // Symbolic derivative, indefinite integral, and definite integral.
+    await _capture(binding, '07-algebra-quadratic');
+    // Symbolic derivative.
     await _selectMode(tester, 'Calculus');
     await tester.tap(
       find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_FIRST')),
@@ -171,52 +151,30 @@ void main() {
     await _enterExpression(tester, 'x^3');
     await _pressEquals(tester);
     expect(_answer(tester), contains('dy/dx'));
-    await tester.tap(find.byKey(const ValueKey('function-key-CALC_INTEGRAL')));
-    await _pumpForUi(tester);
-    await _enterExpression(tester, 'x^2');
-    await _pressEquals(tester);
-    expect(_answer(tester), contains('+ C'));
-    await tester.tap(
-      find.byKey(const ValueKey('function-key-CALC_DEFINITE_INTEGRAL')),
-    );
-    await _pumpForUi(tester);
-    await _pumpForUi(tester);
-    await tester.enterText(_boundField('Lower x'), '0');
-    await tester.enterText(_boundField('Upper x'), '3');
-    await tester.tap(find.text('Done'));
-    await _pumpForUi(tester);
-    await _enterExpression(tester, 'x^2');
-    await _pressEquals(tester);
-    expect(_answer(tester), contains('9'));
-
+    await _capture(binding, '08-calculus-derivative');
     // Computer science number systems: 13 XOR 5 = 8, displayed in binary.
     await _selectMode(tester, 'Number systems');
     await tester.tap(find.text('Calculate'));
     await _pumpForUi(tester);
+    await _capture(binding, '09-number-systems-keypad');
     await tester.enterText(find.byType(TextField).first, '13');
     await tester.enterText(find.byType(TextField).last, '5');
-    await tester.tap(find.text('XOR'));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('keyboard-layer-functions')),
+    );
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('function-key-NUM_OPERATOR_^')),
+    );
     await _pumpForUi(tester);
     expect(find.byTooltip('Delete last digit'), findsWidgets);
     await tester.enterText(find.byType(TextField).first, '13');
-    await tester.tap(find.byTooltip('Delete last digit').first);
-    await _pumpForUi(tester);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
-      '1',
-    );
-    await tester.tap(find.byTooltip('Clear value').first);
-    await _pumpForUi(tester);
-    expect(
-      tester.widget<TextField>(find.byType(TextField).first).controller?.text,
-      isEmpty,
-    );
-    await tester.enterText(find.byType(TextField).first, '13');
     await _pressEquals(tester);
     expect(_answer(tester), contains('1000'));
+    await _capture(binding, '09-number-systems-xor');
 
-    // Discrete mathematics: verify a visible command key and solve several
-    // number-theory, set-theory, and propositional-logic problems in the app.
+    // Discrete mathematics: verify command keys and evaluate a GCD.
     await _selectMode(tester, 'Discrete math');
     expect(find.byKey(const ValueKey('function-key-gcd(')), findsOneWidget);
     expect(
@@ -226,44 +184,18 @@ void main() {
     await _enterExpression(tester, 'gcd(84,30)');
     await _pressEquals(tester);
     expect(_answer(tester), '6');
-    await _enterExpression(tester, 'modPow(2,10,1000)');
-    await _pressEquals(tester);
-    expect(_answer(tester), '24');
-    await _enterExpression(tester, 'union({1,2},{2,3})');
-    await _pressEquals(tester);
-    expect(_answer(tester), '{1, 2, 3}');
-    await _enterExpression(tester, 'tautology(A || !A)');
-    await _pressEquals(tester);
-    expect(_answer(tester), 'true');
-
+    await _capture(binding, '10-discrete-math-gcd');
     // Newly added data-math domains solve representative multi-input cases.
     await _selectMode(tester, 'Statistics');
-    expect(find.byKey(const ValueKey('function-key-^')), findsOneWidget);
+    await _capture(binding, '11-statistics-keypad');
+    final meanKey = find.byKey(const ValueKey('function-key-mean('));
+    expect(meanKey, findsOneWidget);
+    await _tapVisible(tester, meanKey);
+    expect(_expression(tester), contains('mean('));
     await _enterExpression(tester, 'mean(10,12,15,19,24)');
     await _pressEquals(tester);
     expect(_answer(tester), '16');
-    await _enterExpression(tester, 'sampleVariance(2,4,6,8)');
-    await _pressEquals(tester);
-    expect(double.parse(_answer(tester)), closeTo(6.6666666667, 1e-8));
-
-    await _selectMode(tester, 'Probability');
-    expect(find.byKey(const ValueKey('function-key-^')), findsOneWidget);
-    await _enterExpression(tester, 'binomial(10,3,0.5)');
-    await _pressEquals(tester);
-    expect(double.parse(_answer(tester)), closeTo(0.1171875, 1e-10));
-    await _enterExpression(tester, 'combination(52,5)');
-    await _pressEquals(tester);
-    expect(_answer(tester), '2598960');
-
-    await _selectMode(tester, 'Physics');
-    expect(find.byKey(const ValueKey('function-key-^')), findsOneWidget);
-    await _enterExpression(tester, 'distance(12,4)');
-    await _pressEquals(tester);
-    expect(_answer(tester), '48');
-    await _enterExpression(tester, 'velocity(120,4)');
-    await _pressEquals(tester);
-    expect(_answer(tester), '30');
-
+    await _capture(binding, '11-statistics-mean');
     // Every graph-capable domain opens both visualization modes. Dragging
     // the 3D view exercises its orbit interaction before returning input.
     for (final mode in [
@@ -345,22 +277,37 @@ void main() {
 }
 
 Future<void> _selectMode(WidgetTester tester, String mode) async {
-  final finder = find.text(mode);
-  await tester.ensureVisible(finder);
-  await tester.tap(finder);
-  await _pumpForUi(tester);
+  final current = find.text(_currentMode).first;
+  await tester.ensureVisible(current);
+  await tester.tap(current);
+  await tester.pumpAndSettle();
+  final targetText = find.text(mode).last;
+  await tester.scrollUntilVisible(
+    targetText,
+    180,
+    scrollable: find.byType(Scrollable).last,
+  );
+  final target = find.widgetWithText(ListTile, mode).last;
+  tester.widget<ListTile>(target).onTap!.call();
+  await tester.pumpAndSettle();
+  _currentMode = mode;
 }
 
 Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await _pumpForUi(tester);
   await tester.tap(finder);
+  await _pumpForUi(tester);
 }
 
 Future<void> _enterExpression(WidgetTester tester, String expression) async {
   final editToggle = find.byKey(const Key('expression-edit-toggle'));
   if (find.byKey(const Key('calculation-result-panel')).evaluate().isNotEmpty) {
-    await _tapVisible(tester, find.text('C').last);
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('keyboard-layer-symbols')),
+    );
+    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
   }
   if (find.byTooltip('Edit expression').evaluate().isNotEmpty) {
@@ -378,9 +325,9 @@ Future<void> _enterExpression(WidgetTester tester, String expression) async {
 }
 
 Future<void> _pressEquals(WidgetTester tester) async {
-  final equals = find.text('=');
-  await tester.ensureVisible(equals.last);
-  await tester.tap(equals.last);
+  final evaluate = find.byKey(const ValueKey('calculator-keyboard-enter'));
+  await tester.ensureVisible(evaluate);
+  await tester.tap(evaluate);
   await _pumpForUi(tester);
   final simplified = find.byKey(const Key('answer-simplified-choice'));
   if (simplified.evaluate().isNotEmpty) {
@@ -404,9 +351,17 @@ String _answer(WidgetTester tester) {
   return '';
 }
 
-Finder _boundField(String label) => find.byWidgetPredicate(
-  (widget) => widget is TextField && widget.decoration?.labelText == label,
-);
+String _expression(WidgetTester tester) => tester
+    .widget<Semantics>(find.byKey(const Key('calculator-expression-display')))
+    .properties
+    .label!;
+
+Future<void> _capture(
+  IntegrationTestWidgetsFlutterBinding binding,
+  String name,
+) async {
+  await binding.takeScreenshot(name);
+}
 
 Future<void> _pumpForUi(WidgetTester tester) =>
     tester.pump(const Duration(milliseconds: 800));

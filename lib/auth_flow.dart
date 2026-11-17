@@ -146,7 +146,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(26),
-            border: Border.all(color: const Color(0xFFF0E8E3)),
+            border: Border.all(color: const Color(0xFFE5DFF0)),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x260D2038),
@@ -163,7 +163,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                 padding: const EdgeInsets.fromLTRB(22, 20, 16, 18),
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [Color(0xFFFFF3EE), Color(0xFFFFFAF7)],
+                    colors: [Color(0xFFF5F1FC), Color(0xFFEDE9FE)],
                   ),
                 ),
                 child: Row(
@@ -172,14 +172,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                       width: 46,
                       height: 46,
                       decoration: BoxDecoration(
-                        color: const Color(0xFFC45136).withValues(alpha: .10),
+                        color: const Color(0xFF7C3AED).withValues(alpha: .10),
                         borderRadius: BorderRadius.circular(15),
                       ),
                       child: Icon(
                         title.toLowerCase().contains('privacy')
                             ? Icons.shield_outlined
                             : Icons.description_outlined,
-                        color: const Color(0xFFC45136),
+                        color: const Color(0xFF7C3AED),
                       ),
                     ),
                     const SizedBox(width: 14),
@@ -190,7 +190,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                           const Text(
                             'MATHEVO ACCOUNT',
                             style: TextStyle(
-                              color: Color(0xFF9B7165),
+                              color: Color(0xFF645E76),
                               fontSize: 10,
                               fontWeight: FontWeight.w800,
                               letterSpacing: 1.2,
@@ -200,7 +200,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                           Text(
                             title,
                             style: const TextStyle(
-                              color: Color(0xFF302523),
+                              color: Color(0xFF0F172A),
                               fontSize: 20,
                               fontWeight: FontWeight.w800,
                             ),
@@ -505,8 +505,8 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: const Color(0xFFC45136),
-          secondary: const Color(0xFFC45136),
+          primary: const Color(0xFF7C3AED),
+          secondary: const Color(0xFF7C3AED),
         ),
       ),
       child: AnnotatedRegion<SystemUiOverlayStyle>(
@@ -519,7 +519,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           systemNavigationBarContrastEnforced: false,
         ),
         child: Scaffold(
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFFEDE9FE),
           body: SafeArea(
             child: isIntro
                 ? _introLayout(context)
@@ -584,7 +584,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                   ),
                   icon: const Icon(
                     Icons.arrow_back_rounded,
-                    color: Color(0xFF302523),
+                    color: Color(0xFF0F172A),
                   ),
                 ),
               ),
@@ -625,7 +625,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
       const Text(
         'Mathevo',
         style: TextStyle(
-          color: Color(0xFF302523),
+          color: Color(0xFF0F172A),
           fontWeight: FontWeight.w800,
           fontSize: 18,
         ),
@@ -655,7 +655,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                 fontSize: 28,
                 height: 1.15,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF302523),
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 10),
@@ -663,7 +663,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
               'Solve, explore, and understand mathematics at your own pace.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF817772),
+                color: Color(0xFF645E76),
                 fontSize: 15,
                 height: 1.5,
               ),
@@ -689,14 +689,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
               style: TextStyle(
                 fontSize: 27,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF302523),
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 10),
             const Text(
               'A workspace to solve, see, and understand mathematics.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF817772), height: 1.45),
+              style: TextStyle(color: Color(0xFF645E76), height: 1.45),
             ),
             const SizedBox(height: 20),
             _featureRow(
@@ -731,14 +731,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
               style: TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.w800,
-                color: Color(0xFF302523),
+                color: Color(0xFF0F172A),
               ),
             ),
             const SizedBox(height: 8),
             const Text(
               'Tools for practice, discovery, and progress.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF817772)),
+              style: TextStyle(color: Color(0xFF645E76)),
             ),
             const SizedBox(height: 24),
             _featureRow(
@@ -764,7 +764,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
               children: [
                 const Text(
                   'Already have an account?',
-                  style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+                  style: TextStyle(color: Color(0xFF645E76), fontSize: 12),
                 ),
                 TextButton(
                   onPressed: () => _go(_AuthPage.login),
@@ -795,7 +795,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                 style: const TextStyle(
                   fontSize: 27,
                   fontWeight: FontWeight.w800,
-                  color: Color(0xFF302523),
+                  color: Color(0xFF0F172A),
                 ),
               ),
               const SizedBox(height: 6),
@@ -804,7 +804,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                     ? 'Save your progress and pick up where you left off.'
                     : 'Sign in to continue learning and calculating.',
                 textAlign: TextAlign.left,
-                style: const TextStyle(fontSize: 13, color: Color(0xFF817772)),
+                style: const TextStyle(fontSize: 13, color: Color(0xFF645E76)),
               ),
               const SizedBox(height: 18),
               if (isSignup) ...[
@@ -899,7 +899,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                   Text(
                     isSignup ? 'Already have an account?' : 'New to Mathevo?',
                     style: const TextStyle(
-                      color: Color(0xFF817772),
+                      color: Color(0xFF645E76),
                       fontSize: 12,
                     ),
                   ),
@@ -949,7 +949,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
         width: 34,
         height: 34,
         alignment: Alignment.center,
-        child: Icon(icon, color: const Color(0xFFC45136), size: 19),
+        child: Icon(icon, color: const Color(0xFF7C3AED), size: 19),
       ),
       const SizedBox(width: 12),
       Expanded(
@@ -959,7 +959,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
             Text(
               title,
               style: const TextStyle(
-                color: Color(0xFF302523),
+                color: Color(0xFF0F172A),
                 fontSize: 13,
                 fontWeight: FontWeight.w700,
               ),
@@ -968,7 +968,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
             Text(
               description,
               style: const TextStyle(
-                color: Color(0xFF817772),
+                color: Color(0xFF645E76),
                 fontSize: 11,
                 height: 1.3,
               ),
@@ -982,7 +982,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
   Widget _eyebrow(String label) => Text(
     label,
     style: const TextStyle(
-      color: Color(0xFF817772),
+      color: Color(0xFF645E76),
       fontSize: 10,
       fontWeight: FontWeight.w700,
       letterSpacing: 1.1,
@@ -1034,7 +1034,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                   width: 8,
                   height: 8,
                   decoration: const BoxDecoration(
-                    color: Color(0xFFE9DFDA),
+                    color: Color(0xFFE5DFF0),
                     shape: BoxShape.circle,
                   ),
                 ),
@@ -1048,7 +1048,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
               height: 8,
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFC45136),
+                  color: const Color(0xFF7C3AED),
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
@@ -1096,7 +1096,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                       'Privacy Policy',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFC45136),
+                        color: Color(0xFF7C3AED),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1112,7 +1112,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                       'Terms of Use',
                       style: TextStyle(
                         fontSize: 12,
-                        color: Color(0xFFC45136),
+                        color: Color(0xFF7C3AED),
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -1150,13 +1150,13 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           style: const TextStyle(
             fontSize: 26,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF302523),
+            color: Color(0xFF0F172A),
           ),
         ),
         const SizedBox(height: 6),
         Text(
           description,
-          style: const TextStyle(color: Color(0xFF817772), fontSize: 13),
+          style: const TextStyle(color: Color(0xFF645E76), fontSize: 13),
         ),
         const SizedBox(height: 22),
         Row(
@@ -1179,14 +1179,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                     style: const TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
-                      color: Color(0xFF302523),
+                      color: Color(0xFF0F172A),
                     ),
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     onChanged: (value) => _handleCodeDigitChanged(index, value),
                     decoration: InputDecoration(
                       counterText: '',
                       filled: true,
-                      fillColor: const Color(0xFFFFF3EE),
+                      fillColor: const Color(0xFFF5F1FC),
                       contentPadding: EdgeInsets.zero,
                       enabledBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
@@ -1195,7 +1195,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
                       focusedBorder: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: const BorderSide(
-                          color: Color(0xFFC45136),
+                          color: Color(0xFF7C3AED),
                           width: 1.8,
                         ),
                       ),
@@ -1209,7 +1209,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
         const SizedBox(height: 12),
         const Text(
           'The code expires in 10 minutes.',
-          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+          style: TextStyle(color: Color(0xFF645E76), fontSize: 12),
         ),
         const SizedBox(height: 10),
         if (_notice != null) _noticeText(_notice!),
@@ -1226,8 +1226,8 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
-                'Didn’t get the email?',
-                style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+                'Didnâ€™t get the email?',
+                style: TextStyle(color: Color(0xFF645E76), fontSize: 12),
               ),
               TextButton(
                 onPressed: _busy ? null : _resendSignupCode,
@@ -1267,13 +1267,13 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           style: TextStyle(
             fontSize: 23,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF302523),
+            color: Color(0xFF0F172A),
           ),
         ),
         const SizedBox(height: 5),
         const Text(
-          'We’ll email a six-digit code to your account.',
-          style: TextStyle(color: Color(0xFF817772), fontSize: 12),
+          'Weâ€™ll email a six-digit code to your account.',
+          style: TextStyle(color: Color(0xFF645E76), fontSize: 12),
         ),
         const SizedBox(height: 8),
         _label('Email address'),
@@ -1305,14 +1305,14 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
           style: TextStyle(
             fontSize: 23,
             fontWeight: FontWeight.w800,
-            color: Color(0xFF302523),
+            color: Color(0xFF0F172A),
           ),
         ),
         const SizedBox(height: 8),
         Text(
           'Verified for ${_email.text.trim()}',
           textAlign: TextAlign.left,
-          style: const TextStyle(color: Color(0xFF817772), fontSize: 12),
+          style: const TextStyle(color: Color(0xFF645E76), fontSize: 12),
         ),
         const SizedBox(height: 16),
         _label('NEW PASSWORD'),
@@ -1389,11 +1389,11 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
     validator: validator,
     keyboardType: keyboardType,
     obscureText: obscureText,
-    style: const TextStyle(fontSize: 15, color: Color(0xFF302523)),
+    style: const TextStyle(fontSize: 15, color: Color(0xFF0F172A)),
     decoration: InputDecoration(
       hintText: hint,
       filled: true,
-      fillColor: const Color(0xFFFFFAF8),
+      fillColor: const Color(0xFFF5F1FC),
       contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 17),
       suffixIcon: suffix,
       enabledBorder: OutlineInputBorder(
@@ -1402,7 +1402,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
-        borderSide: const BorderSide(color: Color(0xFFC45136), width: 1.6),
+        borderSide: const BorderSide(color: Color(0xFF7C3AED), width: 1.6),
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(15),
@@ -1426,7 +1426,7 @@ class _AuthFlowState extends State<AuthFlow> with TickerProviderStateMixin {
     child: FilledButton(
       onPressed: busy ? null : onPressed,
       style: FilledButton.styleFrom(
-        backgroundColor: const Color(0xFFC45136),
+        backgroundColor: const Color(0xFF7C3AED),
         foregroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),

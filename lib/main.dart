@@ -30,9 +30,12 @@ part 'visualization/plot_3d_renderer.dart';
 
 void main() => runApp(const MathevoApp());
 
-const _navy = Color(0xFF302523);
-const _accent = Color(0xFFF43F65);
-const _background = Color(0xFFFAF7F3);
+const _navy = Color(0xFF0F172A);
+const _accent = Color(0xFF7C3AED);
+const _neon = Color(0xFF22D3EE);
+const _tertiary = Color(0xFFA78BFA);
+const _background = Color(0xFFEDE9FE);
+const _surfaceBorder = Color(0xFFE5DFF0);
 
 class MathevoApp extends StatefulWidget {
   const MathevoApp({super.key, this.authApi, this.tokenStore});
@@ -249,7 +252,7 @@ class _MathevoAppState extends State<MathevoApp> {
   @override
   Widget build(BuildContext context) => MaterialApp(
     navigatorKey: _navigatorKey,
-    title: '',
+    title: 'Mathevo',
     debugShowCheckedModeBanner: false,
     themeMode: _darkMode ? ThemeMode.dark : ThemeMode.light,
     themeAnimationDuration: const Duration(milliseconds: 420),
@@ -257,11 +260,38 @@ class _MathevoAppState extends State<MathevoApp> {
     theme: ThemeData(
       useMaterial3: true,
       scaffoldBackgroundColor: _background,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _accent,
+      colorScheme: const ColorScheme.light(
+        primary: _navy,
+        onPrimary: Colors.white,
+        secondary: _accent,
+        onSecondary: Colors.white,
+        tertiary: _tertiary,
+        onTertiary: _navy,
         surface: Colors.white,
+        onSurface: _navy,
+        surfaceContainerLowest: Colors.white,
+        surfaceContainerLow: Color(0xFFFAF8FF),
+        surfaceContainer: Color(0xFFF5F1FC),
+        surfaceContainerHigh: Color(0xFFF0EBF8),
+        surfaceContainerHighest: Color(0xFFE9E3F4),
+        onSurfaceVariant: Color(0xFF645E76),
+        outline: Color(0xFFD6CFE2),
+        outlineVariant: Color(0xFFE8E2F0),
+        error: Color(0xFFB4234A),
+        onError: Colors.white,
+        brightness: Brightness.light,
       ),
       fontFamily: 'Roboto',
+      visualDensity: VisualDensity.standard,
+      splashFactory: InkSparkle.splashFactory,
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: _accent,
+          foregroundColor: Colors.white,
+          minimumSize: const Size(48, 44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
+      ),
       textTheme: const TextTheme(
         headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
         titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
@@ -276,9 +306,9 @@ class _MathevoAppState extends State<MathevoApp> {
       ),
       chipTheme: ChipThemeData(
         backgroundColor: Colors.white,
-        selectedColor: const Color(0xFFFFE7EC),
+        selectedColor: const Color(0xFFEDE5FF),
         labelStyle: const TextStyle(fontSize: 11, color: _navy),
-        side: const BorderSide(color: Color(0xFFEDE7E3)),
+        side: const BorderSide(color: _surfaceBorder),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 1),
       ),
@@ -290,18 +320,18 @@ class _MathevoAppState extends State<MathevoApp> {
           horizontal: 12,
           vertical: 10,
         ),
-        hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF958B87)),
+        hintStyle: const TextStyle(fontSize: 11, color: Color(0xFF80798E)),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(13)),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFECE6E2)),
+          borderSide: const BorderSide(color: _surfaceBorder),
         ),
       ),
       listTileTheme: const ListTileThemeData(
         dense: true,
         minVerticalPadding: 3,
         horizontalTitleGap: 10,
-        iconColor: Color(0xFF746D69),
+        iconColor: Color(0xFF645E76),
       ),
       iconButtonTheme: IconButtonThemeData(
         style: IconButton.styleFrom(
@@ -313,9 +343,35 @@ class _MathevoAppState extends State<MathevoApp> {
     ),
     darkTheme: ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: _accent,
+      scaffoldBackgroundColor: const Color(0xFF0F172A),
+      colorScheme: const ColorScheme.dark(
+        primary: _tertiary,
+        onPrimary: _navy,
+        secondary: _neon,
+        onSecondary: _navy,
+        tertiary: _accent,
+        onTertiary: Colors.white,
+        surface: Color(0xFF172033),
+        onSurface: Color(0xFFF7F5FF),
+        surfaceContainerLowest: Color(0xFF10182A),
+        surfaceContainerLow: Color(0xFF182135),
+        surfaceContainer: Color(0xFF1D2840),
+        surfaceContainerHigh: Color(0xFF24304A),
+        surfaceContainerHighest: Color(0xFF303C56),
+        onSurfaceVariant: Color(0xFFD0C9E1),
+        outline: Color(0xFF535D76),
+        outlineVariant: Color(0xFF343E56),
+        error: Color(0xFFFF829B),
+        onError: Color(0xFF381321),
         brightness: Brightness.dark,
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          backgroundColor: _tertiary,
+          foregroundColor: _navy,
+          minimumSize: const Size(48, 44),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        ),
       ),
       textTheme: const TextTheme(
         headlineSmall: TextStyle(fontSize: 19, fontWeight: FontWeight.w700),
@@ -389,8 +445,8 @@ class _AppLoadingSkeletonState extends State<_AppLoadingSkeleton>
         animation: _pulse,
         builder: (context, _) {
           final color = Color.lerp(
-            const Color(0xFFE9E3DF),
-            const Color(0xFFF5F1EE),
+            const Color(0xFFEAE5F3),
+            const Color(0xFFF5F1FC),
             _pulse.value,
           )!;
           Widget block({
@@ -441,7 +497,7 @@ class _AppLoadingSkeletonState extends State<_AppLoadingSkeleton>
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: const Color(0xFFEFE9E5)),
+                            border: Border.all(color: _surfaceBorder),
                           ),
                           alignment: Alignment.bottomRight,
                           child: block(width: 130, height: 24),
