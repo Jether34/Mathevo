@@ -5666,6 +5666,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             minimumSize: const Size(52, 32),
                             padding: const EdgeInsets.symmetric(horizontal: 8),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: const Color(0xFF3E3E3E),
+                            foregroundColor: Colors.white,
+                            side: BorderSide.none,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: FittedBox(
                             child: _functionKeyVisual(label, key),
@@ -5769,6 +5776,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.all(4),
                             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            backgroundColor: const Color(0xFF3E3E3E),
+                            foregroundColor: Colors.white,
+                            side: BorderSide.none,
+                            elevation: 2,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
                           ),
                           child: FittedBox(
                             child: _functionKeyVisual(label, key),
@@ -6001,38 +6015,120 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
     }
 
-    return SizedBox(
-      height: keyHeight * 5 + gap * 4,
-      child: Column(
-        children: [
-          Expanded(
-            child: GridView.count(
-              padding: EdgeInsets.zero,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisCount: 4,
-              mainAxisExtent: keyHeight,
-              mainAxisSpacing: gap,
-              crossAxisSpacing: gap,
-              children: [for (final key in keys) keyWidget(key)],
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: const Color(0xFF242424),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: SizedBox(
+        height: keyHeight * 5 + gap * 4,
+        child: Column(
+          children: [
+            Expanded(
+              child: GridView.count(
+                padding: EdgeInsets.zero,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: 4,
+                mainAxisExtent: keyHeight,
+                mainAxisSpacing: gap,
+                crossAxisSpacing: gap,
+                children: [for (final key in keys) keyWidget(key)],
+              ),
             ),
-          ),
-          SizedBox(height: gap),
-          SizedBox(
-            height: keyHeight,
-            child: Row(
-              children: [
-                Expanded(child: keyWidget('C')),
-                SizedBox(width: gap),
-                Expanded(child: keyWidget('DEL')),
-                SizedBox(width: gap),
-                Expanded(flex: 2, child: keyWidget('=')),
-              ],
+            SizedBox(height: gap),
+            SizedBox(
+              height: keyHeight,
+              child: Row(
+                children: [
+                  Expanded(child: keyWidget('C')),
+                  SizedBox(width: gap),
+                  Expanded(child: keyWidget('DEL')),
+                  SizedBox(width: gap),
+                  Expanded(
+                    flex: 3,
+                    child: _calculatorKey(
+                      context,
+                      'space',
+                      () => _insert(' '),
+                      fontSize: 11,
+                      key: const ValueKey('calculator-space-key'),
+                    ),
+                  ),
+                  SizedBox(width: gap),
+                  Expanded(
+                    flex: 2,
+                    child: _calculatorKey(
+                      context,
+                      'MODE',
+                      _showCalculatorDomains,
+                      fontSize: 10,
+                      key: const ValueKey('calculator-domain-picker'),
+                    ),
+                  ),
+                  SizedBox(width: gap),
+                  Expanded(flex: 2, child: keyWidget('=')),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+
+  Future<void> _showCalculatorDomains() async {
+    final selected = await showModalBottomSheet<_CalculatorMode>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 10),
+              child: Text(
+                'Choose a math keyboard',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final mode in _CalculatorMode.values)
+              if (mode != _CalculatorMode.drawing)
+                ListTile(
+                  title: Text(_calculatorModeName(mode)),
+                  trailing: mode == _mode
+                      ? const Icon(Icons.check_rounded)
+                      : null,
+                  onTap: () => Navigator.pop(context, mode),
+                ),
+          ],
+        ),
+      ),
+    );
+    if (selected == null || !mounted) return;
+    setState(() {
+      _mode = selected;
+      _showAdvancedBasicKeys = false;
+      _showModeSpecificKeys = false;
+    });
+  }
+
+  String _calculatorModeName(_CalculatorMode mode) => switch (mode) {
+    _CalculatorMode.basic => 'Basic',
+    _CalculatorMode.scientific => 'Scientific',
+    _CalculatorMode.geometry => 'Geometry',
+    _CalculatorMode.trigonometry => 'Trigonometry',
+    _CalculatorMode.graphing => 'Graphing',
+    _CalculatorMode.algebra => 'Algebra',
+    _CalculatorMode.calculus => 'Calculus',
+    _CalculatorMode.numberSystem => 'Number systems',
+    _CalculatorMode.discreteMath => 'Discrete math',
+    _CalculatorMode.statistics => 'Statistics',
+    _CalculatorMode.probability => 'Probability',
+    _CalculatorMode.physics => 'Physics',
+    _CalculatorMode.drawing => 'Draw',
+  };
 
   Widget _calculatorKey(
     BuildContext context,
@@ -6051,8 +6147,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
               padding: EdgeInsets.zero,
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              backgroundColor: const Color(0xFF454545),
+              foregroundColor: Colors.white,
+              elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: FittedBox(child: _basicKeyVisual(label, fontSize: fontSize)),
@@ -6064,12 +6163,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
               minimumSize: Size.zero,
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
               backgroundColor: emphasized
-                  ? Theme.of(
-                      context,
-                    ).colorScheme.primaryContainer.withValues(alpha: .55)
-                  : null,
+                  ? const Color(0xFF555555)
+                  : const Color(0xFF3E3E3E),
+              foregroundColor: Colors.white,
+              side: BorderSide.none,
+              elevation: 2,
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(12),
               ),
             ),
             child: FittedBox(child: _basicKeyVisual(label, fontSize: fontSize)),
