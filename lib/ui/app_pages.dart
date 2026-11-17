@@ -5749,19 +5749,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _CalculatorKeyboardLayer.functions => visibleFunctions,
     };
     final media = MediaQuery.sizeOf(context);
-    final keyHeight = (media.height * .047).clamp(36.0, 48.0).toDouble();
+    final keyHeight = (media.height * .06).clamp(44.0, 60.0).toDouble();
     final gap = media.width < 380 ? 3.0 : 5.0;
 
     Widget keyButton((String, String) item) {
       final (label, action) = item;
+      final displayLabel = _mobileMathKeyLabel(label);
       return Expanded(
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: gap / 2),
           child: _calculatorKey(
             context,
-            label,
+            displayLabel,
             () => _pressMathKeyboardKey(action),
-            fontSize: label.length > 3 ? 10 : 14,
+            fontSize: displayLabel.length > 4 ? 13 : 18,
             emphasized: const {
               '+',
               '−',
@@ -5834,7 +5835,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               _functionKeyPage = 0;
             }
           }),
-          fontSize: 10,
+          fontSize: 12,
           emphasized: _keyboardLayer == layer,
         ),
       ),
@@ -5867,19 +5868,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
                     layerKey('#+=', _CalculatorKeyboardLayer.symbols),
                     layerKey('ƒx', _CalculatorKeyboardLayer.functions),
                     Expanded(
-                      flex: 3,
-                      child: Padding(
-                        padding: EdgeInsets.symmetric(horizontal: gap / 2),
-                        child: _calculatorKey(
-                          context,
-                          'space',
-                          () => _insert(' '),
-                          fontSize: 10,
-                          key: const ValueKey('calculator-space-key'),
-                        ),
-                      ),
-                    ),
-                    Expanded(
                       flex: 2,
                       child: Padding(
                         padding: EdgeInsets.symmetric(horizontal: gap / 2),
@@ -5887,7 +5875,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           context,
                           'MODE',
                           _showCalculatorDomains,
-                          fontSize: 10,
+                          fontSize: 12,
                           key: const ValueKey('calculator-domain-picker'),
                         ),
                       ),
@@ -5924,6 +5912,37 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ),
     );
   }
+
+  String _mobileMathKeyLabel(String label) => switch (label) {
+    'sampleVariance(' => 'sVar',
+    'sampleStdev(' => 'sSD',
+    'variance(' => 'Var',
+    'stdev(' => 'SD',
+    'median(' => 'Med',
+    'mean(' => 'Mean',
+    'range(' => 'Range',
+    'count(' => 'Count',
+    'probability(' => 'P',
+    'complement(' => 'P̄',
+    'binomial(' => 'Binom',
+    'combination(' => 'nCr',
+    'permutation(' => 'nPr',
+    'truthTable(' => 'Truth',
+    'tautology(' => 'Tauto',
+    'satisfiable(' => 'Sat',
+    'contradiction(' => 'Contr',
+    'modInverse(' => 'modInv',
+    'modPow(' => 'modPow',
+    'symmetricDifference(' => 'symDiff',
+    'intersection(' => '∩',
+    'union(' => '∪',
+    'difference(' => '∖',
+    'distance(' => 'Dist',
+    'velocity(' => 'Vel',
+    'time(' => 'Time',
+    _ when label.endsWith('(') => label.substring(0, label.length - 1),
+    _ => label,
+  };
 
   void _pressMathKeyboardKey(String key) {
     if (key == 'CALC_EQUALS') {
