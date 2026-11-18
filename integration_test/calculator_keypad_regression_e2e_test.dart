@@ -337,6 +337,29 @@ void main() {
     expect(_expression(tester), 'sin(2sqrt(');
   });
 
+  testWidgets('Basic Fx layer inserts its selected function into expression', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-functions')));
+    final sineKey = find.byKey(const ValueKey('function-key-sin('));
+    expect(sineKey, findsOneWidget);
+    await _tap(tester, sineKey);
+
+    expect(_expression(tester), 'sin(');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('calculator-expression-panel')),
+        matching: find.text('sin('),
+      ),
+      findsWidgets,
+    );
+    await _capture(binding, 'basic-fx-sine-appears-in-expression');
+  });
+
   testWidgets('C clears the active geometry and number system inputs', (
     tester,
   ) async {
