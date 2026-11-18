@@ -567,29 +567,33 @@ Future<void> _exerciseCommonArithmeticKeys(
   WidgetTester tester,
   String mode,
 ) async {
-  for (final key in ['+', '-', '*', '/']) {
+  final keyboard = find.byKey(const ValueKey('calculator-keyboard'));
+  final keys = find
+      .descendant(
+        of: keyboard,
+        matching: find.byWidgetPredicate((widget) {
+          final key = widget.key;
+          return key is ValueKey<String> &&
+              key.value.startsWith('calculator-common-key-');
+        }),
+      )
+      .evaluate()
+      .map((element) => element.widget.key! as ValueKey<String>)
+      .toList();
+  expect(keys, hasLength(5));
+  for (final key in keys) {
     await _clearKeypadState(tester);
     _seedEditableInput(tester, mode);
     final before = _visibleInputState(tester);
-    await _tap(tester, find.byKey(ValueKey('calculator-common-key-$key')));
-    final after = _visibleInputState(tester);
+    await _tap(tester, find.byKey(key));
+    await _dismissAnswerChoice(tester);
     expect(
-      after,
+      _visibleInputState(tester),
       isNot(before),
-      reason: '$mode common arithmetic key $key must update the visible input.',
+      reason:
+          '$mode common arithmetic key ${key.value} must update the visible input.',
     );
   }
-
-  await _clearKeypadState(tester);
-  _seedEditableInput(tester, mode);
-  final beforeEquals = _visibleInputState(tester);
-  await _tap(tester, find.byKey(const ValueKey('calculator-common-key-=')));
-  await _dismissAnswerChoice(tester);
-  expect(
-    _visibleInputState(tester),
-    isNot(beforeEquals),
-    reason: '$mode common equals key must evaluate or insert equation equals.',
-  );
 }
 
 Future<void> _clearKeypadState(WidgetTester tester) async {
