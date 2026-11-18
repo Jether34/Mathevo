@@ -105,7 +105,10 @@ void main() {
     await _pumpForUi(tester);
     expect(tester.widget<TextField>(radiusField).controller?.text, isEmpty);
     await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-3')));
-    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
+    await _tapVisible(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-clear')),
+    );
     await _pumpForUi(tester);
     expect(tester.widget<TextField>(radiusField).controller?.text, isEmpty);
     await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-3')));
