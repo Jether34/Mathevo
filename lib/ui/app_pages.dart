@@ -5086,8 +5086,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
           alignment: Alignment.topLeft,
           child: Math.tex(
             tex,
+            key: const Key('calculator-expression-math-preview'),
             mathStyle: displayStyle ? MathStyle.display : MathStyle.text,
-            textStyle: TextStyle(fontSize: fontSize),
+            textStyle: TextStyle(
+              fontSize: fontSize,
+              color: Theme.of(context).colorScheme.onSurface,
+            ),
             onErrorFallback: (_) => Text(fallback),
           ),
         ),

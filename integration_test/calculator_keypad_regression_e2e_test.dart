@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flutter_math_fork/flutter_math.dart' show Math;
 import 'package:integration_test/integration_test.dart';
 import 'package:mathevo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -28,6 +29,15 @@ void main() {
     await _tap(tester, plusKey);
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
     expect(_expression(tester), '2+3');
+    final expressionMath = tester.widget<Math>(
+      find.byKey(const Key('calculator-expression-math-preview')),
+    );
+    expect(
+      expressionMath.textStyle?.color,
+      Theme.of(
+        tester.element(find.byKey(const Key('calculator-expression-panel'))),
+      ).colorScheme.onSurface,
+    );
 
     await _tap(tester, find.byKey(const ValueKey('calculator-common-key-=')));
     await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
