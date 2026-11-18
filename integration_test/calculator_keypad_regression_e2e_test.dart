@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -561,6 +563,32 @@ void main() {
     await _capture(binding, 'calculus-right-limit-function-entered');
   });
 
+  testWidgets('derivative function key is painted inside expression box', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Calculus');
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
+    );
+    await tester.pumpAndSettle();
+
+    final expressionCard = find.byKey(const Key('calculator-expression-panel'));
+    expect(
+      find.descendant(of: expressionCard, matching: find.text('d²y/dx² (□)')),
+      findsOneWidget,
+    );
+    await _capture(binding, 'calculus-second-derivative-expression-visible');
+
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    expect(_expression(tester), 'd^2y/dx^2 of x');
+    await _capture(binding, 'calculus-second-derivative-body-entered');
+  });
+
   testWidgets(
     'finite limit expression is visible before and after evaluation',
     (tester) async {
@@ -831,7 +859,12 @@ Future<void> _capture(
   IntegrationTestWidgetsFlutterBinding binding,
   String name,
 ) async {
-  await binding.takeScreenshot(name);
+  final bytes = await binding.takeScreenshot(name);
+  final directory = Directory(
+    '${Directory.systemTemp.path}/calculator-keypad-e2e',
+  );
+  await directory.create(recursive: true);
+  await File('${directory.path}/$name.png').writeAsBytes(bytes);
 }
 
 Future<void> _tap(WidgetTester tester, Finder finder) async {

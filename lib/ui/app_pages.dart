@@ -5052,6 +5052,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
     required double fontSize,
     bool displayStyle = false,
   }) {
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperationSelected &&
+        _input.text.trim().isEmpty) {
+      return Align(
+        alignment: Alignment.topLeft,
+        child: Row(
+          children: [
+            const SizedBox(width: 12),
+            Text(
+              _calculusEmptyExpressionTemplate,
+              style: TextStyle(
+                fontSize: fontSize,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
     final tex =
         _mode == _CalculatorMode.geometry ||
             (_mode == _CalculatorMode.calculus && _calculusOperationSelected)
@@ -5075,6 +5094,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ),
     );
   }
+
+  String get _calculusEmptyExpressionTemplate => switch (_calculusOperation) {
+    'First derivative' => 'd/d$_derivativeVariable (□)',
+    'Second derivative' => 'd²y/d$_derivativeVariable² (□)',
+    'Partial derivative' => '∂/∂$_partialVariable (□)',
+    'Indefinite integral' => '∫ □ d$_integrationVariable',
+    'Definite integral' =>
+      '∫[${_integralLowerInput.text}, ${_integralUpperInput.text}] □ dx',
+    'Double integral' => '∬ □ dx dy',
+    'Triple integral' => '∭ □ dx dy dz',
+    'Left-hand limit' => 'lim x→${_limitApproachInput.text}⁻ □',
+    'Right-hand limit' => 'lim x→${_limitApproachInput.text}⁺ □',
+    'Limit at infinity' => 'lim x→${_limitAtPositiveInfinity ? '∞' : '−∞'} □',
+    _ => 'lim x→${_limitApproachInput.text} □',
+  };
 
   List<String> _detailedSteps() {
     final expression = _input.text.trim();
