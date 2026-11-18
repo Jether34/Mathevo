@@ -577,13 +577,23 @@ Future<void> _selectMode(
 ) async {
   await tester.tap(find.text(currentMode));
   await tester.pumpAndSettle();
-  await tester.scrollUntilVisible(
-    find.text(mode),
-    180,
-    scrollable: find.byType(Scrollable).last,
-  );
+  final modeList = find.byType(ListView).last;
+  final modeScrollable = find
+      .descendant(of: modeList, matching: find.byType(Scrollable))
+      .first;
   final target = find.text(mode).last;
-  await tester.tap(target);
+  await tester.scrollUntilVisible(target, 180, scrollable: modeScrollable);
+  await tester.ensureVisible(target);
+  await tester.pumpAndSettle();
+  final rect = tester.getRect(target);
+  final viewportHeight =
+      tester.view.physicalSize.height / tester.view.devicePixelRatio;
+  expect(
+    rect.top >= 0 && rect.bottom <= viewportHeight,
+    isTrue,
+    reason: '$mode should be visible in the mode picker before tapping.',
+  );
+  await tester.tapAt(rect.center);
   await tester.pumpAndSettle();
 }
 
