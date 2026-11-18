@@ -375,6 +375,57 @@ void main() {
     expect(tester.widget<TextField>(firstNumber).controller!.text, isEmpty);
   });
 
+  testWidgets('number system arithmetic is visible and evaluates on device', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Number systems');
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-key-NUM_DIGIT_2')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
+    expect(find.text('Calculate'), findsOneWidget);
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const Key('number-system-expression-display')),
+          )
+          .properties
+          .label,
+      contains('2 +'),
+    );
+
+    final secondValue = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField &&
+          widget.decoration?.labelText?.startsWith('Second value in base') ==
+              true,
+    );
+    await _tap(tester, secondValue);
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-key-NUM_DIGIT_1')),
+    );
+    expect(
+      tester
+          .widget<Semantics>(
+            find.byKey(const Key('number-system-expression-display')),
+          )
+          .properties
+          .label,
+      contains('2 + 1'),
+    );
+    await _capture(binding, 'number-system-shared-arithmetic-expression');
+
+    await _tap(tester, find.byKey(const ValueKey('calculator-common-key-=')));
+    expect(find.text('11 (base 2)'), findsOneWidget);
+    await _capture(binding, 'number-system-shared-arithmetic-result');
+  });
+
   testWidgets('probability function key inserts and evaluates on device', (
     tester,
   ) async {
