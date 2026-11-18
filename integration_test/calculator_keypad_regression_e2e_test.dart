@@ -39,6 +39,112 @@ void main() {
     await _capture(binding, '01-basic-arithmetic-keypad-result');
   });
 
+  testWidgets('every mode keypad key updates its expression or input', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+
+    const modes = [
+      'Basic',
+      'Scientific',
+      'Geometry',
+      'Trigonometry',
+      'Graphing',
+      'Algebra',
+      'Calculus',
+      'Number systems',
+      'Discrete math',
+      'Statistics',
+      'Probability',
+      'Physics',
+    ];
+    var currentMode = 'Basic';
+    for (final mode in modes) {
+      if (mode != currentMode) {
+        await _selectMode(tester, currentMode, mode);
+        currentMode = mode;
+      }
+
+      await _clearKeypadState(tester);
+      await _exerciseCommonArithmeticKeys(tester, mode);
+
+      for (final layer in ['numbers', 'symbols', 'functions']) {
+        await _tap(tester, find.byKey(ValueKey('keyboard-layer-$layer')));
+        final seenPages = <String>{};
+        for (var page = 0; page < 8; page++) {
+          final keyboard = find.byKey(const ValueKey('calculator-keyboard'));
+          final keys = find
+              .descendant(
+                of: keyboard,
+                matching: find.byWidgetPredicate((widget) {
+                  final key = widget.key;
+                  return key is ValueKey<String> &&
+                      (key.value.startsWith('calculator-key-') ||
+                          key.value.startsWith('function-key-'));
+                }),
+              )
+              .evaluate()
+              .map((element) => (element.widget.key! as ValueKey<String>).value)
+              .toList();
+          final pageSignature = keys.join('|');
+          if (keys.isEmpty || !seenPages.add(pageSignature)) break;
+
+          for (final keyName in keys) {
+            final action = keyName
+                .replaceFirst('calculator-key-', '')
+                .replaceFirst('function-key-', '');
+            await _clearKeypadState(tester);
+            if (action == 'DEL' || action == 'C') {
+              _seedEditableInput(tester, mode);
+            }
+            if (action.startsWith('NUM_OPERATOR_')) {
+              _seedNumberSystemInputs(tester);
+            }
+
+            final before = _visibleInputState(tester);
+            await _tap(tester, find.byKey(ValueKey(keyName)));
+            await _dismissCalculusBounds(tester);
+            await _dismissAnswerChoice(tester);
+            final after = _visibleInputState(tester);
+
+            if (action == 'DEL' || action == 'C') {
+              expect(
+                before,
+                isNot(after),
+                reason: '$mode $layer key $action must edit the visible input.',
+              );
+            } else {
+              expect(
+                after,
+                isNot(before),
+                reason:
+                    '$mode $layer key $action did not appear in the expression or input.',
+              );
+            }
+          }
+          if (layer == 'functions') {
+            await _tap(
+              tester,
+              find.byKey(const ValueKey('keyboard-layer-functions')),
+            );
+          } else {
+            break;
+          }
+        }
+      }
+      await _clearKeypadState(tester);
+      await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
+      await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
+      expect(_visibleInputState(tester), contains('2+'));
+      await _capture(
+        binding,
+        'key-audit-${mode.toLowerCase().replaceAll(' ', '-')}-expression',
+      );
+    }
+  });
+
   testWidgets('bottom EVAL C DEL controls work with one clear key', (
     tester,
   ) async {
@@ -455,6 +561,114 @@ Future<void> _selectMode(
   final target = find.text(mode).last;
   await tester.tap(target);
   await tester.pumpAndSettle();
+}
+
+Future<void> _exerciseCommonArithmeticKeys(
+  WidgetTester tester,
+  String mode,
+) async {
+  for (final key in ['+', '-', '*', '/']) {
+    await _clearKeypadState(tester);
+    _seedEditableInput(tester, mode);
+    final before = _visibleInputState(tester);
+    await _tap(tester, find.byKey(ValueKey('calculator-common-key-$key')));
+    final after = _visibleInputState(tester);
+    expect(
+      after,
+      isNot(before),
+      reason: '$mode common arithmetic key $key must update the visible input.',
+    );
+  }
+
+  await _clearKeypadState(tester);
+  _seedEditableInput(tester, mode);
+  final beforeEquals = _visibleInputState(tester);
+  await _tap(tester, find.byKey(const ValueKey('calculator-common-key-=')));
+  await _dismissAnswerChoice(tester);
+  expect(
+    _visibleInputState(tester),
+    isNot(beforeEquals),
+    reason: '$mode common equals key must evaluate or insert equation equals.',
+  );
+}
+
+Future<void> _clearKeypadState(WidgetTester tester) async {
+  final clear = find.byKey(const ValueKey('calculator-keyboard-clear'));
+  if (clear.evaluate().isNotEmpty) await _tap(tester, clear);
+}
+
+void _seedEditableInput(WidgetTester tester, String mode) {
+  if (mode == 'Number systems') {
+    _seedNumberSystemInputs(tester);
+    return;
+  }
+  if (mode == 'Geometry') {
+    final radius = find.byWidgetPredicate(
+      (widget) =>
+          widget is TextField && widget.decoration?.labelText == 'Radius',
+    );
+    final fields = find.byType(TextField).evaluate();
+    if (radius.evaluate().isNotEmpty) {
+      final field = tester.widget<TextField>(radius.first);
+      field.controller!.value = const TextEditingValue(
+        text: '1',
+        selection: TextSelection.collapsed(offset: 1),
+      );
+    } else if (fields.isNotEmpty) {
+      final field = tester.widget<TextField>(find.byType(TextField).first);
+      field.controller?.text = '1';
+    }
+    return;
+  }
+  final expression = find.byKey(const Key('expression-input'));
+  if (expression.evaluate().isNotEmpty) {
+    final field = tester.widget<TextField>(expression);
+    field.controller!.value = const TextEditingValue(
+      text: '1',
+      selection: TextSelection.collapsed(offset: 1),
+    );
+  }
+}
+
+void _seedNumberSystemInputs(WidgetTester tester) {
+  final fields = find.byWidgetPredicate(
+    (widget) =>
+        widget is TextField &&
+        widget.decoration?.labelText?.startsWith('First value in base') == true,
+  );
+  if (fields.evaluate().isNotEmpty) {
+    tester.widget<TextField>(fields.first).controller!.text = '2';
+  }
+}
+
+String _visibleInputState(WidgetTester tester) {
+  final parts = <String>[];
+  final expression = find.byKey(const Key('calculator-expression-display'));
+  if (expression.evaluate().isNotEmpty) {
+    parts.add(tester.widget<Semantics>(expression).properties.label ?? '');
+  }
+  for (final element in find.byType(TextField).evaluate()) {
+    final field = element.widget as TextField;
+    parts.add(field.controller?.text ?? '');
+  }
+  final result = find.byKey(const Key('calculation-result'));
+  if (result.evaluate().isNotEmpty) {
+    parts.add(tester.widget<Semantics>(result).properties.label ?? '');
+  }
+  return parts.join('|');
+}
+
+Future<void> _dismissCalculusBounds(WidgetTester tester) async {
+  final dialog = find.byKey(const Key('calculus-bounds-dialog'));
+  final done = find.text('Done');
+  if (dialog.evaluate().isNotEmpty && done.evaluate().isNotEmpty) {
+    await _tap(tester, done.last);
+  }
+}
+
+Future<void> _dismissAnswerChoice(WidgetTester tester) async {
+  final choice = find.byKey(const Key('answer-simplified-choice'));
+  if (choice.evaluate().isNotEmpty) await _tap(tester, choice);
 }
 
 String _expression(WidgetTester tester) => tester
