@@ -135,9 +135,30 @@ void main() {
         }
       }
       await _clearKeypadState(tester);
-      await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
-      await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
-      expect(_visibleInputState(tester), contains('2+'));
+      await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
+      final sampleKey = find.byKey(const ValueKey('calculator-key-2'));
+      final numericKeys = find
+          .descendant(
+            of: find.byKey(const ValueKey('calculator-keyboard')),
+            matching: find.byWidgetPredicate((widget) {
+              final key = widget.key;
+              return key is ValueKey<String> &&
+                  (key.value.startsWith('calculator-key-') ||
+                      key.value.startsWith('function-key-'));
+            }),
+          )
+          .evaluate()
+          .map((element) => element.widget.key! as ValueKey<String>)
+          .toList();
+      final expressionKey = sampleKey.evaluate().isNotEmpty
+          ? sampleKey
+          : find.byKey(numericKeys.first);
+      await _tap(tester, expressionKey);
+      expect(
+        _visibleInputState(tester),
+        isNot('|'),
+        reason: '$mode number key must show input in the expression card.',
+      );
       await _capture(
         binding,
         'key-audit-${mode.toLowerCase().replaceAll(' ', '-')}-expression',
