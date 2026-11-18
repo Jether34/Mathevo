@@ -660,13 +660,22 @@ void _seedEditableInput(WidgetTester tester, String mode) {
 }
 
 void _seedNumberSystemInputs(WidgetTester tester) {
-  final fields = find.byWidgetPredicate(
+  final firstFields = find.byWidgetPredicate(
     (widget) =>
         widget is TextField &&
         widget.decoration?.labelText?.startsWith('First value in base') == true,
   );
-  if (fields.evaluate().isNotEmpty) {
-    tester.widget<TextField>(fields.first).controller!.text = '2';
+  if (firstFields.evaluate().isNotEmpty) {
+    tester.widget<TextField>(firstFields.first).controller!.text = '2';
+  }
+  final secondFields = find.byWidgetPredicate(
+    (widget) =>
+        widget is TextField &&
+        widget.decoration?.labelText?.startsWith('Second value in base') ==
+            true,
+  );
+  if (secondFields.evaluate().isNotEmpty) {
+    tester.widget<TextField>(secondFields.first).controller!.text = '1';
   }
 }
 
@@ -682,6 +691,9 @@ String _visibleInputState(WidgetTester tester) {
   for (final element in find.byType(TextField).evaluate()) {
     final field = element.widget as TextField;
     parts.add(field.controller?.text ?? '');
+  }
+  for (final element in find.byType(SelectableText).evaluate()) {
+    parts.add((element.widget as SelectableText).data ?? '');
   }
   final result = find.byKey(const Key('calculation-result'));
   if (result.evaluate().isNotEmpty) {
