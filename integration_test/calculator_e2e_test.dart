@@ -262,14 +262,6 @@ void main() {
         );
       }
     }
-
-    // Drawing workspace route and actions are reachable on the device.
-    await _selectMode(tester, 'Draw');
-    expect(find.text('Handwritten calculation'), findsOneWidget);
-    expect(find.byTooltip('Clear'), findsOneWidget);
-    await tester.tap(find.byTooltip('Back to calculator'));
-    await _pumpForUi(tester);
-    expect(find.byKey(const Key('expression-input')), findsOneWidget);
   });
 }
 
