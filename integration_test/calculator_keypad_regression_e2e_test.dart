@@ -71,7 +71,7 @@ void main() {
       await _exerciseCommonArithmeticKeys(tester, mode);
 
       for (final layer in ['numbers', 'symbols', 'functions']) {
-        await _tap(tester, find.byKey(ValueKey('keyboard-layer-$layer')));
+        await _tapQuick(tester, find.byKey(ValueKey('keyboard-layer-$layer')));
         final seenPages = <String>{};
         for (var page = 0; page < 8; page++) {
           final keyboard = find.byKey(const ValueKey('calculator-keyboard'));
@@ -104,7 +104,7 @@ void main() {
             }
 
             final before = _visibleInputState(tester);
-            await _tap(tester, find.byKey(ValueKey(keyName)));
+            await _tapQuick(tester, find.byKey(ValueKey(keyName)));
             await _dismissCalculusBounds(tester);
             await _dismissAnswerChoice(tester);
             final after = _visibleInputState(tester);
@@ -125,7 +125,7 @@ void main() {
             }
           }
           if (layer == 'functions') {
-            await _tap(
+            await _tapQuick(
               tester,
               find.byKey(const ValueKey('keyboard-layer-functions')),
             );
@@ -135,7 +135,10 @@ void main() {
         }
       }
       await _clearKeypadState(tester);
-      await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
+      await _tapQuick(
+        tester,
+        find.byKey(const ValueKey('keyboard-layer-numbers')),
+      );
       final sampleKey = find.byKey(const ValueKey('calculator-key-2'));
       final numericKeys = find
           .descendant(
@@ -153,7 +156,8 @@ void main() {
       final expressionKey = sampleKey.evaluate().isNotEmpty
           ? sampleKey
           : find.byKey(numericKeys.first);
-      await _tap(tester, expressionKey);
+      await _tapQuick(tester, expressionKey);
+      await tester.pumpAndSettle();
       expect(
         _visibleInputState(tester),
         isNot('|'),
@@ -606,7 +610,7 @@ Future<void> _exerciseCommonArithmeticKeys(
     await _clearKeypadState(tester);
     _seedEditableInput(tester, mode);
     final before = _visibleInputState(tester);
-    await _tap(tester, find.byKey(key));
+    await _tapQuick(tester, find.byKey(key));
     await _dismissAnswerChoice(tester);
     expect(
       _visibleInputState(tester),
@@ -619,7 +623,7 @@ Future<void> _exerciseCommonArithmeticKeys(
 
 Future<void> _clearKeypadState(WidgetTester tester) async {
   final clear = find.byKey(const ValueKey('calculator-keyboard-clear'));
-  if (clear.evaluate().isNotEmpty) await _tap(tester, clear);
+  if (clear.evaluate().isNotEmpty) await _tapQuick(tester, clear);
 }
 
 void _seedEditableInput(WidgetTester tester, String mode) {
@@ -723,6 +727,12 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
+}
+
+Future<void> _tapQuick(WidgetTester tester, Finder finder) async {
+  await tester.ensureVisible(finder);
+  await tester.tap(finder);
+  await tester.pump(const Duration(milliseconds: 350));
 }
 
 Future<void> _pumpUntil(WidgetTester tester, Finder finder) async {
