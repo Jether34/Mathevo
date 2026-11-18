@@ -2955,7 +2955,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.numberSystem &&
         key.startsWith('NUM_OPERATOR_')) {
-      setState(() => _numberOperator = key.substring('NUM_OPERATOR_'.length));
+      setState(() {
+        _conversionOnly = false;
+        _numberOperator = key.substring('NUM_OPERATOR_'.length);
+      });
       _calculateNumberSystem();
       return;
     }
