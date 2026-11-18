@@ -688,6 +688,14 @@ String _visibleInputState(WidgetTester tester) {
   if (find.byKey(const Key('fraction-insert')).evaluate().isNotEmpty) {
     parts.add('inline-fraction-editor-visible');
   }
+  final numberSystemExpression = find.byKey(
+    const Key('number-system-expression-display'),
+  );
+  if (numberSystemExpression.evaluate().isNotEmpty) {
+    parts.add(
+      tester.widget<Semantics>(numberSystemExpression).properties.label ?? '',
+    );
+  }
   for (final element in find.byType(TextField).evaluate()) {
     final field = element.widget as TextField;
     parts.add(field.controller?.text ?? '');

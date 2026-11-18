@@ -6253,6 +6253,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
               ),
             ],
           ],
+          if (!_conversionOnly) ...[
+            const SizedBox(height: 8),
+            Semantics(
+              key: const Key('number-system-expression-display'),
+              label:
+                  '${_numberA.text} $_numberOperator ${_numberB.text} (base $_sourceBase)',
+              child: InputDecorator(
+                decoration: const InputDecoration(
+                  labelText: 'Expression',
+                  isDense: true,
+                  border: OutlineInputBorder(),
+                ),
+                child: Text(
+                  '${_numberA.text} $_numberOperator ${_numberB.text}',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 4),
           Expanded(child: _buildCurrentKeypad(context)),
         ],
