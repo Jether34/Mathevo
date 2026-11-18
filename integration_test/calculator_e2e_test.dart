@@ -64,9 +64,8 @@ void main() {
     // Clear and delete must discard stale answers and edit from the cursor.
     await _tapVisible(
       tester,
-      find.byKey(const ValueKey('keyboard-layer-symbols')),
+      find.byKey(const ValueKey('calculator-keyboard-clear')),
     );
-    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
     expect(find.byKey(const Key('calculation-result')), findsNothing);
     await _enterExpression(tester, '123');
