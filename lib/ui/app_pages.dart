@@ -1613,10 +1613,23 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ),
       (m) => '\\${m[1]}\\left(',
     );
+    tex = tex
+        .replaceAll(r'sqrt\left(', r'\sqrt{\square}')
+        .replaceAll(r'cbrt\left(', r'\sqrt[3]{\square}');
     tex = tex.replaceAllMapped(
       RegExp(r'\^([A-Za-z0-9]+)'),
       (m) => '^{${m[1]}}',
     );
+    if (tex.endsWith('^')) {
+      tex = '${tex.substring(0, tex.length - 1)}^{\\square}';
+    }
+    final leftDelimiters = RegExp(r'\\left\(').allMatches(tex).length;
+    final rightDelimiters = RegExp(r'\\right\)').allMatches(tex).length;
+    if (leftDelimiters > rightDelimiters) {
+      tex = tex.replaceAll(r'\left(', '(');
+    } else if (rightDelimiters > leftDelimiters) {
+      tex = tex.replaceAll(r'\right)', ')');
+    }
     return tex
         .replaceAll('*', r'\times ')
         .replaceAll('/', r'\div ')

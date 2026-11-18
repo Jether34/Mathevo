@@ -358,6 +358,15 @@ void main() {
     expect(functionKey, findsOneWidget);
     await _tap(tester, functionKey);
     expect(_expression(tester), 'sin(');
+    expect(
+      tester
+          .widget<Math>(
+            find.byKey(const Key('calculator-expression-math-preview')),
+          )
+          .ast,
+      isNotNull,
+      reason: 'An incomplete function must still display as typeset math.',
+    );
 
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
@@ -366,6 +375,14 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-symbols')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-sqrt(')));
     expect(_expression(tester), 'sin(2sqrt(');
+    expect(
+      tester
+          .widget<Math>(
+            find.byKey(const Key('calculator-expression-math-preview')),
+          )
+          .ast,
+      isNotNull,
+    );
   });
 
   testWidgets('Basic Fx layer inserts its selected function into expression', (
