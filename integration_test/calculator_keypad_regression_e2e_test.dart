@@ -677,7 +677,7 @@ void main() {
 
     final input = find.byKey(const Key('expression-input'));
     final editor = tester.widget<TextField>(input).controller!;
-    expect(editor.text, 'd^2y/dx^2(□)');
+    expect(editor.text, 'd²y/dx²(□)');
     final inputRect = tester.getRect(input);
     final oldOffset = editor.selection.extentOffset;
     final drag = await tester.startGesture(
@@ -697,6 +697,51 @@ void main() {
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
     expect(editor.text.length, beforeDelete.length - 1);
+  });
+
+  testWidgets('drag edits integral bounds and evaluates the edited values', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Calculus');
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_DEFINITE_INTEGRAL')),
+    );
+    await _dismissCalculusBounds(tester);
+
+    final input = find.byKey(const Key('expression-input'));
+    final editor = tester.widget<TextField>(input).controller!;
+    expect(editor.text, '∫[0,2](□) dx');
+
+    await _dragEditorCaretTo(tester, input, editor.text.indexOf('0') + 1);
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-delete')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
+    expect(editor.text, '∫[1,2](□) dx');
+
+    await _dragEditorCaretTo(tester, input, editor.text.indexOf('2') + 1);
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-delete')),
+    );
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
+    expect(editor.text, '∫[1,3](□) dx');
+
+    await _dragEditorCaretTo(tester, input, editor.text.indexOf('□'));
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-functions')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    expect(editor.text, '∫[1,3](x) dx');
+    expect(_expression(tester), 'integral with bounds of x');
+    await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-enter')));
+    await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
+    expect(_answer(tester), contains('4'));
+    await _capture(binding, 'calculus-editable-bounds-evaluated');
   });
 
   testWidgets(
@@ -981,6 +1026,41 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
+}
+
+Future<void> _dragEditorCaretTo(
+  WidgetTester tester,
+  Finder textField,
+  int targetOffset,
+) async {
+  final editableFinder = find.descendant(
+    of: textField,
+    matching: find.byType(EditableText),
+  );
+  final editable = tester.state<EditableTextState>(editableFinder);
+  final renderEditable = editable.renderEditable;
+  final controller = tester.widget<TextField>(textField).controller!;
+  final currentOffset = controller.selection.extentOffset;
+  final origin = renderEditable.localToGlobal(
+    renderEditable
+        .getLocalRectForCaret(TextPosition(offset: currentOffset))
+        .center,
+  );
+  final target = renderEditable.localToGlobal(
+    renderEditable
+        .getLocalRectForCaret(TextPosition(offset: targetOffset))
+        .center,
+  );
+  final gesture = await tester.startGesture(origin);
+  await gesture.moveTo(target);
+  await tester.pump(const Duration(milliseconds: 250));
+  await gesture.up();
+  await tester.pumpAndSettle();
+  expect(
+    tester.widget<TextField>(textField).controller!.selection.extentOffset,
+    targetOffset,
+    reason: 'A drag must land on the requested visible formula character.',
+  );
 }
 
 Future<void> _tapQuick(WidgetTester tester, Finder finder) async {

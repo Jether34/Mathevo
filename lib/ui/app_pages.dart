@@ -1290,6 +1290,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ? _calculusFormulaController
       : _input;
 
+  bool get _usesDirectCalculusEditor =>
+      _mode == _CalculatorMode.calculus &&
+      _calculusOperationSelected &&
+      _selectedIntegralBound == null;
+
   void _onExpressionChanged() {
     if (_mode == _CalculatorMode.calculus &&
         _calculusOperationSelected &&
@@ -1312,11 +1317,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
     if (_calculusFamily == 'Derivatives') {
       final second = RegExp(
-        r'^d\^2([A-Za-z])/d([A-Za-z])\^2\(',
+        r'^d\u00b2([A-Za-z])/d([A-Za-z])\u00b2\(',
       ).firstMatch(source);
       final first = RegExp(r'^d([A-Za-z])/d([A-Za-z])\(').firstMatch(source);
       final partial = RegExp(
-        r'^partial([A-Za-z])/partial([A-Za-z])\(',
+        r'^\u2202([A-Za-z])/\u2202([A-Za-z])\(',
       ).firstMatch(source);
       final derivative = second ?? first ?? partial;
       if (derivative != null) {
@@ -1329,19 +1334,26 @@ class _CalculatorPageState extends State<CalculatorPage> {
       }
     }
     if (_calculusFamily == 'Limits') {
-      final approach = RegExp(r'lim\[x->([^\]]*)\]').firstMatch(source);
+      final approach = RegExp(r'lim\[x\u2192([^\]]*)\]').firstMatch(source);
       if (approach != null) {
         final text = approach[1]!;
-        _limitAtPositiveInfinity = !text.startsWith('-');
-        _limitApproachInput.text = text.replaceAll(RegExp(r'[+-]$'), '');
-        if (text.endsWith('+')) _calculusOperation = 'Right-hand limit';
-        if (text.endsWith('-')) _calculusOperation = 'Left-hand limit';
+        _limitAtPositiveInfinity = !text.startsWith('\u2212');
+        _limitApproachInput.text = text.replaceAll(
+          RegExp(r'[\u207a\u207b]$'),
+          '',
+        );
+        if (text.endsWith('\u207a')) _calculusOperation = 'Right-hand limit';
+        if (text.endsWith('\u207b')) _calculusOperation = 'Left-hand limit';
       }
     }
     if (_calculusFamily == 'Integrals') {
-      final bounds = RegExp(
-        r'int\[([^\]]+)\]',
-      ).allMatches(source).expand((match) => match[1]!.split(',')).toList();
+      final labeledBounds = RegExp(
+        r'[xyz]=([^\u2192;]+)\u2192([^;\]]+)',
+      ).allMatches(source);
+      final bounds = labeledBounds.isNotEmpty
+          ? labeledBounds.expand((match) => [match[1]!, match[2]!]).toList()
+          : RegExp(r'\u222b\[([^\]]+)\]').firstMatch(source)?[1]?.split(',') ??
+                const <String>[];
       for (var i = 0; i < bounds.length && i < 6; i++) {
         _calculusBoundControllers[i].text = bounds[i];
       }
@@ -1799,35 +1811,35 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_calculusFamily == 'Derivatives') {
       if (_derivativeNotation == 'Lagrange') {
         return _calculusOperation == 'Second derivative'
-            ? "f''($inputBody)"
-            : "f'($inputBody)";
+            ? 'f\u2033($inputBody)'
+            : 'f\u2032($inputBody)';
       }
       if (_calculusOperation == 'Partial derivative') {
-        return 'partial$_dependentVariable/partial$_derivativeVariable($inputBody)';
+        return '\u2202$_dependentVariable/\u2202$_partialVariable($inputBody)';
       }
       return _calculusOperation == 'Second derivative'
-          ? 'd^2$_dependentVariable/d$_derivativeVariable^2($inputBody)'
+          ? 'd\u00b2$_dependentVariable/d$_derivativeVariable\u00b2($inputBody)'
           : 'd$_dependentVariable/d$_derivativeVariable($inputBody)';
     }
     if (_calculusFamily == 'Limits') {
       final target = _calculusOperation == 'Limit at infinity'
-          ? (_limitAtPositiveInfinity ? 'infinity' : '-infinity')
+          ? (_limitAtPositiveInfinity ? '\u221e' : '\u2212\u221e')
           : _limitApproachInput.text;
       final side = switch (_calculusOperation) {
-        'Left-hand limit' => '-',
-        'Right-hand limit' => '+',
+        'Left-hand limit' => '\u207b',
+        'Right-hand limit' => '\u207a',
         _ => '',
       };
-      return 'lim[x->$target$side]($inputBody)';
+      return 'lim[x\u2192$target$side]($inputBody)';
     }
     return switch (_calculusOperation) {
-      'Indefinite integral' => 'int($inputBody)d$_integrationVariable',
+      'Indefinite integral' => '\u222b($inputBody) d$_integrationVariable',
       'Definite integral' =>
-        'int[${_integralLowerInput.text},${_integralUpperInput.text}]($inputBody)dx',
+        '\u222b[${_integralLowerInput.text},${_integralUpperInput.text}]($inputBody) dx',
       'Double integral' =>
-        'int[${_integralLowerInput.text},${_integralUpperInput.text}]int[${_integralLowerYInput.text},${_integralUpperYInput.text}]($inputBody)dxdy',
+        '\u222c[x=${_integralLowerInput.text}\u2192${_integralUpperInput.text}; y=${_integralLowerYInput.text}\u2192${_integralUpperYInput.text}]($inputBody) dx dy',
       _ =>
-        'int[${_integralLowerInput.text},${_integralUpperInput.text}]int[${_integralLowerYInput.text},${_integralUpperYInput.text}]int[${_integralLowerZInput.text},${_integralUpperZInput.text}]($inputBody)dxdydz',
+        '\u222d[x=${_integralLowerInput.text}\u2192${_integralUpperInput.text}; y=${_integralLowerYInput.text}\u2192${_integralUpperYInput.text}; z=${_integralLowerZInput.text}\u2192${_integralUpperZInput.text}]($inputBody) dx dy dz',
     };
   }
 
@@ -5079,7 +5091,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       children: [
                         Positioned.fill(
                           child: IgnorePointer(
-                            child: _calculatorExpressionPreview(fontSize: 14),
+                            child: _usesDirectCalculusEditor
+                                ? const SizedBox.shrink()
+                                : _calculatorExpressionPreview(fontSize: 14),
                           ),
                         ),
                         _expressionCaretDragListener(
@@ -5094,7 +5108,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             keyboardType: TextInputType.none,
                             onChanged: (_) => _onExpressionChanged(),
                             maxLines: 1,
-                            style: const TextStyle(color: Colors.transparent),
+                            style: TextStyle(
+                              color: _usesDirectCalculusEditor
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Colors.transparent,
+                              fontFamily: _usesDirectCalculusEditor
+                                  ? 'serif'
+                                  : null,
+                            ),
                             cursorColor: Theme.of(context).colorScheme.primary,
                             decoration: const InputDecoration(
                               filled: false,
@@ -5211,11 +5232,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           children: [
                             Positioned.fill(
                               child: IgnorePointer(
-                                child:
-                                    _input.text.trim().isEmpty &&
-                                        _mode != _CalculatorMode.geometry &&
-                                        !(_mode == _CalculatorMode.calculus &&
-                                            _calculusOperationSelected)
+                                child: _usesDirectCalculusEditor
+                                    ? const SizedBox.shrink()
+                                    : _input.text.trim().isEmpty &&
+                                          _mode != _CalculatorMode.geometry &&
+                                          !(_mode == _CalculatorMode.calculus &&
+                                              _calculusOperationSelected)
                                     ? const Align(
                                         alignment: Alignment.topLeft,
                                         child: Text(
@@ -5246,8 +5268,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 maxLines: null,
                                 expands: true,
                                 textAlignVertical: TextAlignVertical.top,
-                                style: const TextStyle(
-                                  color: Colors.transparent,
+                                style: TextStyle(
+                                  color: _usesDirectCalculusEditor
+                                      ? Theme.of(context).colorScheme.onSurface
+                                      : Colors.transparent,
+                                  fontFamily: _usesDirectCalculusEditor
+                                      ? 'serif'
+                                      : null,
                                   fontSize: 20,
                                   height: 1.4,
                                 ),
@@ -5280,6 +5307,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
     required double fontSize,
     bool displayStyle = false,
   }) {
+    if (_usesDirectCalculusEditor) {
+      return LayoutBuilder(
+        builder: (context, _) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Text(
+              _calculusFormulaController.text,
+              key: const Key('calculator-expression-math-preview'),
+              maxLines: 1,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.onSurface,
+                fontFamily: 'serif',
+                fontSize: fontSize,
+                height: displayStyle ? 1.4 : null,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     if (_mode == _CalculatorMode.geometry) {
       return LayoutBuilder(
         builder: (context, _) => SingleChildScrollView(
@@ -5345,7 +5393,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
     builder: (context) => Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
-        if (event.buttons & kPrimaryButton == 0) return;
         _expressionDragPointer = event.pointer;
         _expressionDragOrigin = event.position;
         _expressionDragActive = false;
@@ -5354,15 +5401,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
         if (event.pointer != _expressionDragPointer) return;
         final origin = _expressionDragOrigin;
         if (origin == null) return;
-        if (!_expressionDragActive &&
-            (event.position - origin).distance < kTouchSlop) {
+        if (!_expressionDragActive && (event.position - origin).distance < 2) {
           return;
         }
         _expressionDragActive = true;
-        final renderEditable = _findRenderEditable(context.findRenderObject());
+        final renderEditable =
+            _findRenderEditable(_expressionFocus.context?.findRenderObject()) ??
+            _findRenderEditable(context.findRenderObject());
         if (renderEditable == null) return;
-        final localPosition = renderEditable.globalToLocal(event.position);
-        final textPosition = renderEditable.getPositionForPoint(localPosition);
+        final textPosition = renderEditable.getPositionForPoint(event.position);
         final controller = _expressionEditorController;
         controller.selection = TextSelection.collapsed(
           offset: textPosition.offset.clamp(0, controller.text.length).toInt(),
@@ -5374,13 +5421,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
         if (_expressionDragActive) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (!mounted) return;
-            final renderEditable = _findRenderEditable(
-              context.findRenderObject(),
-            );
+            final renderEditable =
+                _findRenderEditable(
+                  _expressionFocus.context?.findRenderObject(),
+                ) ??
+                _findRenderEditable(context.findRenderObject());
             if (renderEditable == null) return;
-            final localPosition = renderEditable.globalToLocal(dropPosition);
             final textPosition = renderEditable.getPositionForPoint(
-              localPosition,
+              dropPosition,
             );
             final controller = _expressionEditorController;
             controller.selection = TextSelection.collapsed(
