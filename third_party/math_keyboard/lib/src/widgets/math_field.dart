@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
@@ -160,20 +163,23 @@ class MathField extends StatefulWidget {
 }
 
 class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
+  final _gestureDetectorKey = GlobalKey();
   late final _scrollController = ScrollController();
   late final _keyboardSlideController = AnimationController(
     duration: const Duration(milliseconds: 250),
     vsync: this,
   );
-  late final _cursorBlinkController = AnimationController(
-    duration: const Duration(seconds: 1),
-    vsync: this,
-    // We start the controller at 1/2 so that immediately when the controller
-    // is forwarded the cursor appears. The cursor is visible when the value
-    // is greater than 1/2.
-    value: 1 / 2,
-  );
   late var _cursorOpacity = 0.0;
+  Timer? _cursorBlinkTimer;
+
+  void _startCursorBlinking() {
+    _cursorBlinkTimer?.cancel();
+    _cursorOpacity = 1;
+    _cursorBlinkTimer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
+      setState(() => _cursorOpacity = _cursorOpacity == 1 ? 0 : 1);
+    });
+  }
 
   OverlayEntry? _overlayEntry;
 
@@ -229,7 +235,6 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
         _showFieldOnScreen();
       }
     });
-    _cursorBlinkController.addListener(_handleBlinkUpdate);
     _controller.addListener(_handleControllerUpdate);
     _keyboardFocusScopeNode.addListener(_handleKeyboardFocusChanged);
   }
@@ -291,7 +296,7 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
     _overlayEntry?.remove();
     _scrollController.dispose();
     _keyboardSlideController.dispose();
-    _cursorBlinkController.dispose();
+    _cursorBlinkTimer?.cancel();
 
     if (widget.controller != null) {
       // We should only detach our listener and not dispose an outside
@@ -310,26 +315,6 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
     _keyboardFocusScopeNode.dispose();
 
     super.dispose();
-  }
-
-  void _handleBlinkUpdate() {
-    if (_cursorBlinkController.value > 1 / 2) {
-      if (_cursorOpacity == 1) return;
-      // Set the cursor opacity to 1 when the blink controller value is greater
-      // than 1/2, i.e. roughly half of the time.
-      setState(() {
-        _cursorOpacity = 1;
-      });
-      return;
-    }
-
-    if (_cursorOpacity == 0) return;
-    // Set the cursor opacity to 0 when the blink controller value is smaller
-    // than *or equal to* 1/2. Note that we always start at 1/2 in order to
-    // immediately make the cursor visible once the controller advances.
-    setState(() {
-      _cursorOpacity = 0;
-    });
   }
 
   void _handleControllerUpdate() {
@@ -368,9 +353,7 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
       // so honor a one-shot suppression instead of reopening.
       if (_suppressReopen) {
         _suppressReopen = false;
-        // Keep a steady visible caret while the app supplies its own keypad.
-        _cursorBlinkController.value = 1;
-        _cursorOpacity = 1;
+        _startCursorBlinking();
         setState(() {});
         return;
       }
@@ -385,13 +368,11 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
       if (!_keyboardOpen) {
         _keyboardSlideController.forward();
       }
-      // A steady caret avoids a perpetual ticker and remains clear while the
-      // app's own keypad is used.
-      _cursorBlinkController.value = 1;
-      _cursorOpacity = 1;
+      _startCursorBlinking();
       _showFieldOnScreen();
     } else {
-      _cursorBlinkController.value = 0;
+      _cursorBlinkTimer?.cancel();
+      _cursorBlinkTimer = null;
       _cursorOpacity = 0;
       _maybeCloseKeyboard();
     }
@@ -457,6 +438,13 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
       // The field can be focused while the keyboard is closed (e.g. after
       // escape); reopen it.
       _handleFocusChanged(context, open: true);
+    }
+  }
+
+  void _handleTapDown(TapDownDetails details) {
+    final renderObject = _gestureDetectorKey.currentContext?.findRenderObject();
+    if (renderObject is RenderBox) {
+      _controller.placeCursorAt(details.localPosition, renderObject.size);
     }
   }
 
@@ -730,6 +718,8 @@ class _MathFieldState extends State<MathField> with TickerProviderStateMixin {
               _handleFocusChanged(context, open: primary),
           onKeyEvent: _handleKey,
           child: GestureDetector(
+            key: _gestureDetectorKey,
+            onTapDown: _handleTapDown,
             onTap: _handleTap,
             child: AnimatedBuilder(
               animation: _controller,
@@ -1003,6 +993,136 @@ class MathFieldEditingController extends ChangeNotifier {
     currentNode.courserPosition = currentNode.children.length;
     currentNode.setCursor();
     notifyListeners();
+  }
+
+  /// Places the insertion point at the nearest visible math element.
+  ///
+  /// Horizontal space is apportioned by each TeX element's approximate visual
+  /// width. Fractions use the tap's vertical half to choose numerator or
+  /// denominator, while roots and powers route taps into their editable
+  /// arguments.
+  void placeCursorAt(Offset position, Size fieldSize) {
+    final contentX = math.max(0.0, position.dx - 12) / 18;
+    final verticalOffset = (position.dy - fieldSize.height / 2) / 18;
+    final target = _locateCaret(root, contentX, verticalOffset);
+
+    currentNode.removeCursor();
+    currentNode = target.$1;
+    currentNode.courserPosition = target.$2.clamp(
+      0,
+      currentNode.children.length,
+    );
+    currentNode.setCursor();
+    notifyListeners();
+  }
+
+  double _nodeWidth(TeXNode node) => node.children
+      .where((child) => child is! Cursor)
+      .fold<double>(0, (width, child) => width + _texWidth(child));
+
+  double _texWidth(TeX tex) {
+    if (tex is TeXLeaf) {
+      final expression = tex.expression;
+      if (expression.startsWith(r'\')) return .85;
+      if (expression.length > 1) return math.min(expression.length * .55, 2);
+      return expression == '.' || expression == ',' ? .38 : .58;
+    }
+    if (tex is! TeXFunction) return 0;
+
+    final argumentWidths = tex.argNodes.map(_nodeWidth).toList();
+    if (tex.expression == r'\frac' && argumentWidths.length >= 2) {
+      return math.max(argumentWidths[0], argumentWidths[1]) + .7;
+    }
+    if (tex.expression.startsWith('^')) {
+      return math.max(.4, (argumentWidths.firstOrNull ?? 0) * .62);
+    }
+    if (tex.expression.startsWith(r'\sqrt')) {
+      return .9 + (argumentWidths.firstOrNull ?? 0);
+    }
+    final prefixWidth = switch (tex.expression) {
+      r'\sin' || r'\cos' || r'\tan' => 1.35,
+      r'\log' || r'\ln' || r'\exp' => 1.1,
+      _ => .8,
+    };
+    return prefixWidth +
+        argumentWidths.fold<double>(
+          .55 * tex.args.length,
+          (width, argumentWidth) => width + argumentWidth,
+        );
+  }
+
+  (TeXNode, int) _locateCaret(TeXNode node, double x, double y) {
+    final children = node.children.where((child) => child is! Cursor).toList();
+    var childStart = 0.0;
+    for (var index = 0; index < children.length; index++) {
+      final child = children[index];
+      final width = _texWidth(child);
+      if (x <= childStart + width || index == children.length - 1) {
+        if (child is TeXLeaf) {
+          return (node, x - childStart < width / 2 ? index : index + 1);
+        }
+        if (child is TeXFunction) {
+          return _locateCaretInFunction(child, index, x - childStart, y, width);
+        }
+      }
+      childStart += width;
+    }
+    return (node, children.length);
+  }
+
+  (TeXNode, int) _locateCaretInFunction(
+    TeXFunction function,
+    int parentIndex,
+    double x,
+    double y,
+    double width,
+  ) {
+    final expression = function.expression;
+    final parentChildren = function.parent.children
+        .where((child) => child is! Cursor)
+        .toList();
+    final actualParentIndex = parentChildren.indexOf(function);
+    if (actualParentIndex < 0) return (function.parent, parentIndex);
+
+    (TeXNode, int) parentPosition(int index) => (function.parent, index);
+
+    if (expression == r'\frac' && function.argNodes.length >= 2) {
+      final argumentIndex = y < 0 ? 0 : 1;
+      final argument = function.argNodes[argumentIndex];
+      final argumentWidth = _nodeWidth(argument);
+      final centeredX = (width - argumentWidth) / 2;
+      return _locateCaret(argument, (x - centeredX).clamp(0, argumentWidth), y);
+    }
+
+    if (expression.startsWith('^')) {
+      final argument = function.argNodes.first;
+      return _locateCaret(argument, x.clamp(0, _nodeWidth(argument)), y);
+    }
+
+    if (expression.startsWith(r'\sqrt')) {
+      final argument = function.argNodes.first;
+      if (x <= .9) return (argument, 0);
+      return _locateCaret(argument, (x - .9).clamp(0, _nodeWidth(argument)), y);
+    }
+
+    final contentWidth = function.argNodes.fold<double>(
+      0,
+      (sum, node) => sum + _nodeWidth(node),
+    );
+    final prefixWidth = width - contentWidth - .55 * function.args.length;
+    if (x <= prefixWidth) return parentPosition(actualParentIndex);
+    if (x >= width - .25) return parentPosition(actualParentIndex + 1);
+
+    var argumentX = x - prefixWidth;
+    for (final argument in function.argNodes) {
+      final argumentWidth = _nodeWidth(argument);
+      if (argumentX <= argumentWidth ||
+          identical(argument, function.argNodes.last)) {
+        return _locateCaret(argument, argumentX.clamp(0, argumentWidth), y);
+      }
+      argumentX -= argumentWidth + .55;
+    }
+    return parentPosition(actualParentIndex + 1);
   }
 
   /// Navigate to the previous node.

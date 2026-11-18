@@ -373,6 +373,47 @@ void main() {
     );
   });
 
+  testWidgets('tapping places the math caret and fractions edit by part', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
+    final fieldFinder = find.byKey(const Key('calculator-math-field-input'));
+    var fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 26, fieldRect.center.dy));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-9')));
+
+    var editor = tester.widget<MathField>(fieldFinder).controller!;
+    expect(editor.currentEditingValue(), '1923');
+    await _capture(binding, 'math-field-tap-places-caret');
+    await tester.pump(const Duration(milliseconds: 600));
+    await _capture(binding, 'math-field-caret-blink');
+
+    await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-clear')));
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-functions')));
+    await _tap(tester, find.byKey(const ValueKey('function-key-a/b')));
+    editor = tester.widget<MathField>(fieldFinder).controller!;
+    expect(editor.currentEditingValue(), contains(r'\frac'));
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
+
+    fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 22, fieldRect.center.dy - 8));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
+    fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 22, fieldRect.center.dy + 8));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-4')));
+
+    editor = tester.widget<MathField>(fieldFinder).controller!;
+    expect(editor.currentEditingValue(), contains(r'\frac{3}{4}'));
+    await _capture(binding, 'math-field-editable-fraction');
+  });
+
   testWidgets('Basic Fx layer inserts its selected function into expression', (
     tester,
   ) async {

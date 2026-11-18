@@ -1462,6 +1462,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
       }
       return;
     }
+    if (value == 'a/b') {
+      _mathFieldController.addFunction(r'\frac', const [
+        TeXArg.braces,
+        TeXArg.braces,
+      ]);
+      return;
+    }
     if (value.startsWith('^(') && value.endsWith(')')) {
       _mathFieldController.addFunction('^', const [TeXArg.braces]);
       for (final rune in value.substring(2, value.length - 1).runes) {
@@ -6607,7 +6614,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ('!', '!'),
             ('±', 'SIGN'),
             ('.', '.'),
-            ('a/b', 'a/b'),
+            ('½', 'a/b'),
             ('∞', 'infinity'),
             ('DEL', 'DEL'),
           ];
@@ -6625,6 +6632,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ('e', 'e'),
             ('abs', 'abs('),
             ('!', '!'),
+            ('½', 'a/b'),
           ]
         : _mode == _CalculatorMode.numberSystem
         ? _modeFunctionItems
@@ -6879,6 +6887,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   };
 
   String _calculatorDisplayLabel(String label, String action) {
+    if (action == 'a/b') return '½';
     final modeLabel = switch (action) {
       'EQUALS_SIGN' => 'a=b',
       '='
@@ -6908,6 +6917,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   String _calculatorKeyTooltip(String label, String action) => switch (action) {
+    'a/b' => 'Insert editable fraction',
     'EQUALS_SIGN' || '=' => 'Insert equation equals',
     'CALC_LEIBNIZ_FIRST' || 'CALC_LAGRANGE_FIRST' => 'First derivative',
     'CALC_LEIBNIZ_SECOND' || 'CALC_LAGRANGE_SECOND' => 'Second derivative',
