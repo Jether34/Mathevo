@@ -241,7 +241,10 @@ void main() {
       await tester.ensureVisible(useAdjusted);
       await tester.tap(useAdjusted);
       await _pumpForUi(tester);
-      expect(find.byKey(const Key('expression-input')), findsOneWidget);
+      expect(
+        find.byKey(const Key('calculator-expression-display')),
+        findsOneWidget,
+      );
       if (mode == 'Trigonometry') {
         final adjustedExpression = tester
             .widget<TextField>(find.byKey(const Key('expression-input')))
