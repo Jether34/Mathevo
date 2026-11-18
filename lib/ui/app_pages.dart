@@ -4826,7 +4826,36 @@ class _CalculatorPageState extends State<CalculatorPage> {
                   child: Semantics(
                     key: const Key('calculator-expression-display'),
                     label: _expressionDisplaySemanticsLabel,
-                    child: _calculatorExpressionPreview(fontSize: 14),
+                    child: Stack(
+                      alignment: Alignment.centerLeft,
+                      children: [
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: _calculatorExpressionPreview(fontSize: 14),
+                          ),
+                        ),
+                        TextField(
+                          key: const Key('expression-input'),
+                          controller: _expressionEditorController,
+                          focusNode: _expressionFocus,
+                          autofocus: true,
+                          readOnly: false,
+                          enableInteractiveSelection: true,
+                          showCursor: true,
+                          keyboardType: TextInputType.none,
+                          onChanged: (_) => _updateResult(),
+                          maxLines: 1,
+                          style: const TextStyle(color: Colors.transparent),
+                          cursorColor: Theme.of(context).colorScheme.primary,
+                          decoration: const InputDecoration(
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.zero,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
               ),
