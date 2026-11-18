@@ -650,7 +650,10 @@ void main() {
 
     final expressionCard = find.byKey(const Key('calculator-expression-panel'));
     expect(
-      find.descendant(of: expressionCard, matching: find.text('d²y/dx² (□)')),
+      find.descendant(
+        of: expressionCard,
+        matching: find.byKey(const Key('calculator-expression-math-preview')),
+      ),
       findsOneWidget,
     );
     await _capture(binding, 'calculus-second-derivative-expression-visible');
@@ -658,6 +661,42 @@ void main() {
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
     expect(_expression(tester), 'd^2y/dx^2 of x');
     await _capture(binding, 'calculus-second-derivative-body-entered');
+  });
+
+  testWidgets('caret drag edits characters in the calculus function', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Calculus');
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
+    );
+
+    final input = find.byKey(const Key('expression-input'));
+    final editor = tester.widget<TextField>(input).controller!;
+    expect(editor.text, 'd^2y/dx^2(□)');
+    final inputRect = tester.getRect(input);
+    final oldOffset = editor.selection.extentOffset;
+    final drag = await tester.startGesture(
+      Offset(inputRect.left + 12, inputRect.top + 18),
+    );
+    await drag.moveTo(Offset(inputRect.left + 96, inputRect.top + 18));
+    await tester.pump(const Duration(milliseconds: 250));
+    await drag.up();
+    await tester.pumpAndSettle();
+
+    expect(editor.selection.isCollapsed, isTrue);
+    expect(editor.selection.extentOffset, isNot(oldOffset));
+    await _capture(binding, 'calculus-function-caret-after-drag');
+    final beforeDelete = editor.text;
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-delete')),
+    );
+    expect(editor.text.length, beforeDelete.length - 1);
   });
 
   testWidgets(

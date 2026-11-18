@@ -1161,6 +1161,7 @@ class CalculatorPage extends StatefulWidget {
 
 class _CalculatorPageState extends State<CalculatorPage> {
   final _input = TextEditingController();
+  final _calculusFormulaController = TextEditingController();
   final _expressionFocus = FocusNode();
   final _numerator = TextEditingController();
   final _denominator = TextEditingController();
@@ -1259,6 +1260,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void dispose() {
     _drawingDebounce?.cancel();
     _input.dispose();
+    _calculusFormulaController.dispose();
     _expressionFocus.dispose();
     _numerator.dispose();
     _denominator.dispose();
@@ -1284,7 +1286,67 @@ class _CalculatorPageState extends State<CalculatorPage> {
   TextEditingController get _expressionEditorController =>
       _mode == _CalculatorMode.calculus && _selectedIntegralBound != null
       ? _calculusBoundControllers[_selectedIntegralBound!]
+      : _mode == _CalculatorMode.calculus && _calculusOperationSelected
+      ? _calculusFormulaController
       : _input;
+
+  void _onExpressionChanged() {
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperationSelected &&
+        _selectedIntegralBound == null) {
+      _syncCalculusBodyFromFormula();
+    }
+    _updateResult();
+  }
+
+  void _syncCalculusBodyFromFormula() {
+    final source = _calculusFormulaController.text;
+    final open = source.indexOf('(');
+    final close = source.lastIndexOf(')');
+    final body = open >= 0 && close > open
+        ? source.substring(open + 1, close).replaceAll('\u25a1', '').trim()
+        : source.replaceAll('\u25a1', '').trim();
+    _input.value = TextEditingValue(
+      text: body,
+      selection: TextSelection.collapsed(offset: body.length),
+    );
+    if (_calculusFamily == 'Derivatives') {
+      final second = RegExp(
+        r'^d\^2([A-Za-z])/d([A-Za-z])\^2\(',
+      ).firstMatch(source);
+      final first = RegExp(r'^d([A-Za-z])/d([A-Za-z])\(').firstMatch(source);
+      final partial = RegExp(
+        r'^partial([A-Za-z])/partial([A-Za-z])\(',
+      ).firstMatch(source);
+      final derivative = second ?? first ?? partial;
+      if (derivative != null) {
+        _dependentVariable = derivative[1]!;
+        if (partial != null) {
+          _partialVariable = derivative[2]!;
+        } else {
+          _derivativeVariable = derivative[2]!;
+        }
+      }
+    }
+    if (_calculusFamily == 'Limits') {
+      final approach = RegExp(r'lim\[x->([^\]]*)\]').firstMatch(source);
+      if (approach != null) {
+        final text = approach[1]!;
+        _limitAtPositiveInfinity = !text.startsWith('-');
+        _limitApproachInput.text = text.replaceAll(RegExp(r'[+-]$'), '');
+        if (text.endsWith('+')) _calculusOperation = 'Right-hand limit';
+        if (text.endsWith('-')) _calculusOperation = 'Left-hand limit';
+      }
+    }
+    if (_calculusFamily == 'Integrals') {
+      final bounds = RegExp(
+        r'int\[([^\]]+)\]',
+      ).allMatches(source).expand((match) => match[1]!.split(',')).toList();
+      for (var i = 0; i < bounds.length && i < 6; i++) {
+        _calculusBoundControllers[i].text = bounds[i];
+      }
+    }
+  }
 
   void _insert(String value) {
     if (_mode == _CalculatorMode.numberSystem) {
@@ -1346,6 +1408,40 @@ class _CalculatorPageState extends State<CalculatorPage> {
         selection: TextSelection.collapsed(offset: start + value.length),
       );
       setState(() {});
+      return;
+    }
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusOperationSelected &&
+        _selectedIntegralBound == null) {
+      final controller = _calculusFormulaController;
+      if (_answerShown) {
+        final isOperator = const {'+', '-', '*', '/', '^'}.contains(value);
+        _input.text = isOperator ? (_result ?? '') : '';
+        final source = _calculusFormulaSource(body: _input.text);
+        final close = source.lastIndexOf(')');
+        final caret = close < 0 ? source.length : close;
+        controller.value = TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: caret),
+        );
+        _answerShown = false;
+      }
+      final selection = controller.selection;
+      var start = selection.isValid ? selection.start : controller.text.length;
+      var end = selection.isValid ? selection.end : controller.text.length;
+      if (selection.isValid &&
+          selection.isCollapsed &&
+          start < controller.text.length &&
+          controller.text.codeUnitAt(start) == 0x25a1) {
+        end++;
+      }
+      final text = controller.text.replaceRange(start, end, value);
+      controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: start + value.length),
+      );
+      _syncCalculusBodyFromFormula();
+      _updateResult();
       return;
     }
     if (_answerShown) {
@@ -1440,6 +1536,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _selectedIntegralBound = null;
         _result = null;
         _answerShown = false;
+        if (_mode == _CalculatorMode.calculus &&
+            _calculusOperationSelected &&
+            _calculusFamily == 'Integrals') {
+          final formula = _calculusFormulaSource(body: _input.text);
+          final placeholder = formula.indexOf('\u25a1');
+          final bodyEnd = formula.lastIndexOf(')');
+          _calculusFormulaController.value = TextEditingValue(
+            text: formula,
+            selection: placeholder >= 0
+                ? TextSelection.collapsed(offset: placeholder)
+                : TextSelection.collapsed(
+                    offset: bodyEnd < 0 ? formula.length : bodyEnd,
+                  ),
+          );
+        }
       });
     }
   }
@@ -1447,6 +1558,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void _clearCalculatorInputs() {
     setState(() {
       _input.clear();
+      _calculusFormulaController.clear();
       _numberA.clear();
       _numberB.clear();
       _geometryFirst.clear();
@@ -1500,11 +1612,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (!_fractionBuilder && _answerShown) {
       _input.text = _result ?? '';
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
+      if (_mode == _CalculatorMode.calculus && _calculusOperationSelected) {
+        final source = _calculusFormulaSource(body: _input.text);
+        final close = source.lastIndexOf(')');
+        _calculusFormulaController.value = TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(
+            offset: close < 0 ? source.length : close,
+          ),
+        );
+      }
       _result = null;
       _answerShown = false;
     }
     final controller = _fractionBuilder
         ? (_fractionDenominatorSelected ? _denominator : _numerator)
+        : _mode == _CalculatorMode.calculus &&
+              _calculusOperationSelected &&
+              _selectedIntegralBound == null
+        ? _calculusFormulaController
         : _input;
     final text = controller.text;
     final selection = controller.selection;
@@ -1535,7 +1661,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         ),
       );
     }
-    if (!_fractionBuilder) _updateResult();
+    if (!_fractionBuilder) _onExpressionChanged();
     setState(() {});
   }
 
@@ -1565,6 +1691,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
   String _mathTexFromSource(String source) {
     var tex = source.trim();
     if (tex.isEmpty) return r'\square';
+    tex = tex.replaceAll('\u25a1', r'\square');
     tex = tex.replaceAll('3.141592653589793', r'\pi');
     tex = tex
         .replaceAll('infinity', r'\infty')
@@ -1658,50 +1785,126 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _ => r'\square',
       };
     }
-    // A selected calculus operation is an expression in its own right. Keep
-    // its structure visible while the user is choosing the body to fill in.
-    final body =
-        _mode == _CalculatorMode.calculus &&
-            _calculusOperationSelected &&
-            _input.text.trim().isEmpty
+    if (_mode == _CalculatorMode.calculus && _calculusOperationSelected) {
+      return _calculusFormulaTex;
+    }
+    final body = _input.text.trim().isEmpty
         ? r'\square'
         : _mathTexFromSource(_input.text);
-    if (_mode != _CalculatorMode.calculus || !_calculusOperationSelected) {
-      return body;
-    }
-    if (RegExp(r'^(?:d[xyz]/dt|[A-Za-z])\s*=').hasMatch(_input.text.trim())) {
-      return body;
-    }
+    return body;
+  }
+
+  String _calculusFormulaSource({String? body}) {
+    final inputBody = body?.trim().isNotEmpty == true ? body!.trim() : '\u25a1';
     if (_calculusFamily == 'Derivatives') {
-      final derivative = _derivativeNotation == 'Lagrange'
-          ? (_calculusOperation == 'Second derivative' ? "f''" : "f'")
-          : (_calculusOperation == 'Second derivative'
-                ? '\\frac{d^2$_dependentVariable}{d$_derivativeVariable^2}'
-                : '\\frac{d$_dependentVariable}{d$_derivativeVariable}');
-      return '$derivative\\left($body\\right)';
+      if (_derivativeNotation == 'Lagrange') {
+        return _calculusOperation == 'Second derivative'
+            ? "f''($inputBody)"
+            : "f'($inputBody)";
+      }
+      if (_calculusOperation == 'Partial derivative') {
+        return 'partial$_dependentVariable/partial$_derivativeVariable($inputBody)';
+      }
+      return _calculusOperation == 'Second derivative'
+          ? 'd^2$_dependentVariable/d$_derivativeVariable^2($inputBody)'
+          : 'd$_dependentVariable/d$_derivativeVariable($inputBody)';
     }
     if (_calculusFamily == 'Limits') {
       final target = _calculusOperation == 'Limit at infinity'
-          ? (_limitAtPositiveInfinity ? r'\infty' : r'-\infty')
-          : _limitApproachInput.text.isEmpty
-          ? r'\square'
+          ? (_limitAtPositiveInfinity ? 'infinity' : '-infinity')
           : _limitApproachInput.text;
-      final approach = switch (_calculusOperation) {
-        'Left-hand limit' => r'^{-}',
-        'Right-hand limit' => r'^{+}',
+      final side = switch (_calculusOperation) {
+        'Left-hand limit' => '-',
+        'Right-hand limit' => '+',
         _ => '',
       };
-      return '\\lim_{x\\to $target$approach} $body';
+      return 'lim[x->$target$side]($inputBody)';
     }
     return switch (_calculusOperation) {
-      'Indefinite integral' => '\\int $body\\,d$_integrationVariable',
+      'Indefinite integral' => 'int($inputBody)d$_integrationVariable',
       'Definite integral' =>
-        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}} $body\\,dx',
+        'int[${_integralLowerInput.text},${_integralUpperInput.text}]($inputBody)dx',
       'Double integral' =>
-        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}}\\int_{${_integralLowerYInput.text}}^{${_integralUpperYInput.text}} $body\\,dx\\,dy',
+        'int[${_integralLowerInput.text},${_integralUpperInput.text}]int[${_integralLowerYInput.text},${_integralUpperYInput.text}]($inputBody)dxdy',
       _ =>
-        '\\int_{${_integralLowerInput.text}}^{${_integralUpperInput.text}}\\int_{${_integralLowerYInput.text}}^{${_integralUpperYInput.text}}\\int_{${_integralLowerZInput.text}}^{${_integralUpperZInput.text}} $body\\,dx\\,dy\\,dz',
+        'int[${_integralLowerInput.text},${_integralUpperInput.text}]int[${_integralLowerYInput.text},${_integralUpperYInput.text}]int[${_integralLowerZInput.text},${_integralUpperZInput.text}]($inputBody)dxdydz',
     };
+  }
+
+  String get _calculusFormulaTex {
+    final source = _calculusFormulaController.text;
+    final secondDerivative = RegExp(
+      r'^d\^2([A-Za-z])/d([A-Za-z])\^2\((.*)\)$',
+      dotAll: true,
+    ).firstMatch(source);
+    if (secondDerivative != null) {
+      return '\\frac{d^2${secondDerivative[1]}}{d${secondDerivative[2]}^2}'
+          '\\left(${_mathTexFromSource(secondDerivative[3]!)}\\right)';
+    }
+    final firstDerivative = RegExp(
+      r'^d([A-Za-z])/d([A-Za-z])\((.*)\)$',
+      dotAll: true,
+    ).firstMatch(source);
+    if (firstDerivative != null) {
+      return '\\frac{d${firstDerivative[1]}}{d${firstDerivative[2]}}'
+          '\\left(${_mathTexFromSource(firstDerivative[3]!)}\\right)';
+    }
+    final partialDerivative = RegExp(
+      r'^partial([A-Za-z])/partial([A-Za-z])\((.*)\)$',
+      dotAll: true,
+    ).firstMatch(source);
+    if (partialDerivative != null) {
+      return '\\frac{\\partial ${partialDerivative[1]}}'
+          '{\\partial ${partialDerivative[2]}}'
+          '\\left(${_mathTexFromSource(partialDerivative[3]!)}\\right)';
+    }
+    final limit = RegExp(
+      r'^lim\[x->(.+?)\]\((.*)\)$',
+      dotAll: true,
+    ).firstMatch(source);
+    if (limit != null) {
+      final approach = limit[1]!
+          .replaceAll('+', r'^{+}')
+          .replaceAll('-', r'^{-}');
+      return '\\lim_{x\\to $approach}\\left('
+          '${_mathTexFromSource(limit[2]!)}\\right)';
+    }
+    final integralOpen = source.indexOf('(');
+    final integralClose = source.lastIndexOf(')');
+    if (source.startsWith('int[') &&
+        integralOpen > 0 &&
+        integralClose > integralOpen) {
+      final bounds = RegExp(r'int\[([^\]]+)\]')
+          .allMatches(source.substring(0, integralOpen))
+          .map((match) => match[1]!.split(','))
+          .toList();
+      final body = _mathTexFromSource(
+        source.substring(integralOpen + 1, integralClose),
+      );
+      var tex = '';
+      for (final pair in bounds) {
+        final lower = pair.first;
+        final upper = pair.length > 1 ? pair[1] : '';
+        tex +=
+            '\\int_{${_mathTexFromSource(lower)}}'
+            '${upper.isEmpty ? '' : '^{${_mathTexFromSource(upper)}}'}';
+      }
+      final variables = source.substring(integralClose + 1);
+      final differentials = variables.replaceAllMapped(
+        RegExp(r'd([xyz])'),
+        (match) => '\\,d${match[1]}',
+      );
+      return '$tex ${bounds.length > 1 ? '\\left($body\\right)' : body}'
+          '$differentials';
+    }
+    if (source.startsWith('int(')) {
+      final close = source.lastIndexOf(')');
+      if (close > 4) {
+        final body = source.substring(4, close);
+        return '\\int ${_mathTexFromSource(body)}\\,d$_integrationVariable';
+      }
+    }
+    return _mathTexFromSource(source);
   }
 
   String get _expressionDisplaySemanticsLabel {
@@ -3128,10 +3331,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
         }
         if (key == 'CALC_LIMIT_POS_INFINITY') _limitAtPositiveInfinity = true;
         if (key == 'CALC_LIMIT_NEG_INFINITY') _limitAtPositiveInfinity = false;
-        final isFiniteLimit =
-            _calculusFamily == 'Limits' &&
-            _calculusOperation != 'Limit at infinity';
-        _selectedIntegralBound = isFiniteLimit ? 6 : null;
+        _selectedIntegralBound = null;
+        final formula = _calculusFormulaSource(body: _input.text);
+        final placeholder = formula.indexOf('\u25a1');
+        final bodyEnd = formula.lastIndexOf(')');
+        _calculusFormulaController.value = TextEditingValue(
+          text: formula,
+          selection: placeholder >= 0
+              ? TextSelection.collapsed(offset: placeholder)
+              : TextSelection.collapsed(
+                  offset: bodyEnd < 0 ? formula.length : bodyEnd,
+                ),
+        );
         _result = null;
         _answerShown = false;
       });
@@ -3140,14 +3351,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
           _calculusOperation != 'Indefinite integral') {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) unawaited(_showCalculusBoundsDialog());
-        });
-      } else if (_mode == _CalculatorMode.calculus &&
-          _calculusFamily == 'Limits' &&
-          _calculusOperation != 'Limit at infinity') {
-        final approach = _limitApproachInput;
-        approach.selection = const TextSelection.collapsed(offset: 0);
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) _expressionFocus.requestFocus();
         });
       }
     } else if (key == 'DIFF_EQ_DX') {
@@ -3205,17 +3408,18 @@ class _CalculatorPageState extends State<CalculatorPage> {
         );
       }
     } else if (key == 'DEL') {
-      final selection = _input.selection;
+      final controller = _expressionEditorController;
+      final selection = controller.selection;
       var start = selection.isValid
           ? selection.start
-          : (_input.text.isEmpty ? 0 : _input.text.length - 1);
-      final end = selection.isValid ? selection.end : _input.text.length;
+          : (controller.text.isEmpty ? 0 : controller.text.length - 1);
+      final end = selection.isValid ? selection.end : controller.text.length;
       if (selection.isValid && start == end && start > 0) start--;
-      _input.value = TextEditingValue(
-        text: _input.text.replaceRange(start, end, ''),
+      controller.value = TextEditingValue(
+        text: controller.text.replaceRange(start, end, ''),
         selection: TextSelection.collapsed(offset: start),
       );
-      _updateResult();
+      _onExpressionChanged();
     } else if (key == 'a/b') {
       FocusScope.of(context).unfocus();
       setState(() {
@@ -4888,7 +5092,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             enableInteractiveSelection: true,
                             showCursor: true,
                             keyboardType: TextInputType.none,
-                            onChanged: (_) => _updateResult(),
+                            onChanged: (_) => _onExpressionChanged(),
                             maxLines: 1,
                             style: const TextStyle(color: Colors.transparent),
                             cursorColor: Theme.of(context).colorScheme.primary,
@@ -5038,7 +5242,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 enableInteractiveSelection: true,
                                 showCursor: true,
                                 keyboardType: TextInputType.none,
-                                onChanged: (_) => _updateResult(),
+                                onChanged: (_) => _onExpressionChanged(),
                                 maxLines: null,
                                 expands: true,
                                 textAlignVertical: TextAlignVertical.top,
