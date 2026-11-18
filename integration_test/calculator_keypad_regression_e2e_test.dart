@@ -351,6 +351,33 @@ void main() {
     await _capture(binding, '19-calculus-integral-result');
   });
 
+  testWidgets('finite limit expression is visible before and after evaluation', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Calculus');
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LIMIT_TWO')),
+    );
+    expect(find.byKey(const Key('calculus-bounds-dialog')), findsNothing);
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    expect(_expression(tester), 'limit from both sides of x');
+    await _capture(binding, 'finite-limit-x-approaches-zero-expression');
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('calculator-keyboard-enter')),
+    );
+    await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
+    expect(_answer(tester), contains('0'));
+    expect(_expression(tester), 'limit from both sides of x');
+    await _capture(binding, 'finite-limit-x-approaches-zero-result');
+  });
+
   testWidgets('equation equals inserts a relation and graph views remain', (
     tester,
   ) async {

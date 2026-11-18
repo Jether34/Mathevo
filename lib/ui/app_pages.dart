@@ -1197,7 +1197,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _buildingSymbolExpression = false;
   bool _answerShown = false;
   bool _showDetailedAnswer = false;
-  bool _expressionEditing = false;
   bool _showVisualization = false;
   bool _showVisualizationDetails = false;
   bool _showVisualizationSteps = false;
@@ -1279,17 +1278,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
     super.dispose();
   }
 
-  void _closeExpressionEditorForKeypad() {
-    if (!_expressionEditing) return;
-    final selection = _input.selection;
-    _expressionFocus.unfocus();
-    setState(() => _expressionEditing = false);
-    if (selection.isValid) _input.selection = selection;
-  }
+  TextEditingController get _expressionEditorController =>
+      _mode == _CalculatorMode.calculus && _selectedIntegralBound != null
+      ? _calculusBoundControllers[_selectedIntegralBound!]
+      : _input;
 
   void _insert(String value) {
-    _closeExpressionEditorForKeypad();
-    FocusScope.of(context).unfocus();
     if (_mode == _CalculatorMode.numberSystem) {
       if (!_conversionOnly &&
           const {'+', '-', '*', '/', '%', '&', '|', '^'}.contains(value)) {
@@ -1824,7 +1818,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   Future<void> _evaluate() async {
-    _closeExpressionEditorForKeypad();
     final expression = _input.text.trim();
     if (expression.isEmpty &&
         _mode != _CalculatorMode.geometry &&
@@ -1854,7 +1847,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
     );
     if (showDetails == null || !mounted) return;
     setState(() => _showDetailedAnswer = showDetails);
-    FocusScope.of(context).unfocus();
     if (expression.isEmpty) return;
     try {
       if (_usesDataMathMode) {
@@ -2948,8 +2940,6 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _pressFunction(String key) {
-    _closeExpressionEditorForKeypad();
-    FocusScope.of(context).unfocus();
     if (key == 'CALC_EQUALS') {
       _evaluateCurrentMode();
       return;
@@ -3110,7 +3100,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
         }
         if (key == 'CALC_LIMIT_POS_INFINITY') _limitAtPositiveInfinity = true;
         if (key == 'CALC_LIMIT_NEG_INFINITY') _limitAtPositiveInfinity = false;
-        _selectedIntegralBound = null;
+        final isFiniteLimit =
+            _calculusFamily == 'Limits' &&
+            _calculusOperation != 'Limit at infinity';
+        _selectedIntegralBound = isFiniteLimit ? 6 : null;
         _result = null;
         _answerShown = false;
       });
@@ -3123,8 +3116,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
       } else if (_mode == _CalculatorMode.calculus &&
           _calculusFamily == 'Limits' &&
           _calculusOperation != 'Limit at infinity') {
+        final approach = _limitApproachInput;
+        approach.selection = const TextSelection.collapsed(offset: 0);
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) unawaited(_showCalculusBoundsDialog());
+          if (mounted) _expressionFocus.requestFocus();
         });
       }
     } else if (key == 'DIFF_EQ_DX') {
@@ -4895,38 +4890,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Row(
+          const Row(
             children: [
-              const Expanded(
+              Expanded(
                 child: Text(
                   'Expression',
                   style: TextStyle(fontSize: 10, height: 1),
-                ),
-              ),
-              IconButton(
-                key: const Key('expression-edit-toggle'),
-                tooltip: _expressionEditing
-                    ? 'Finish editing'
-                    : 'Edit expression',
-                visualDensity: VisualDensity.compact,
-                constraints: const BoxConstraints.tightFor(
-                  width: 28,
-                  height: 24,
-                ),
-                padding: EdgeInsets.zero,
-                onPressed: () {
-                  setState(() => _expressionEditing = !_expressionEditing);
-                  if (_expressionEditing) {
-                    WidgetsBinding.instance.addPostFrameCallback((_) {
-                      if (mounted) _expressionFocus.requestFocus();
-                    });
-                  } else {
-                    _expressionFocus.unfocus();
-                  }
-                },
-                icon: Icon(
-                  _expressionEditing ? Icons.check_rounded : Icons.edit_rounded,
-                  size: 16,
                 ),
               ),
             ],
@@ -4934,11 +4903,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           Expanded(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () {
-                if (_selectedIntegralBound != null) {
-                  setState(() => _selectedIntegralBound = null);
-                }
-              },
+              onTap: () {},
               child: _fractionBuilder
                   ? Row(
                       children: [
@@ -4986,34 +4951,35 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                       ),
                               ),
                             ),
-                            if (_expressionEditing)
-                              TextField(
-                                key: const Key('expression-input'),
-                                controller: _input,
-                                focusNode: _expressionFocus,
-                                readOnly: false,
-                                enableInteractiveSelection: true,
-                                showCursor: true,
-                                keyboardType: TextInputType.none,
-                                onChanged: (_) => _updateResult(),
-                                maxLines: null,
-                                expands: true,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: TextStyle(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurface,
-                                  fontSize: 20,
-                                  height: 1.4,
-                                ),
-                                cursorColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                decoration: const InputDecoration(
-                                  border: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
+                            TextField(
+                              key: const Key('expression-input'),
+                              controller: _expressionEditorController,
+                              focusNode: _expressionFocus,
+                              autofocus: true,
+                              readOnly: false,
+                              enableInteractiveSelection: true,
+                              showCursor: true,
+                              keyboardType: TextInputType.none,
+                              onChanged: (_) => _updateResult(),
+                              maxLines: null,
+                              expands: true,
+                              textAlignVertical: TextAlignVertical.top,
+                              style: const TextStyle(
+                                color: Colors.transparent,
+                                fontSize: 20,
+                                height: 1.4,
                               ),
+                              cursorColor: Theme.of(
+                                context,
+                              ).colorScheme.primary,
+                              decoration: const InputDecoration(
+                                border: InputBorder.none,
+                                enabledBorder: InputBorder.none,
+                                focusedBorder: InputBorder.none,
+                                disabledBorder: InputBorder.none,
+                                contentPadding: EdgeInsets.zero,
+                              ),
+                            ),
                           ],
                         ),
                       ),
