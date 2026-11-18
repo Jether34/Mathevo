@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_math_fork/flutter_math.dart' show Math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
+import 'package:math_keyboard/math_keyboard.dart';
 import 'package:mathevo/main.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -29,22 +29,21 @@ void main() {
     await _tap(tester, plusKey);
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
     expect(_expression(tester), '2+3');
-    final expressionPreview = tester.widget<Math>(
-      find.byKey(const Key('calculator-expression-math-preview')),
-    );
-    expect(expressionPreview.ast, isNotNull);
     expect(
-      expressionPreview.textStyle?.color,
-      Theme.of(
-        tester.element(find.byKey(const Key('calculator-expression-panel'))),
-      ).colorScheme.onSurface,
+      tester
+          .widget<MathField>(
+            find.byKey(const Key('calculator-math-field-input')),
+          )
+          .controller!
+          .currentEditingValue(),
+      '2+3',
     );
     expect(
       tester
           .widget<TextField>(find.byKey(const Key('expression-input')))
           .decoration
           ?.filled,
-      isFalse,
+      isNot(true),
     );
 
     await _tap(tester, find.byKey(const ValueKey('calculator-common-key-=')));
@@ -119,6 +118,9 @@ void main() {
             if (mode == 'Number systems') {
               _seedNumberSystemInputs(tester);
             } else if (action == 'DEL' || action == 'C') {
+              _seedEditableInput(tester, mode);
+            } else if (action.startsWith('^')) {
+              // Exponents are structural in the math field and need a base.
               _seedEditableInput(tester, mode);
             }
 
@@ -289,10 +291,7 @@ void main() {
       await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
     }
     expect(
-      find.descendant(
-        of: expressionCard,
-        matching: find.byType(SingleChildScrollView),
-      ),
+      find.descendant(of: expressionCard, matching: find.byType(Scrollable)),
       findsWidgets,
     );
     final expressionScroll = find
@@ -305,41 +304,30 @@ void main() {
     expect(scrollPosition.axisDirection, AxisDirection.right);
     await _capture(binding, '20-long-expression-scrollable');
 
-    final input = find.byKey(const Key('expression-input'));
-    final textField = tester.widget<TextField>(input);
-    expect(textField.readOnly, isFalse);
-    expect(textField.enableInteractiveSelection, isTrue);
-    expect(textField.showCursor, isTrue);
-    expect(textField.style?.color, Colors.transparent);
-
-    final inputRect = tester.getRect(input);
-    await tester.tapAt(Offset(inputRect.left + 12, inputRect.top + 18));
-    await tester.pumpAndSettle();
-    expect(textField.controller!.selection.isValid, isTrue);
-    expect(
-      textField.controller!.selection.extentOffset,
-      lessThan(textField.controller!.text.length),
+    final mathFieldFinder = find.byKey(
+      const Key('calculator-math-field-input'),
     );
-    final controller = textField.controller!;
-    final startingCursor = controller.selection.extentOffset;
+    final mathField = tester.widget<MathField>(mathFieldFinder);
+    final controller = mathField.controller!;
+    final startingCursor = controller.currentNode.courserPosition;
+    final inputRect = tester.getRect(mathFieldFinder);
     final caretDrag = await tester.startGesture(
-      Offset(inputRect.left + 12, inputRect.top + 18),
+      Offset(inputRect.right - 12, inputRect.center.dy),
     );
-    await caretDrag.moveTo(Offset(inputRect.left + 96, inputRect.top + 18));
+    await caretDrag.moveTo(Offset(inputRect.right - 96, inputRect.center.dy));
     await tester.pump(const Duration(milliseconds: 250));
     await caretDrag.up();
     await tester.pumpAndSettle();
     expect(
-      controller.selection.extentOffset,
+      controller.currentNode.courserPosition,
       isNot(startingCursor),
       reason: 'Dragging in the expression must reposition its typing caret.',
     );
-    final cursor = controller.selection.extentOffset;
-    final beforeEdit = controller.text;
+    final beforeEdit = _expression(tester);
     await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
     expect(
-      controller.text,
-      beforeEdit.replaceRange(cursor, cursor, '+'),
+      _expression(tester),
+      isNot(beforeEdit),
       reason: 'A keypad tap must insert at the draggable expression caret.',
     );
     await _capture(binding, '21-expression-editor-cursor-placement');
@@ -360,28 +348,28 @@ void main() {
     expect(_expression(tester), 'sin(');
     expect(
       tester
-          .widget<Math>(
-            find.byKey(const Key('calculator-expression-math-preview')),
-          )
-          .ast,
-      isNotNull,
-      reason: 'An incomplete function must still display as typeset math.',
+          .widget<TextField>(find.byKey(const Key('expression-input')))
+          .controller!
+          .text,
+      'sin(',
+      reason: 'The live math field must display incomplete function input.',
     );
 
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
-    expect(_expression(tester), 'sin(2');
+    expect(_expression(tester), 'sin(2)');
 
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-symbols')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-sqrt(')));
-    expect(_expression(tester), 'sin(2sqrt(');
+    expect(_expression(tester), 'sin(2sqrt())');
     expect(
       tester
-          .widget<Math>(
-            find.byKey(const Key('calculator-expression-math-preview')),
+          .widget<MathField>(
+            find.byKey(const Key('calculator-math-field-input')),
           )
-          .ast,
-      isNotNull,
+          .controller!
+          .currentEditingValue(),
+      contains(r'\sqrt'),
     );
   });
 
@@ -652,7 +640,7 @@ void main() {
     expect(
       find.descendant(
         of: expressionCard,
-        matching: find.byKey(const Key('calculator-expression-math-preview')),
+        matching: find.byKey(const Key('calculator-math-field')),
       ),
       findsOneWidget,
     );

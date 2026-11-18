@@ -11,6 +11,8 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
+  math_keyboard:
+    path: third_party/math_keyboard
   math_expressions: ^3.2.0
   shared_preferences: ^2.5.3
   image_picker: ^1.1.2

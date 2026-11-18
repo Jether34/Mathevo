@@ -1161,8 +1161,14 @@ class CalculatorPage extends StatefulWidget {
 
 class _CalculatorPageState extends State<CalculatorPage> {
   final _input = TextEditingController();
+  final _mathFieldController = MathFieldEditingController();
   final _calculusFormulaController = TextEditingController();
   final _expressionFocus = FocusNode();
+  final _mathFieldFocus = FocusNode();
+  bool _syncingMathField = false;
+  int? _mathFieldDragPointer;
+  Offset? _mathFieldDragOrigin;
+  double _mathFieldDragRemainder = 0;
   final _numerator = TextEditingController();
   final _denominator = TextEditingController();
   final _numeratorFocus = FocusNode();
@@ -1257,11 +1263,20 @@ class _CalculatorPageState extends State<CalculatorPage> {
   bool _triangleHasCoefficient = false;
 
   @override
+  void initState() {
+    super.initState();
+    _input.addListener(_syncMathFieldFromSource);
+  }
+
+  @override
   void dispose() {
     _drawingDebounce?.cancel();
+    _input.removeListener(_syncMathFieldFromSource);
     _input.dispose();
+    _mathFieldController.dispose();
     _calculusFormulaController.dispose();
     _expressionFocus.dispose();
+    _mathFieldFocus.dispose();
     _numerator.dispose();
     _denominator.dispose();
     _numeratorFocus.dispose();
@@ -1294,6 +1309,217 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _mode == _CalculatorMode.calculus &&
       _calculusOperationSelected &&
       _selectedIntegralBound == null;
+
+  bool get _usesMathFieldEditor =>
+      _usesDirectCalculusEditor ||
+      (_mode != _CalculatorMode.geometry &&
+          _mode != _CalculatorMode.numberSystem &&
+          _mode != _CalculatorMode.drawing &&
+          !_fractionBuilder);
+
+  bool get _usesStructuredMathField =>
+      _mode != _CalculatorMode.geometry &&
+      _mode != _CalculatorMode.calculus &&
+      _mode != _CalculatorMode.numberSystem &&
+      _mode != _CalculatorMode.drawing &&
+      !_fractionBuilder;
+
+  void _syncMathFieldFromSource() {
+    if (_syncingMathField || !_usesStructuredMathField) return;
+    final source = _input.text.trim();
+    _syncingMathField = true;
+    try {
+      if (source.isEmpty) {
+        _mathFieldController.clear();
+      } else {
+        _mathFieldController.updateValue(GrammarParser().parse(source));
+      }
+    } on Object {
+      _mathFieldController.clear();
+      for (final rune in source.runes) {
+        _mathFieldController.addLeaf(String.fromCharCode(rune));
+      }
+    } finally {
+      _syncingMathField = false;
+    }
+  }
+
+  void _onMathFieldChanged(String tex) {
+    if (_syncingMathField) return;
+    final source = _mathSourceFromTex(tex);
+    _syncingMathField = true;
+    if (_input.text != source) {
+      _input.value = TextEditingValue(
+        text: source,
+        selection: TextSelection.collapsed(offset: source.length),
+      );
+    }
+    _syncingMathField = false;
+    _updateResult();
+  }
+
+  String _mathSourceFromTex(String tex) {
+    var source = tex
+        .replaceAll(r'\left', '')
+        .replaceAll(r'\right', '')
+        .replaceAll(r'\cdot', '*')
+        .replaceAll(r'\times', '*')
+        .replaceAll(r'\div', '/')
+        .replaceAll(r'\pi', 'pi')
+        .replaceAll(r'\tau', 'tau')
+        .replaceAll(r'\varphi', 'phi')
+        .replaceAll(r'\infty', 'infinity')
+        .replaceAll(r'\sin', 'sin')
+        .replaceAll(r'\cos', 'cos')
+        .replaceAll(r'\tan', 'tan')
+        .replaceAll(r'\log', 'log')
+        .replaceAll(r'\ln', 'ln')
+        .replaceAll(r'\sqrt[3]', 'cbrt')
+        .replaceAll(r'\sqrt', 'sqrt')
+        .replaceAll(r'\Box', '')
+        .replaceAll('{', '(')
+        .replaceAll('}', ')');
+    source = source.replaceAllMapped(
+      RegExp(r'\b([A-Za-z][A-Za-z0-9]*)\(\)'),
+      (match) => '${match[1]}(',
+    );
+    source = source.replaceAllMapped(
+      RegExp(r'\\frac\(([^()]*)\)\(([^()]*)\)'),
+      (match) => '(${match[1]})/(${match[2]})',
+    );
+    source = source.replaceAllMapped(
+      RegExp(r'\\operatorname\(([^()]*)\)'),
+      (match) => '${match[1]}',
+    );
+    source = source.replaceAllMapped(
+      RegExp(r'\^\(([^()+*/-]+)\)'),
+      (match) => '^${match[1]}',
+    );
+    return source.replaceAll(RegExp(r'\s+'), '');
+  }
+
+  void _insertIntoMathField(String value) {
+    final function = RegExp(r'^([A-Za-z][A-Za-z0-9]*)\($').firstMatch(value);
+    if (function != null) {
+      final name = function[1]!;
+      final texName = switch (name) {
+        'sqrt' => r'\sqrt',
+        'cbrt' => r'\sqrt[3]',
+        'sin' || 'cos' || 'tan' || 'log' || 'ln' || 'exp' => '\\$name',
+        _ => '\\operatorname{$name}',
+      };
+      _mathFieldController.addFunction(texName, [
+        name == 'sqrt' || name == 'cbrt' ? TeXArg.braces : TeXArg.parentheses,
+      ]);
+      return;
+    }
+    if (value == '^' || value == '^2' || value == '^3') {
+      if (value == '^') {
+        _mathFieldController.addFunction('^', const [TeXArg.braces]);
+      } else {
+        _mathFieldController.addFunction(value, const [TeXArg.braces]);
+      }
+      return;
+    }
+    if (value.startsWith('^(') && value.endsWith(')')) {
+      _mathFieldController.addFunction('^', const [TeXArg.braces]);
+      for (final rune in value.substring(2, value.length - 1).runes) {
+        _mathFieldController.addLeaf(String.fromCharCode(rune));
+      }
+      return;
+    }
+    final token = switch (value) {
+      '*' || '×' => r'\cdot',
+      '/' || '÷' => r'\div',
+      'pi' => r'\pi',
+      'tau' => r'\tau',
+      'phi' => r'\varphi',
+      _ => value,
+    };
+    for (final rune in token.runes) {
+      _mathFieldController.addLeaf(String.fromCharCode(rune));
+    }
+  }
+
+  Widget _mathFieldDragListener(Widget child) => Listener(
+    behavior: HitTestBehavior.translucent,
+    onPointerDown: (event) {
+      _mathFieldDragPointer = event.pointer;
+      _mathFieldDragOrigin = event.position;
+      _mathFieldDragRemainder = 0;
+    },
+    onPointerMove: (event) {
+      if (event.pointer != _mathFieldDragPointer) return;
+      final origin = _mathFieldDragOrigin;
+      if (origin == null) return;
+      final delta = event.position.dx - origin.dx;
+      _mathFieldDragOrigin = event.position;
+      _mathFieldDragRemainder += delta;
+      while (_mathFieldDragRemainder.abs() >= 9) {
+        if (_mathFieldDragRemainder < 0) {
+          _mathFieldController.goBack();
+          _mathFieldDragRemainder += 9;
+        } else {
+          _mathFieldController.goNext();
+          _mathFieldDragRemainder -= 9;
+        }
+      }
+    },
+    onPointerUp: (_) => _resetMathFieldDrag(),
+    onPointerCancel: (_) => _resetMathFieldDrag(),
+    child: child,
+  );
+
+  void _resetMathFieldDrag() {
+    _mathFieldDragPointer = null;
+    _mathFieldDragOrigin = null;
+    _mathFieldDragRemainder = 0;
+  }
+
+  Widget _buildMathField() => _mathFieldDragListener(
+    MathField(
+      key: const Key('calculator-math-field-input'),
+      controller: _mathFieldController,
+      focusNode: _mathFieldFocus,
+      autofocus: true,
+      keyboardType: MathKeyboardType.expression,
+      variables: const ['x', 'y', 'z', 't', 'a', 'b', 'c'],
+      opensKeyboard: false,
+      onChanged: _onMathFieldChanged,
+      decoration: const InputDecoration(
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        contentPadding: EdgeInsets.zero,
+        isDense: true,
+        hintText: 'Tap a number or function to enter math',
+      ),
+    ),
+  );
+
+  Widget _buildExpressionModelField() => Positioned.fill(
+    child: IgnorePointer(
+      child: ExcludeSemantics(
+        child: Opacity(
+          opacity: 0,
+          child: TextField(
+            key: const Key('expression-input'),
+            controller: _input,
+            focusNode: _expressionFocus,
+            readOnly: false,
+            keyboardType: TextInputType.none,
+            onChanged: (_) => _onExpressionChanged(),
+            maxLines: 1,
+            style: const TextStyle(color: Colors.transparent),
+            decoration: const InputDecoration(
+              border: InputBorder.none,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+        ),
+      ),
+    ),
+  );
 
   void _onExpressionChanged() {
     if (_mode == _CalculatorMode.calculus &&
@@ -1454,6 +1680,23 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
       _syncCalculusBodyFromFormula();
       _updateResult();
+      return;
+    }
+    if (_usesStructuredMathField) {
+      if (_answerShown) {
+        final isOperator = const {'+', '-', '*', '/', '^'}.contains(value);
+        final previousResult = isOperator ? (_result ?? '') : '';
+        _mathFieldController.clear();
+        _input.clear();
+        if (previousResult.isNotEmpty) {
+          for (final rune in previousResult.runes) {
+            _mathFieldController.addLeaf(String.fromCharCode(rune));
+          }
+        }
+        _answerShown = false;
+        _result = null;
+      }
+      _insertIntoMathField(value);
       return;
     }
     if (_answerShown) {
@@ -1621,6 +1864,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _toggleSign() {
+    if (_usesStructuredMathField) {
+      _mathFieldController.addLeaf('-');
+      return;
+    }
     if (!_fractionBuilder && _answerShown) {
       _input.text = _result ?? '';
       _input.selection = TextSelection.collapsed(offset: _input.text.length);
@@ -3406,6 +3653,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         );
       }
       setState(() {});
+    } else if (_usesStructuredMathField && key == 'DEL') {
+      _mathFieldController.goBack(deleteMode: true);
+      _onMathFieldChanged(_mathFieldController.currentEditingValue());
     } else if (_fractionBuilder && key == 'C') {
       (_fractionDenominatorSelected ? _denominator : _numerator).clear();
       setState(() {});
@@ -3432,6 +3682,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
         selection: TextSelection.collapsed(offset: start),
       );
       _onExpressionChanged();
+    } else if (_usesStructuredMathField && key == 'a/b') {
+      _mathFieldController.addFunction(r'\frac', const [
+        TeXArg.braces,
+        TeXArg.braces,
+      ]);
     } else if (key == 'a/b') {
       FocusScope.of(context).unfocus();
       setState(() {
@@ -5091,42 +5346,63 @@ class _CalculatorPageState extends State<CalculatorPage> {
                       children: [
                         Positioned.fill(
                           child: IgnorePointer(
-                            child: _usesDirectCalculusEditor
+                            child: _usesMathFieldEditor
                                 ? const SizedBox.shrink()
                                 : _calculatorExpressionPreview(fontSize: 14),
                           ),
                         ),
-                        _expressionCaretDragListener(
-                          TextField(
-                            key: const Key('expression-input'),
-                            controller: _expressionEditorController,
-                            focusNode: _expressionFocus,
-                            autofocus: true,
-                            readOnly: false,
-                            enableInteractiveSelection: true,
-                            showCursor: true,
-                            keyboardType: TextInputType.none,
-                            onChanged: (_) => _onExpressionChanged(),
-                            maxLines: 1,
-                            style: TextStyle(
-                              color: _usesDirectCalculusEditor
-                                  ? Theme.of(context).colorScheme.onSurface
-                                  : Colors.transparent,
-                              fontFamily: _usesDirectCalculusEditor
-                                  ? 'serif'
-                                  : null,
-                            ),
-                            cursorColor: Theme.of(context).colorScheme.primary,
-                            decoration: const InputDecoration(
-                              filled: false,
-                              fillColor: Colors.transparent,
-                              border: InputBorder.none,
-                              enabledBorder: InputBorder.none,
-                              focusedBorder: InputBorder.none,
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
+                        Semantics(
+                          key: const Key('calculator-math-field'),
+                          label: 'Editable math expression',
+                          child: _usesStructuredMathField
+                              ? _buildMathField()
+                              : _expressionCaretDragListener(
+                                  TextField(
+                                    key: const Key('expression-input'),
+                                    controller: _expressionEditorController,
+                                    focusNode: _expressionFocus,
+                                    autofocus: true,
+                                    readOnly: false,
+                                    enableInteractiveSelection: true,
+                                    showCursor: true,
+                                    keyboardType: TextInputType.none,
+                                    onChanged: (_) => _onExpressionChanged(),
+                                    maxLines: 1,
+                                    style: TextStyle(
+                                      color: _usesMathFieldEditor
+                                          ? Theme.of(
+                                              context,
+                                            ).colorScheme.onSurface
+                                          : Colors.transparent,
+                                      fontFamily: _usesMathFieldEditor
+                                          ? 'serif'
+                                          : null,
+                                      fontSize: 16,
+                                    ),
+                                    cursorColor: Theme.of(
+                                      context,
+                                    ).colorScheme.primary,
+                                    decoration: InputDecoration(
+                                      filled: false,
+                                      fillColor: Colors.transparent,
+                                      border: InputBorder.none,
+                                      enabledBorder: InputBorder.none,
+                                      focusedBorder: InputBorder.none,
+                                      hintText: _usesMathFieldEditor
+                                          ? 'Tap a number or function to enter math'
+                                          : null,
+                                      hintStyle: const TextStyle(
+                                        color: Colors.black45,
+                                        fontSize: 14,
+                                        fontFamily: 'serif',
+                                      ),
+                                      contentPadding: EdgeInsets.zero,
+                                    ),
+                                  ),
+                                ),
                         ),
+                        if (_usesStructuredMathField)
+                          _buildExpressionModelField(),
                       ],
                     ),
                   ),
@@ -5232,7 +5508,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           children: [
                             Positioned.fill(
                               child: IgnorePointer(
-                                child: _usesDirectCalculusEditor
+                                child: _usesMathFieldEditor
                                     ? const SizedBox.shrink()
                                     : _input.text.trim().isEmpty &&
                                           _mode != _CalculatorMode.geometry &&
@@ -5254,44 +5530,66 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                       ),
                               ),
                             ),
-                            _expressionCaretDragListener(
-                              TextField(
-                                key: const Key('expression-input'),
-                                controller: _expressionEditorController,
-                                focusNode: _expressionFocus,
-                                autofocus: true,
-                                readOnly: false,
-                                enableInteractiveSelection: true,
-                                showCursor: true,
-                                keyboardType: TextInputType.none,
-                                onChanged: (_) => _onExpressionChanged(),
-                                maxLines: null,
-                                expands: true,
-                                textAlignVertical: TextAlignVertical.top,
-                                style: TextStyle(
-                                  color: _usesDirectCalculusEditor
-                                      ? Theme.of(context).colorScheme.onSurface
-                                      : Colors.transparent,
-                                  fontFamily: _usesDirectCalculusEditor
-                                      ? 'serif'
-                                      : null,
-                                  fontSize: 20,
-                                  height: 1.4,
-                                ),
-                                cursorColor: Theme.of(
-                                  context,
-                                ).colorScheme.primary,
-                                decoration: const InputDecoration(
-                                  filled: false,
-                                  fillColor: Colors.transparent,
-                                  border: InputBorder.none,
-                                  enabledBorder: InputBorder.none,
-                                  focusedBorder: InputBorder.none,
-                                  disabledBorder: InputBorder.none,
-                                  contentPadding: EdgeInsets.zero,
-                                ),
-                              ),
+                            Semantics(
+                              key: const Key('calculator-math-field'),
+                              label: 'Editable math expression',
+                              child: _usesStructuredMathField
+                                  ? _buildMathField()
+                                  : _expressionCaretDragListener(
+                                      TextField(
+                                        key: const Key('expression-input'),
+                                        controller: _expressionEditorController,
+                                        focusNode: _expressionFocus,
+                                        autofocus: true,
+                                        readOnly: false,
+                                        enableInteractiveSelection: true,
+                                        showCursor: true,
+                                        keyboardType: TextInputType.none,
+                                        onChanged: (_) =>
+                                            _onExpressionChanged(),
+                                        maxLines: _usesMathFieldEditor
+                                            ? 1
+                                            : null,
+                                        expands: !_usesMathFieldEditor,
+                                        textAlignVertical:
+                                            TextAlignVertical.top,
+                                        style: TextStyle(
+                                          color: _usesMathFieldEditor
+                                              ? Theme.of(
+                                                  context,
+                                                ).colorScheme.onSurface
+                                              : Colors.transparent,
+                                          fontFamily: _usesMathFieldEditor
+                                              ? 'serif'
+                                              : null,
+                                          fontSize: 20,
+                                          height: 1.4,
+                                        ),
+                                        cursorColor: Theme.of(
+                                          context,
+                                        ).colorScheme.primary,
+                                        decoration: InputDecoration(
+                                          filled: false,
+                                          fillColor: Colors.transparent,
+                                          border: InputBorder.none,
+                                          enabledBorder: InputBorder.none,
+                                          focusedBorder: InputBorder.none,
+                                          disabledBorder: InputBorder.none,
+                                          hintText: _usesMathFieldEditor
+                                              ? 'Tap a number or function to enter math'
+                                              : null,
+                                          hintStyle: const TextStyle(
+                                            color: Colors.black45,
+                                            fontSize: 14,
+                                            fontFamily: 'serif',
+                                          ),
+                                          contentPadding: EdgeInsets.zero,
+                                        ),
+                                      ),
+                                    ),
                             ),
+                            if (_usesStructuredMathField)
+                              _buildExpressionModelField(),
                           ],
                         ),
                       ),
@@ -5307,14 +5605,17 @@ class _CalculatorPageState extends State<CalculatorPage> {
     required double fontSize,
     bool displayStyle = false,
   }) {
-    if (_usesDirectCalculusEditor) {
+    if (_usesMathFieldEditor) {
+      final expression = _usesDirectCalculusEditor
+          ? _calculusFormulaController.text
+          : _input.text;
       return LayoutBuilder(
         builder: (context, _) => SingleChildScrollView(
           scrollDirection: Axis.horizontal,
           child: Align(
             alignment: Alignment.topLeft,
             child: Text(
-              _calculusFormulaController.text,
+              expression,
               key: const Key('calculator-expression-math-preview'),
               maxLines: 1,
               style: TextStyle(
@@ -5540,6 +5841,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         showCursor: true,
         keyboardType: TextInputType.none,
         textAlign: TextAlign.center,
+        style: const TextStyle(fontFamily: 'serif', fontSize: 20),
         onTap: () {
           controller.selection = TextSelection.collapsed(
             offset: controller.text.length,
@@ -6664,7 +6966,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
               onTap: () => setState(() => _numberBSelected = false),
               onChanged: (_) => _calculateNumberSystem(),
               keyboardType: TextInputType.none,
-              style: Theme.of(context).textTheme.titleMedium,
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontFamily: 'serif'),
               decoration: InputDecoration(
                 labelText: _conversionOnly
                     ? 'Value in base $_sourceBase'
@@ -6682,7 +6986,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 onTap: () => setState(() => _numberBSelected = true),
                 onChanged: (_) => _calculateNumberSystem(),
                 keyboardType: TextInputType.none,
-                style: Theme.of(context).textTheme.titleMedium,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontFamily: 'serif'),
                 decoration: InputDecoration(
                   labelText: 'Second value in base $_sourceBase',
                   border: const OutlineInputBorder(),
@@ -6886,6 +7192,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
               child: TextField(
                 controller: _geometryFirst,
                 readOnly: true,
+                style: const TextStyle(fontFamily: 'serif', fontSize: 20),
                 onTap: () => setState(() => _geometryUsesSecond = false),
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
@@ -6908,6 +7215,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 child: TextField(
                   controller: _geometrySecond,
                   readOnly: true,
+                  style: const TextStyle(fontFamily: 'serif', fontSize: 20),
                   onTap: () => setState(() => _geometryUsesSecond = true),
                   keyboardType: const TextInputType.numberWithOptions(
                     decimal: true,

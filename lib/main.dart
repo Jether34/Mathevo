@@ -7,12 +7,16 @@ import 'dart:ui' show ImageFilter, ImageByteFormat;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/gestures.dart' show kPrimaryButton, kTouchSlop;
 import 'package:flutter/rendering.dart' show RenderEditable;
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:math_keyboard/math_keyboard.dart';
+// The package's public addFunction API exposes this type without exporting it.
+// ignore: implementation_imports
+import 'package:math_keyboard/src/foundation/node.dart' show TeXArg;
+import 'package:math_expressions/math_expressions.dart' show GrammarParser;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'auth_api.dart';
@@ -291,7 +295,9 @@ class _MathevoAppState extends State<MathevoApp> {
           backgroundColor: _accent,
           foregroundColor: Colors.white,
           minimumSize: const Size(48, 44),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
       textTheme: const TextTheme(
@@ -372,7 +378,9 @@ class _MathevoAppState extends State<MathevoApp> {
           backgroundColor: _tertiary,
           foregroundColor: _navy,
           minimumSize: const Size(48, 44),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
         ),
       ),
       textTheme: const TextTheme(

@@ -1,0 +1,47 @@
+name: math_keyboard
+description: >-2
+  Math expression editing using an on-screen software keyboard or physical keyboard input in a
+  typeset input field in Flutter.
+version: 0.4.0
+homepage: https://github.com/simpleclub/math_keyboard/tree/main/math_keyboard
+
+environment:
+  sdk: '>=3.9.0 <4.0.0'
+  flutter: '>=3.35.1'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  flutter_math_fork: ^0.7.3
+  holding_gesture: ^1.2.0
+  intl: ^0.20.2
+  large_content_viewer: ^0.1.4
+  math_expressions: ^3.2.0
+  petitparser: ^7.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  pedantic: ^1.11.0
+
+flutter:
+  fonts:
+  - family: CustomKeyIcons
+    fonts:
+    - asset: fonts/CustomKeyIcons.ttf
+
+screenshots:
+  - description: 'Example of math keyboard on mobile and desktop.'
+    path: example/screenshots/mobile_and_desktop.png
+  - description: 'Example video showing how to interact with math keyboard.'
+    path: example/screenshots/math_keyboard.gif
+  - description: 'Example of math keyboard on mobile.'
+    path: example/screenshots/mobile.png
+  - description: 'Example of math keyboard on desktop.'
+    path: example/screenshots/desktop.png
+  - description: 'Example of math keyboard functions.'
+    path: example/screenshots/functions.png
