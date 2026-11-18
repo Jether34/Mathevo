@@ -296,9 +296,8 @@ Future<void> _enterExpression(WidgetTester tester, String expression) async {
   if (find.byKey(const Key('calculation-result-panel')).evaluate().isNotEmpty) {
     await _tapVisible(
       tester,
-      find.byKey(const ValueKey('keyboard-layer-symbols')),
+      find.byKey(const ValueKey('calculator-keyboard-clear')),
     );
-    await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
   }
   final input = find.byKey(const Key('expression-input'));
