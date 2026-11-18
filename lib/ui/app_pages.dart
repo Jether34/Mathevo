@@ -1242,6 +1242,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
   String _calculusFamily = 'Derivatives';
   String _calculusOperation = 'First derivative';
   bool _calculusOperationSelected = false;
+  int? _expressionDragPointer;
+  Offset? _expressionDragOrigin;
+  bool _expressionDragActive = false;
   String _derivativeNotation = 'Leibniz';
   String _derivativeVariable = 'x';
   String _dependentVariable = 'y';
@@ -4862,26 +4865,28 @@ class _CalculatorPageState extends State<CalculatorPage> {
                             child: _calculatorExpressionPreview(fontSize: 14),
                           ),
                         ),
-                        TextField(
-                          key: const Key('expression-input'),
-                          controller: _expressionEditorController,
-                          focusNode: _expressionFocus,
-                          autofocus: true,
-                          readOnly: false,
-                          enableInteractiveSelection: true,
-                          showCursor: true,
-                          keyboardType: TextInputType.none,
-                          onChanged: (_) => _updateResult(),
-                          maxLines: 1,
-                          style: const TextStyle(color: Colors.transparent),
-                          cursorColor: Theme.of(context).colorScheme.primary,
-                          decoration: const InputDecoration(
-                            filled: false,
-                            fillColor: Colors.transparent,
-                            border: InputBorder.none,
-                            enabledBorder: InputBorder.none,
-                            focusedBorder: InputBorder.none,
-                            contentPadding: EdgeInsets.zero,
+                        _expressionCaretDragListener(
+                          TextField(
+                            key: const Key('expression-input'),
+                            controller: _expressionEditorController,
+                            focusNode: _expressionFocus,
+                            autofocus: true,
+                            readOnly: false,
+                            enableInteractiveSelection: true,
+                            showCursor: true,
+                            keyboardType: TextInputType.none,
+                            onChanged: (_) => _updateResult(),
+                            maxLines: 1,
+                            style: const TextStyle(color: Colors.transparent),
+                            cursorColor: Theme.of(context).colorScheme.primary,
+                            decoration: const InputDecoration(
+                              filled: false,
+                              fillColor: Colors.transparent,
+                              border: InputBorder.none,
+                              enabledBorder: InputBorder.none,
+                              focusedBorder: InputBorder.none,
+                              contentPadding: EdgeInsets.zero,
+                            ),
                           ),
                         ),
                       ],
@@ -5010,35 +5015,37 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                       ),
                               ),
                             ),
-                            TextField(
-                              key: const Key('expression-input'),
-                              controller: _expressionEditorController,
-                              focusNode: _expressionFocus,
-                              autofocus: true,
-                              readOnly: false,
-                              enableInteractiveSelection: true,
-                              showCursor: true,
-                              keyboardType: TextInputType.none,
-                              onChanged: (_) => _updateResult(),
-                              maxLines: null,
-                              expands: true,
-                              textAlignVertical: TextAlignVertical.top,
-                              style: const TextStyle(
-                                color: Colors.transparent,
-                                fontSize: 20,
-                                height: 1.4,
-                              ),
-                              cursorColor: Theme.of(
-                                context,
-                              ).colorScheme.primary,
-                              decoration: const InputDecoration(
-                                filled: false,
-                                fillColor: Colors.transparent,
-                                border: InputBorder.none,
-                                enabledBorder: InputBorder.none,
-                                focusedBorder: InputBorder.none,
-                                disabledBorder: InputBorder.none,
-                                contentPadding: EdgeInsets.zero,
+                            _expressionCaretDragListener(
+                              TextField(
+                                key: const Key('expression-input'),
+                                controller: _expressionEditorController,
+                                focusNode: _expressionFocus,
+                                autofocus: true,
+                                readOnly: false,
+                                enableInteractiveSelection: true,
+                                showCursor: true,
+                                keyboardType: TextInputType.none,
+                                onChanged: (_) => _updateResult(),
+                                maxLines: null,
+                                expands: true,
+                                textAlignVertical: TextAlignVertical.top,
+                                style: const TextStyle(
+                                  color: Colors.transparent,
+                                  fontSize: 20,
+                                  height: 1.4,
+                                ),
+                                cursorColor: Theme.of(
+                                  context,
+                                ).colorScheme.primary,
+                                decoration: const InputDecoration(
+                                  filled: false,
+                                  fillColor: Colors.transparent,
+                                  border: InputBorder.none,
+                                  enabledBorder: InputBorder.none,
+                                  focusedBorder: InputBorder.none,
+                                  disabledBorder: InputBorder.none,
+                                  contentPadding: EdgeInsets.zero,
+                                ),
                               ),
                             ),
                           ],
@@ -5082,7 +5089,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
       );
     }
 
-    final visibleExpression =
+    final tex = _mode == _CalculatorMode.calculus && _calculusOperationSelected
+        ? _expressionTex
+        : _mathTexFromSource(_input.text);
+    final visibleFallback =
         _mode == _CalculatorMode.calculus && _calculusOperationSelected
         ? _input.text.trim().isEmpty
               ? _calculusEmptyExpressionTemplate
@@ -5093,17 +5103,98 @@ class _CalculatorPageState extends State<CalculatorPage> {
         scrollDirection: Axis.horizontal,
         child: Align(
           alignment: Alignment.topLeft,
-          child: Text(
-            visibleExpression,
-            key: const Key('calculator-expression-visible-preview'),
-            style: TextStyle(
+          child: Math.tex(
+            tex,
+            key: const Key('calculator-expression-math-preview'),
+            mathStyle: displayStyle ? MathStyle.display : MathStyle.text,
+            textStyle: TextStyle(
               fontSize: fontSize,
               color: Theme.of(context).colorScheme.onSurface,
+            ),
+            onErrorFallback: (_) => Text(
+              visibleFallback,
+              style: TextStyle(
+                fontSize: fontSize,
+                color: Theme.of(context).colorScheme.onSurface,
+              ),
             ),
           ),
         ),
       ),
     );
+  }
+
+  Widget _expressionCaretDragListener(Widget child) => Builder(
+    builder: (context) => Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (event) {
+        if (event.buttons & kPrimaryButton == 0) return;
+        _expressionDragPointer = event.pointer;
+        _expressionDragOrigin = event.position;
+        _expressionDragActive = false;
+      },
+      onPointerMove: (event) {
+        if (event.pointer != _expressionDragPointer) return;
+        final origin = _expressionDragOrigin;
+        if (origin == null) return;
+        if (!_expressionDragActive &&
+            (event.position - origin).distance < kTouchSlop) {
+          return;
+        }
+        _expressionDragActive = true;
+        final renderEditable = _findRenderEditable(context.findRenderObject());
+        if (renderEditable == null) return;
+        final localPosition = renderEditable.globalToLocal(event.position);
+        final textPosition = renderEditable.getPositionForPoint(localPosition);
+        final controller = _expressionEditorController;
+        controller.selection = TextSelection.collapsed(
+          offset: textPosition.offset.clamp(0, controller.text.length).toInt(),
+        );
+      },
+      onPointerUp: (event) {
+        if (event.pointer != _expressionDragPointer) return;
+        final dropPosition = event.position;
+        if (_expressionDragActive) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            final renderEditable = _findRenderEditable(
+              context.findRenderObject(),
+            );
+            if (renderEditable == null) return;
+            final localPosition = renderEditable.globalToLocal(dropPosition);
+            final textPosition = renderEditable.getPositionForPoint(
+              localPosition,
+            );
+            final controller = _expressionEditorController;
+            controller.selection = TextSelection.collapsed(
+              offset: textPosition.offset
+                  .clamp(0, controller.text.length)
+                  .toInt(),
+            );
+          });
+        }
+        _resetExpressionDrag();
+      },
+      onPointerCancel: (event) {
+        if (event.pointer == _expressionDragPointer) _resetExpressionDrag();
+      },
+      child: child,
+    ),
+  );
+
+  RenderEditable? _findRenderEditable(RenderObject? renderObject) {
+    if (renderObject is RenderEditable) return renderObject;
+    RenderEditable? editable;
+    renderObject?.visitChildren((child) {
+      editable ??= _findRenderEditable(child);
+    });
+    return editable;
+  }
+
+  void _resetExpressionDrag() {
+    _expressionDragPointer = null;
+    _expressionDragOrigin = null;
+    _expressionDragActive = false;
   }
 
   String get _calculusEmptyExpressionTemplate => switch (_calculusOperation) {

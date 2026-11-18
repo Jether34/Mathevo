@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart' show Math;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:mathevo/main.dart';
@@ -28,12 +29,12 @@ void main() {
     await _tap(tester, plusKey);
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
     expect(_expression(tester), '2+3');
-    final expressionPreview = tester.widget<Text>(
-      find.byKey(const Key('calculator-expression-visible-preview')),
+    final expressionPreview = tester.widget<Math>(
+      find.byKey(const Key('calculator-expression-math-preview')),
     );
-    expect(expressionPreview.data, '2+3');
+    expect(expressionPreview.ast, isNotNull);
     expect(
-      expressionPreview.style?.color,
+      expressionPreview.textStyle?.color,
       Theme.of(
         tester.element(find.byKey(const Key('calculator-expression-panel'))),
       ).colorScheme.onSurface,
@@ -320,6 +321,19 @@ void main() {
       lessThan(textField.controller!.text.length),
     );
     final controller = textField.controller!;
+    final startingCursor = controller.selection.extentOffset;
+    final caretDrag = await tester.startGesture(
+      Offset(inputRect.left + 12, inputRect.top + 18),
+    );
+    await caretDrag.moveTo(Offset(inputRect.left + 96, inputRect.top + 18));
+    await tester.pump(const Duration(milliseconds: 250));
+    await caretDrag.up();
+    await tester.pumpAndSettle();
+    expect(
+      controller.selection.extentOffset,
+      isNot(startingCursor),
+      reason: 'Dragging in the expression must reposition its typing caret.',
+    );
     final cursor = controller.selection.extentOffset;
     final beforeEdit = controller.text;
     await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
