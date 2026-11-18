@@ -3138,9 +3138,21 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _insert('=');
       }
     } else if (key == 'PERCENT') {
-      _insert('/100');
+      if (_mode == _CalculatorMode.numberSystem) {
+        setState(() {
+          _conversionOnly = false;
+          _numberOperator = '%';
+        });
+        _calculateNumberSystem();
+      } else {
+        _insert('/100');
+      }
     } else if (key == 'SIGN') {
-      _toggleSign();
+      if (_mode == _CalculatorMode.numberSystem) {
+        _insertNumberSystemKey('±');
+      } else {
+        _toggleSign();
+      }
     } else if (key == 'VAR_C') {
       _insert('C');
     } else if (_mode == _CalculatorMode.calculus &&
@@ -5695,28 +5707,41 @@ class _CalculatorPageState extends State<CalculatorPage> {
       ('π', 'pi'),
       ('e', 'e'),
     ];
-    const symbolKeys = <(String, String)>[
-      ('=', 'EQUALS_SIGN'),
-      ('%', 'PERCENT'),
-      ('^', '^'),
-      ('√', 'sqrt('),
-      ('π', 'pi'),
-      ('e', 'e'),
-      ('(', '('),
-      (')', ')'),
-      ('[', '['),
-      (']', ']'),
-      ('{', '{'),
-      ('}', '}'),
-      (',', ','),
-      (';', ';'),
-      ('!', '!'),
-      ('±', 'SIGN'),
-      ('.', '.'),
-      ('a/b', 'a/b'),
-      ('∞', 'infinity'),
-      ('DEL', 'DEL'),
-    ];
+    final symbolKeys = _mode == _CalculatorMode.numberSystem
+        ? const <(String, String)>[
+            ('=', 'EQUALS_SIGN'),
+            ('%', 'PERCENT'),
+            ('&', 'NUM_OPERATOR_&'),
+            ('|', 'NUM_OPERATOR_|'),
+            ('^', 'NUM_OPERATOR_^'),
+            ('<<', 'NUM_OPERATOR_<<'),
+            ('>>', 'NUM_OPERATOR_>>'),
+            ('pow', 'NUM_OPERATOR_pow'),
+            ('±', 'SIGN'),
+            ('DEL', 'DEL'),
+          ]
+        : const <(String, String)>[
+            ('=', 'EQUALS_SIGN'),
+            ('%', 'PERCENT'),
+            ('^', '^'),
+            ('√', 'sqrt('),
+            ('π', 'pi'),
+            ('e', 'e'),
+            ('(', '('),
+            (')', ')'),
+            ('[', '['),
+            (']', ']'),
+            ('{', '{'),
+            ('}', '}'),
+            (',', ','),
+            (';', ';'),
+            ('!', '!'),
+            ('±', 'SIGN'),
+            ('.', '.'),
+            ('a/b', 'a/b'),
+            ('∞', 'infinity'),
+            ('DEL', 'DEL'),
+          ];
     final functions = _mode == _CalculatorMode.basic
         ? const <(String, String)>[
             ('sin', 'sin('),
