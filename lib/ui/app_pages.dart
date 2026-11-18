@@ -4876,6 +4876,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                           style: const TextStyle(color: Colors.transparent),
                           cursorColor: Theme.of(context).colorScheme.primary,
                           decoration: const InputDecoration(
+                            filled: false,
+                            fillColor: Colors.transparent,
                             border: InputBorder.none,
                             enabledBorder: InputBorder.none,
                             focusedBorder: InputBorder.none,
@@ -5030,6 +5032,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
                                 context,
                               ).colorScheme.primary,
                               decoration: const InputDecoration(
+                                filled: false,
+                                fillColor: Colors.transparent,
                                 border: InputBorder.none,
                                 enabledBorder: InputBorder.none,
                                 focusedBorder: InputBorder.none,
@@ -5052,47 +5056,50 @@ class _CalculatorPageState extends State<CalculatorPage> {
     required double fontSize,
     bool displayStyle = false,
   }) {
-    if (_mode == _CalculatorMode.calculus &&
-        _calculusOperationSelected &&
-        _input.text.trim().isEmpty) {
-      return Align(
-        alignment: Alignment.topLeft,
-        child: Row(
-          children: [
-            const SizedBox(width: 12),
-            Text(
-              _calculusEmptyExpressionTemplate,
-              style: TextStyle(
+    if (_mode == _CalculatorMode.geometry) {
+      return LayoutBuilder(
+        builder: (context, _) => SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Align(
+            alignment: Alignment.topLeft,
+            child: Math.tex(
+              _expressionTex,
+              mathStyle: displayStyle ? MathStyle.display : MathStyle.text,
+              textStyle: TextStyle(
                 fontSize: fontSize,
                 color: Theme.of(context).colorScheme.onSurface,
               ),
+              onErrorFallback: (_) => Text(
+                _input.text,
+                style: TextStyle(
+                  fontSize: fontSize,
+                  color: Theme.of(context).colorScheme.onSurface,
+                ),
+              ),
             ),
-          ],
+          ),
         ),
       );
     }
-    final tex =
-        _mode == _CalculatorMode.geometry ||
-            (_mode == _CalculatorMode.calculus && _calculusOperationSelected)
-        ? _expressionTex
-        : _mathTexFromSource(_input.text);
-    final fallback = _expressionDisplaySemanticsLabel.isEmpty
-        ? _input.text
-        : _expressionDisplaySemanticsLabel;
+
+    final visibleExpression =
+        _mode == _CalculatorMode.calculus && _calculusOperationSelected
+        ? _input.text.trim().isEmpty
+              ? _calculusEmptyExpressionTemplate
+              : '$_calculusOperationSymbol: ${_input.text}'
+        : _input.text;
     return LayoutBuilder(
       builder: (context, _) => SingleChildScrollView(
         scrollDirection: Axis.horizontal,
         child: Align(
           alignment: Alignment.topLeft,
-          child: Math.tex(
-            tex,
-            key: const Key('calculator-expression-math-preview'),
-            mathStyle: displayStyle ? MathStyle.display : MathStyle.text,
-            textStyle: TextStyle(
+          child: Text(
+            visibleExpression,
+            key: const Key('calculator-expression-visible-preview'),
+            style: TextStyle(
               fontSize: fontSize,
               color: Theme.of(context).colorScheme.onSurface,
             ),
-            onErrorFallback: (_) => Text(fallback),
           ),
         ),
       ),
