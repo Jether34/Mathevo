@@ -575,26 +575,30 @@ Future<void> _selectMode(
   String currentMode,
   String mode,
 ) async {
-  await tester.tap(find.text(currentMode));
+  await tester.tap(find.text(currentMode).first);
   await tester.pumpAndSettle();
+  expect(find.text('Choose a calculator mode'), findsOneWidget);
   final modeList = find.byType(ListView).last;
-  final modeScrollable = find
-      .descendant(of: modeList, matching: find.byType(Scrollable))
-      .first;
-  final target = find.text(mode).last;
-  await tester.scrollUntilVisible(target, 180, scrollable: modeScrollable);
-  await tester.ensureVisible(target);
-  await tester.pumpAndSettle();
-  final rect = tester.getRect(target);
-  final viewportHeight =
-      tester.view.physicalSize.height / tester.view.devicePixelRatio;
-  expect(
-    rect.top >= 0 && rect.bottom <= viewportHeight,
-    isTrue,
-    reason: '$mode should be visible in the mode picker before tapping.',
-  );
-  await tester.tapAt(rect.center);
-  await tester.pumpAndSettle();
+  var selected = false;
+  for (var attempt = 0; attempt < 12; attempt++) {
+    final targets = find.text(mode);
+    if (targets.evaluate().isNotEmpty) {
+      final target = targets.last;
+      final targetRect = tester.getRect(target);
+      final listRect = tester.getRect(modeList);
+      if (targetRect.top >= listRect.top &&
+          targetRect.bottom <= listRect.bottom) {
+        await tester.tapAt(targetRect.center);
+        await tester.pumpAndSettle();
+        selected = true;
+        break;
+      }
+    }
+    await tester.drag(modeList, const Offset(0, -220));
+    await tester.pumpAndSettle();
+  }
+  expect(selected, isTrue, reason: '$mode must be visible in the mode picker.');
+  expect(find.text('Choose a calculator mode'), findsNothing);
 }
 
 Future<void> _exerciseCommonArithmeticKeys(
