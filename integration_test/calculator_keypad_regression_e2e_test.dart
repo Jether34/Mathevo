@@ -651,6 +651,9 @@ String _visibleInputState(WidgetTester tester) {
   if (expression.evaluate().isNotEmpty) {
     parts.add(tester.widget<Semantics>(expression).properties.label ?? '');
   }
+  if (find.byKey(const Key('fraction-insert')).evaluate().isNotEmpty) {
+    parts.add('inline-fraction-editor-visible');
+  }
   for (final element in find.byType(TextField).evaluate()) {
     final field = element.widget as TextField;
     parts.add(field.controller?.text ?? '');
