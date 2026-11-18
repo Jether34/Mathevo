@@ -1162,6 +1162,10 @@ class CalculatorPage extends StatefulWidget {
 class _CalculatorPageState extends State<CalculatorPage> {
   final _input = TextEditingController();
   final _mathFieldController = MathFieldEditingController();
+  final Map<TextEditingController, MathFieldEditingController>
+  _auxiliaryMathFields = {};
+  final Map<TextEditingController, VoidCallback> _auxiliaryMathListeners = {};
+  final Set<TextEditingController> _syncingAuxiliaryMathFields = {};
   final _calculusFormulaController = TextEditingController();
   final _expressionFocus = FocusNode();
   final _mathFieldFocus = FocusNode();
@@ -1272,6 +1276,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void dispose() {
     _drawingDebounce?.cancel();
     _input.removeListener(_syncMathFieldFromSource);
+    for (final entry in _auxiliaryMathListeners.entries) {
+      entry.key.removeListener(entry.value);
+    }
+    for (final controller in _auxiliaryMathFields.values) {
+      controller.dispose();
+    }
     _input.dispose();
     _mathFieldController.dispose();
     _calculusFormulaController.dispose();
@@ -1311,7 +1321,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _selectedIntegralBound == null;
 
   bool get _usesMathFieldEditor =>
-      _usesDirectCalculusEditor ||
+      _mode == _CalculatorMode.calculus && _selectedIntegralBound == null ||
       (_mode != _CalculatorMode.geometry &&
           _mode != _CalculatorMode.numberSystem &&
           _mode != _CalculatorMode.drawing &&
@@ -1319,18 +1329,41 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   bool get _usesStructuredMathField =>
       _mode != _CalculatorMode.geometry &&
-      _mode != _CalculatorMode.calculus &&
       _mode != _CalculatorMode.numberSystem &&
       _mode != _CalculatorMode.drawing &&
       !_fractionBuilder;
 
   void _syncMathFieldFromSource() {
     if (_syncingMathField || !_usesStructuredMathField) return;
-    final source = _input.text.trim();
+    final source =
+        (_mode == _CalculatorMode.calculus && _calculusOperationSelected
+                ? _calculusFormulaController.text
+                : _input.text)
+            .trim();
     _syncingMathField = true;
     try {
       if (source.isEmpty) {
         _mathFieldController.clear();
+      } else if (_mode == _CalculatorMode.calculus &&
+          _calculusOperationSelected) {
+        final placeholder = source.indexOf('\u25a1');
+        final editorSource = placeholder >= 0
+            ? source.replaceRange(placeholder, placeholder + 1, '')
+            : source;
+        _mathFieldController.clear();
+        for (final rune in editorSource.runes) {
+          _mathFieldController.addLeaf(String.fromCharCode(rune));
+        }
+        final open = editorSource.indexOf('(');
+        final close = editorSource.lastIndexOf(')');
+        final target = placeholder >= 0
+            ? placeholder
+            : close > open
+            ? close
+            : editorSource.runes.length;
+        while (_mathFieldController.currentNode.courserPosition > target) {
+          _mathFieldController.goBack();
+        }
       } else {
         _mathFieldController.updateValue(GrammarParser().parse(source));
       }
@@ -1348,7 +1381,15 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_syncingMathField) return;
     final source = _mathSourceFromTex(tex);
     _syncingMathField = true;
-    if (_input.text != source) {
+    if (_mode == _CalculatorMode.calculus && _calculusOperationSelected) {
+      if (_calculusFormulaController.text != source) {
+        _calculusFormulaController.value = TextEditingValue(
+          text: source,
+          selection: TextSelection.collapsed(offset: source.length),
+        );
+      }
+      _syncCalculusBodyFromFormula();
+    } else if (_input.text != source) {
       _input.value = TextEditingValue(
         text: source,
         selection: TextSelection.collapsed(offset: source.length),
@@ -1441,7 +1482,10 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
   }
 
-  Widget _mathFieldDragListener(Widget child) => Listener(
+  Widget _mathFieldDragListener(
+    Widget child, [
+    MathFieldEditingController? fieldController,
+  ]) => Listener(
     behavior: HitTestBehavior.translucent,
     onPointerDown: (event) {
       _mathFieldDragPointer = event.pointer;
@@ -1456,11 +1500,12 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _mathFieldDragOrigin = event.position;
       _mathFieldDragRemainder += delta;
       while (_mathFieldDragRemainder.abs() >= 9) {
+        final editor = fieldController ?? _mathFieldController;
         if (_mathFieldDragRemainder < 0) {
-          _mathFieldController.goBack();
+          editor.goBack();
           _mathFieldDragRemainder += 9;
         } else {
-          _mathFieldController.goNext();
+          editor.goNext();
           _mathFieldDragRemainder -= 9;
         }
       }
@@ -1497,6 +1542,152 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ),
   );
 
+  MathFieldEditingController _auxiliaryMathFieldFor(
+    TextEditingController source,
+  ) {
+    final existing = _auxiliaryMathFields[source];
+    if (existing != null) return existing;
+    final controller = MathFieldEditingController();
+    _auxiliaryMathFields[source] = controller;
+    void syncFromSource() {
+      if (_syncingAuxiliaryMathFields.contains(source)) return;
+      _syncingAuxiliaryMathFields.add(source);
+      controller.clear();
+      for (final rune in source.text.runes) {
+        controller.addLeaf(String.fromCharCode(rune));
+      }
+      _syncingAuxiliaryMathFields.remove(source);
+    }
+
+    _auxiliaryMathListeners[source] = syncFromSource;
+    source.addListener(syncFromSource);
+    syncFromSource();
+    return controller;
+  }
+
+  void _insertIntoAuxiliaryMathField(
+    TextEditingController source,
+    String value,
+  ) {
+    final editor = _auxiliaryMathFieldFor(source);
+    final tex = switch (value) {
+      '*' || '×' => r'\cdot',
+      '/' || '÷' => r'\div',
+      'pi' => r'\pi',
+      _ => value,
+    };
+    for (final rune in tex.runes) {
+      editor.addLeaf(String.fromCharCode(rune));
+    }
+  }
+
+  void _deleteFromAuxiliaryMathField(TextEditingController source) {
+    _auxiliaryMathFieldFor(source).goBack(deleteMode: true);
+  }
+
+  void _onAuxiliaryMathFieldChanged(
+    TextEditingController source,
+    MathFieldEditingController controller,
+    String tex, {
+    VoidCallback? onChanged,
+  }) {
+    if (_syncingAuxiliaryMathFields.contains(source)) return;
+    final value = _mathSourceFromTex(tex);
+    _syncingAuxiliaryMathFields.add(source);
+    source.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    _syncingAuxiliaryMathFields.remove(source);
+    onChanged?.call();
+  }
+
+  Widget _buildAuxiliaryMathInput(
+    TextEditingController source, {
+    required String label,
+    Key? modelKey,
+    String? hint,
+    Widget? suffixIcon,
+    VoidCallback? onTap,
+    VoidCallback? onChanged,
+  }) {
+    final controller = _auxiliaryMathFieldFor(source);
+    final key = ValueKey(
+      'math-field-${label.toLowerCase().replaceAll(' ', '-')}',
+    );
+    return SizedBox(
+      height: 58,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          InputDecorator(
+            decoration: InputDecoration(
+              labelText: label,
+              hintText: hint,
+              suffixIcon: suffixIcon,
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: _mathFieldDragListener(
+                MathField(
+                  key: key,
+                  controller: controller,
+                  keyboardType: MathKeyboardType.expression,
+                  opensKeyboard: false,
+                  onChanged: (tex) => _onAuxiliaryMathFieldChanged(
+                    source,
+                    controller,
+                    tex,
+                    onChanged: onChanged,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: hint,
+                    border: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    isDense: true,
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                controller,
+              ),
+            ),
+          ),
+          Listener(
+            behavior: HitTestBehavior.translucent,
+            onPointerDown: onTap == null ? null : (_) => onTap(),
+            child: IgnorePointer(
+              child: ExcludeSemantics(
+                child: Opacity(
+                  opacity: 0,
+                  child: TextField(
+                    key:
+                        modelKey ??
+                        ValueKey(
+                          'math-input-model-${label.toLowerCase().replaceAll(' ', '-')}',
+                        ),
+                    controller: source,
+                    readOnly: false,
+                    keyboardType: TextInputType.none,
+                    onChanged: (_) => onChanged?.call(),
+                    decoration: InputDecoration(
+                      labelText: label,
+                      hintText: hint,
+                      border: const OutlineInputBorder(),
+                      suffixIcon: suffixIcon,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildExpressionModelField() => Positioned.fill(
     child: IgnorePointer(
       child: ExcludeSemantics(
@@ -1524,7 +1715,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
   void _onExpressionChanged() {
     if (_mode == _CalculatorMode.calculus &&
         _calculusOperationSelected &&
-        _selectedIntegralBound == null) {
+        _selectedIntegralBound == null &&
+        !_usesStructuredMathField) {
       _syncCalculusBodyFromFormula();
     }
     _updateResult();
@@ -1604,15 +1796,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         controller.clear();
         _answerShown = false;
       }
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      controller.value = TextEditingValue(
-        text: controller.text.replaceRange(start, end, value),
-        selection: TextSelection.collapsed(offset: start + value.length),
-      );
+      _insertIntoAuxiliaryMathField(controller, value);
       _calculateGeometry();
       return;
     }
@@ -1636,21 +1820,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final controller = _fractionDenominatorSelected
           ? _denominator
           : _numerator;
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      controller.value = TextEditingValue(
-        text: controller.text.replaceRange(start, end, value),
-        selection: TextSelection.collapsed(offset: start + value.length),
-      );
+      _insertIntoAuxiliaryMathField(controller, value);
       setState(() {});
       return;
     }
     if (_mode == _CalculatorMode.calculus &&
         _calculusOperationSelected &&
-        _selectedIntegralBound == null) {
+        _selectedIntegralBound == null &&
+        !_usesStructuredMathField) {
       final controller = _calculusFormulaController;
       if (_answerShown) {
         final isOperator = const {'+', '-', '*', '/', '^'}.contains(value);
@@ -1760,19 +1937,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
               for (final (index, label) in fields)
                 SizedBox(
                   width: 145,
-                  child: TextField(
-                    key: ValueKey('calculus-bound-$index'),
-                    controller: _calculusBoundControllers[index],
-                    keyboardType: const TextInputType.numberWithOptions(
-                      decimal: true,
-                      signed: true,
-                    ),
-                    onChanged: (_) => setState(() {}),
-                    decoration: InputDecoration(
-                      labelText: label,
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                    ),
+                  child: _buildAuxiliaryMathInput(
+                    _calculusBoundControllers[index],
+                    label: label,
+                    modelKey: ValueKey('calculus-bound-$index'),
+                    onChanged: () => setState(() {}),
                   ),
                 ),
             ],
@@ -1807,6 +1976,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
           );
         }
       });
+      _syncMathFieldFromSource();
     }
   }
 
@@ -1842,6 +2012,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _partialVariable = 'x';
       _limitAtPositiveInfinity = true;
     });
+    if (_usesStructuredMathField) _mathFieldController.clear();
   }
 
   void _insertFraction() {
@@ -3455,25 +3626,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     }
     if (_mode == _CalculatorMode.geometry && key == 'DEL') {
       final controller = _geometryUsesSecond ? _geometrySecond : _geometryFirst;
-      final selection = controller.selection;
-      var start = selection.isValid
-          ? selection.start
-          : math.max(0, controller.text.length - 1);
-      var end = selection.isValid ? selection.end : controller.text.length;
-      if (selection.isValid && start == end) {
-        if (start > 0) {
-          start--;
-        } else if (end < controller.text.length) {
-          end++;
-        } else if (controller.text.isNotEmpty) {
-          start = controller.text.length - 1;
-          end = controller.text.length;
-        }
-      }
-      controller.value = TextEditingValue(
-        text: controller.text.replaceRange(start, end, ''),
-        selection: TextSelection.collapsed(offset: start),
-      );
+      _deleteFromAuxiliaryMathField(controller);
       _calculateGeometry();
       return;
     }
@@ -3605,6 +3758,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _result = null;
         _answerShown = false;
       });
+      _syncMathFieldFromSource();
       if (_mode == _CalculatorMode.calculus &&
           _calculusFamily == 'Integrals' &&
           _calculusOperation != 'Indefinite integral') {
@@ -3663,12 +3817,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       final controller = _fractionDenominatorSelected
           ? _denominator
           : _numerator;
-      if (controller.text.isNotEmpty) {
-        controller.text = controller.text.substring(
-          0,
-          controller.text.length - 1,
-        );
-      }
+      _deleteFromAuxiliaryMathField(controller);
     } else if (key == 'DEL') {
       final controller = _expressionEditorController;
       final selection = controller.selection;
@@ -5828,33 +5977,40 @@ class _CalculatorPageState extends State<CalculatorPage> {
     ],
   );
 
-  Widget _fractionField(TextEditingController controller, bool denominator) =>
-      TextField(
-        key: Key(
-          denominator
-              ? 'fraction-denominator-input'
-              : 'fraction-numerator-input',
+  Widget _fractionField(TextEditingController source, bool denominator) {
+    final controller = _auxiliaryMathFieldFor(source);
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => setState(() {
+        _fractionDenominatorSelected = denominator;
+      }),
+      child: _mathFieldDragListener(
+        MathField(
+          key: Key(
+            denominator
+                ? 'fraction-denominator-input'
+                : 'fraction-numerator-input',
+          ),
+          controller: controller,
+          keyboardType: MathKeyboardType.expression,
+          opensKeyboard: false,
+          onChanged: (tex) => _onAuxiliaryMathFieldChanged(
+            source,
+            controller,
+            tex,
+            onChanged: () => setState(() {}),
+          ),
+          decoration: const InputDecoration(
+            hintText: '?',
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
         ),
-        controller: controller,
-        focusNode: denominator ? _denominatorFocus : _numeratorFocus,
-        readOnly: true,
-        showCursor: true,
-        keyboardType: TextInputType.none,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontFamily: 'serif', fontSize: 20),
-        onTap: () {
-          controller.selection = TextSelection.collapsed(
-            offset: controller.text.length,
-          );
-          setState(() => _fractionDenominatorSelected = denominator);
-        },
-        decoration: const InputDecoration(
-          hintText: '?',
-          border: InputBorder.none,
-          isDense: true,
-          contentPadding: EdgeInsets.zero,
-        ),
-      );
+        controller,
+      ),
+    );
+  }
 
   Widget _buildCalculusControls() {
     final boundFields = switch (_calculusOperation) {
@@ -6363,6 +6519,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
       _result = null;
       _answerShown = false;
     });
+    _syncMathFieldFromSource();
     widget.onFullscreenChanged(selected == _CalculatorMode.drawing);
   }
 
@@ -6961,40 +7118,24 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ),
           ] else ...[
             const SizedBox(height: 10),
-            TextField(
-              controller: _numberA,
+            _buildAuxiliaryMathInput(
+              _numberA,
+              label: _conversionOnly
+                  ? 'Value in base $_sourceBase'
+                  : 'First value in base $_sourceBase',
+              hint: _sourceBase == 16 ? 'FF' : '1010',
+              suffixIcon: _numberSystemEditActions(_numberA),
               onTap: () => setState(() => _numberBSelected = false),
-              onChanged: (_) => _calculateNumberSystem(),
-              keyboardType: TextInputType.none,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontFamily: 'serif'),
-              decoration: InputDecoration(
-                labelText: _conversionOnly
-                    ? 'Value in base $_sourceBase'
-                    : 'First value in base $_sourceBase',
-                hintText: _sourceBase == 16 ? 'FF' : '1010',
-                border: const OutlineInputBorder(),
-                isDense: true,
-                suffixIcon: _numberSystemEditActions(_numberA),
-              ),
+              onChanged: _calculateNumberSystem,
             ),
             if (!_conversionOnly) ...[
               const SizedBox(height: 8),
-              TextField(
-                controller: _numberB,
+              _buildAuxiliaryMathInput(
+                _numberB,
+                label: 'Second value in base $_sourceBase',
+                suffixIcon: _numberSystemEditActions(_numberB),
                 onTap: () => setState(() => _numberBSelected = true),
-                onChanged: (_) => _calculateNumberSystem(),
-                keyboardType: TextInputType.none,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontFamily: 'serif'),
-                decoration: InputDecoration(
-                  labelText: 'Second value in base $_sourceBase',
-                  border: const OutlineInputBorder(),
-                  isDense: true,
-                  suffixIcon: _numberSystemEditActions(_numberB),
-                ),
+                onChanged: _calculateNumberSystem,
               ),
             ],
           ],
@@ -7032,15 +7173,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (key == 'C') {
       controller.clear();
     } else if (key == 'DEL') {
-      final text = controller.text;
-      final selection = controller.selection;
-      final start = selection.isValid ? selection.start : text.length;
-      final end = selection.isValid ? selection.end : text.length;
-      final from = start == end && start > 0 ? start - 1 : start;
-      controller.value = TextEditingValue(
-        text: text.replaceRange(from, end, ''),
-        selection: TextSelection.collapsed(offset: from),
-      );
+      _deleteFromAuxiliaryMathField(controller);
     } else if (key == '\u00B1') {
       final text = controller.text;
       controller.text = text.startsWith('-') ? text.substring(1) : '-$text';
@@ -7048,15 +7181,7 @@ class _CalculatorPageState extends State<CalculatorPage> {
         offset: controller.text.length,
       );
     } else {
-      final selection = controller.selection;
-      final start = selection.isValid
-          ? selection.start
-          : controller.text.length;
-      final end = selection.isValid ? selection.end : controller.text.length;
-      controller.value = TextEditingValue(
-        text: controller.text.replaceRange(start, end, key),
-        selection: TextSelection.collapsed(offset: start + key.length),
-      );
+      _insertIntoAuxiliaryMathField(controller, key);
     }
     _calculateNumberSystem();
   }
@@ -7189,43 +7314,25 @@ class _CalculatorPageState extends State<CalculatorPage> {
         Row(
           children: [
             Expanded(
-              child: TextField(
-                controller: _geometryFirst,
-                readOnly: true,
-                style: const TextStyle(fontFamily: 'serif', fontSize: 20),
+              child: _buildAuxiliaryMathInput(
+                _geometryFirst,
+                label: firstLabel,
                 onTap: () => setState(() => _geometryUsesSecond = false),
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                onChanged: (_) {
+                onChanged: () {
                   if (_geometrySecond.text.isNotEmpty || !twoDimensions) {
                     _calculateGeometry();
                   }
                 },
-                decoration: InputDecoration(
-                  labelText: firstLabel,
-                  isDense: true,
-                  border: const OutlineInputBorder(),
-                ),
               ),
             ),
             if (twoDimensions) ...[
               const SizedBox(width: 8),
               Expanded(
-                child: TextField(
-                  controller: _geometrySecond,
-                  readOnly: true,
-                  style: const TextStyle(fontFamily: 'serif', fontSize: 20),
+                child: _buildAuxiliaryMathInput(
+                  _geometrySecond,
+                  label: secondLabel,
                   onTap: () => setState(() => _geometryUsesSecond = true),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
-                  onChanged: (_) => _calculateGeometry(),
-                  decoration: InputDecoration(
-                    labelText: secondLabel,
-                    isDense: true,
-                    border: const OutlineInputBorder(),
-                  ),
+                  onChanged: _calculateGeometry,
                 ),
               ),
             ],
@@ -7522,33 +7629,27 @@ class _CalculatorPageState extends State<CalculatorPage> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    TextField(
-                      key: const Key('drawing-expression-review'),
-                      controller: _drawingExpressionInput,
-                      keyboardType: TextInputType.none,
-                      decoration: InputDecoration(
-                        labelText: _recognizedExpression == null
-                            ? 'Type or correct the expression'
-                            : 'Recognized math, tap to correct',
-                        isDense: true,
-                        suffixIcon: IconButton(
-                          tooltip: 'Solve corrected expression',
-                          onPressed:
-                              _drawingResultMode == _DrawingResultMode.off
-                              ? null
-                              : _solveRecognizedDrawing,
-                          icon: const Icon(Icons.calculate_outlined),
-                        ),
+                    _buildAuxiliaryMathInput(
+                      _drawingExpressionInput,
+                      label: _recognizedExpression == null
+                          ? 'Type or correct the expression'
+                          : 'Recognized math, tap to correct',
+                      modelKey: const Key('drawing-expression-review'),
+                      suffixIcon: IconButton(
+                        tooltip: 'Solve corrected expression',
+                        onPressed: _drawingResultMode == _DrawingResultMode.off
+                            ? null
+                            : _solveRecognizedDrawing,
+                        icon: const Icon(Icons.calculate_outlined),
                       ),
-                      onChanged: (value) {
+                      onChanged: () {
                         setState(() {
-                          _recognizedExpression = value;
+                          _recognizedExpression = _drawingExpressionInput.text;
                           _result = null;
                           _drawingSolveSuggested =
                               _drawingResultMode == _DrawingResultMode.suggest;
                         });
                       },
-                      onSubmitted: (_) => _solveRecognizedDrawing(),
                     ),
                     if (_strokeSymbolCandidates.isNotEmpty) ...[
                       const SizedBox(height: 6),

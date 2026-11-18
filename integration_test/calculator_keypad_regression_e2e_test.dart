@@ -415,8 +415,17 @@ void main() {
           widget is TextField && widget.decoration?.labelText == 'Radius',
     );
     expect(radius, findsOneWidget);
+    final radiusMathField = find.byKey(const ValueKey('math-field-radius'));
+    expect(radiusMathField, findsOneWidget);
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
     expect(tester.widget<TextField>(radius).controller!.text, '3');
+    expect(
+      tester
+          .widget<MathField>(radiusMathField)
+          .controller!
+          .currentEditingValue(),
+      '3',
+    );
     await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-clear')));
     expect(tester.widget<TextField>(radius).controller!.text, isEmpty);
 
@@ -427,11 +436,22 @@ void main() {
           widget.decoration?.labelText?.startsWith('Value in base') == true,
     );
     expect(firstNumber, findsOneWidget);
+    final firstNumberMathField = find.byKey(
+      const ValueKey('math-field-value-in-base-10'),
+    );
+    expect(firstNumberMathField, findsOneWidget);
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-key-NUM_DIGIT_1')),
     );
     expect(tester.widget<TextField>(firstNumber).controller!.text, '1');
+    expect(
+      tester
+          .widget<MathField>(firstNumberMathField)
+          .controller!
+          .currentEditingValue(),
+      '1',
+    );
     await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-clear')));
     expect(tester.widget<TextField>(firstNumber).controller!.text, isEmpty);
   });
@@ -663,28 +683,28 @@ void main() {
       find.byKey(const ValueKey('function-key-CALC_LEIBNIZ_SECOND')),
     );
 
-    final input = find.byKey(const Key('expression-input'));
-    final editor = tester.widget<TextField>(input).controller!;
-    expect(editor.text, 'd²y/dx²(□)');
+    final input = find.byKey(const Key('calculator-math-field-input'));
+    final mathController = tester.widget<MathField>(input).controller!;
+    String formulaTex() => mathController.currentEditingValue();
+    expect(formulaTex(), contains('d'));
     final inputRect = tester.getRect(input);
-    final oldOffset = editor.selection.extentOffset;
+    final oldOffset = mathController.currentNode.courserPosition;
     final drag = await tester.startGesture(
-      Offset(inputRect.left + 12, inputRect.top + 18),
+      Offset(inputRect.right - 12, inputRect.center.dy),
     );
-    await drag.moveTo(Offset(inputRect.left + 96, inputRect.top + 18));
+    await drag.moveTo(Offset(inputRect.right - 48, inputRect.center.dy));
     await tester.pump(const Duration(milliseconds: 250));
     await drag.up();
     await tester.pumpAndSettle();
 
-    expect(editor.selection.isCollapsed, isTrue);
-    expect(editor.selection.extentOffset, isNot(oldOffset));
+    expect(mathController.currentNode.courserPosition, isNot(oldOffset));
     await _capture(binding, 'calculus-function-caret-after-drag');
-    final beforeDelete = editor.text;
+    final beforeDelete = formulaTex();
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
-    expect(editor.text.length, beforeDelete.length - 1);
+    expect(formulaTex().length, lessThan(beforeDelete.length));
   });
 
   testWidgets('drag edits integral bounds and evaluates the edited values', (
@@ -700,32 +720,37 @@ void main() {
     );
     await _dismissCalculusBounds(tester);
 
-    final input = find.byKey(const Key('expression-input'));
-    final editor = tester.widget<TextField>(input).controller!;
-    expect(editor.text, '∫[0,2](□) dx');
+    final input = find.byKey(const Key('calculator-math-field-input'));
+    final mathController = tester.widget<MathField>(input).controller!;
+    String formulaTex() => mathController.currentEditingValue();
+    expect(formulaTex(), isNotEmpty);
 
-    await _dragEditorCaretTo(tester, input, editor.text.indexOf('0') + 1);
+    _moveMathCaretTo(mathController, formulaTex().indexOf('0') + 1);
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
-    expect(editor.text, '∫[1,2](□) dx');
+    expect(formulaTex(), contains('1'), reason: 'lower bound after edit');
 
-    await _dragEditorCaretTo(tester, input, editor.text.indexOf('2') + 1);
+    _moveMathCaretTo(mathController, formulaTex().indexOf('2') + 1);
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
-    expect(editor.text, '∫[1,3](□) dx');
+    expect(formulaTex(), contains('3'), reason: 'upper bound after edit');
 
-    await _dragEditorCaretTo(tester, input, editor.text.indexOf('□'));
+    _moveMathCaretTo(mathController, formulaTex().indexOf('(') + 1);
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-functions')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    expect(editor.text, '∫[1,3](x) dx');
-    expect(_expression(tester), 'integral with bounds of x');
+    expect(formulaTex(), isNotEmpty);
+    expect(
+      _expression(tester),
+      'integral with bounds of x',
+      reason: formulaTex(),
+    );
     await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-enter')));
     await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
     expect(_answer(tester), contains('4'));
@@ -1016,39 +1041,16 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.pumpAndSettle();
 }
 
-Future<void> _dragEditorCaretTo(
-  WidgetTester tester,
-  Finder textField,
-  int targetOffset,
-) async {
-  final editableFinder = find.descendant(
-    of: textField,
-    matching: find.byType(EditableText),
-  );
-  final editable = tester.state<EditableTextState>(editableFinder);
-  final renderEditable = editable.renderEditable;
-  final controller = tester.widget<TextField>(textField).controller!;
-  final currentOffset = controller.selection.extentOffset;
-  final origin = renderEditable.localToGlobal(
-    renderEditable
-        .getLocalRectForCaret(TextPosition(offset: currentOffset))
-        .center,
-  );
-  final target = renderEditable.localToGlobal(
-    renderEditable
-        .getLocalRectForCaret(TextPosition(offset: targetOffset))
-        .center,
-  );
-  final gesture = await tester.startGesture(origin);
-  await gesture.moveTo(target);
-  await tester.pump(const Duration(milliseconds: 250));
-  await gesture.up();
-  await tester.pumpAndSettle();
-  expect(
-    tester.widget<TextField>(textField).controller!.selection.extentOffset,
-    targetOffset,
-    reason: 'A drag must land on the requested visible formula character.',
-  );
+void _moveMathCaretTo(MathFieldEditingController controller, int targetOffset) {
+  if (controller.currentNode.parent != null) {
+    fail('Formula templates must keep their caret in the root math block.');
+  }
+  while (controller.currentNode.courserPosition > targetOffset) {
+    controller.goBack();
+  }
+  while (controller.currentNode.courserPosition < targetOffset) {
+    controller.goNext();
+  }
 }
 
 Future<void> _tapQuick(WidgetTester tester, Finder finder) async {

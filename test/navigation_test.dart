@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:math_keyboard/math_keyboard.dart';
 import 'package:mathevo/gamification.dart';
 import 'package:mathevo/main.dart';
 import 'package:mathevo/math_history.dart';
@@ -172,13 +173,17 @@ void main() {
       await tester.pumpWidget(_testApp());
       await tester.tap(find.byKey(const Key('nav-calculator')));
       await tester.pumpAndSettle();
+      await tester.tap(find.text('Basic').first);
+      await tester.pumpAndSettle();
       expect(find.text('Scientific'), findsOneWidget);
       expect(find.text('Graphing'), findsOneWidget);
-      await tester.tap(find.byKey(const ValueKey('basic-key-3')));
-      await tester.tap(find.byKey(const ValueKey('basic-key-multiply')));
-      await tester.tap(find.byKey(const ValueKey('basic-key-5')));
-      await tester.tap(find.byKey(const ValueKey('basic-key-+')));
-      await tester.tap(find.byKey(const ValueKey('basic-key-7')));
+      await tester.tap(find.text('Basic').last);
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('calculator-key-3')));
+      await tester.tap(find.byKey(const ValueKey('calculator-common-key-×')));
+      await tester.tap(find.byKey(const ValueKey('calculator-key-5')));
+      await tester.tap(find.byKey(const ValueKey('calculator-common-key-+')));
+      await tester.tap(find.byKey(const ValueKey('calculator-key-7')));
       await tester.tap(find.text('=').last);
       await tester.pumpAndSettle();
       await tester.tap(find.byKey(const Key('answer-simplified-choice')));
@@ -192,20 +197,14 @@ void main() {
       );
       expect(find.text('Solution steps'), findsNothing);
       expect(find.text('Calculate'), findsNothing);
-      await tester.tap(find.text('Advanced functions'));
+      await tester.tap(find.byKey(const ValueKey('keyboard-layer-symbols')));
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const Key('advanced-basic-key-a/b')),
+      await tester.tap(find.byKey(const ValueKey('calculator-key-a/b')));
+      await tester.pumpAndSettle();
+      final mathField = tester.widget<MathField>(
+        find.byKey(const Key('calculator-math-field-input')),
       );
-      await tester.pumpAndSettle();
-      await tester.tap(find.byKey(const Key('advanced-basic-key-a/b')));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('fraction-numerator-input')), findsOneWidget);
-      expect(
-        find.byKey(const Key('fraction-denominator-input')),
-        findsOneWidget,
-      );
-      expect(find.byKey(const Key('fraction-insert')), findsOneWidget);
+      expect(mathField.controller!.currentEditingValue(), contains(r'\frac'));
     },
   );
 
