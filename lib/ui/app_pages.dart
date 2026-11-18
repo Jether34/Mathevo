@@ -3132,7 +3132,11 @@ class _CalculatorPageState extends State<CalculatorPage> {
     } else if (key == 'DIFF_EQ_DZ') {
       _insert('dz/dt=');
     } else if (key == 'EQUALS_SIGN') {
-      _insert('=');
+      if (_mode == _CalculatorMode.numberSystem) {
+        _evaluateCurrentMode();
+      } else {
+        _insert('=');
+      }
     } else if (key == 'PERCENT') {
       _insert('/100');
     } else if (key == 'SIGN') {

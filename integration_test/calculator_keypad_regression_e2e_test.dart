@@ -96,11 +96,10 @@ void main() {
                 .replaceFirst('calculator-key-', '')
                 .replaceFirst('function-key-', '');
             await _clearKeypadState(tester);
-            if (action == 'DEL' || action == 'C') {
-              _seedEditableInput(tester, mode);
-            }
-            if (action.startsWith('NUM_OPERATOR_')) {
+            if (mode == 'Number systems') {
               _seedNumberSystemInputs(tester);
+            } else if (action == 'DEL' || action == 'C') {
+              _seedEditableInput(tester, mode);
             }
 
             final before = _visibleInputState(tester);
