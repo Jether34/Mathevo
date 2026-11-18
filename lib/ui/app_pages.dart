@@ -1642,7 +1642,14 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _ => r'\square',
       };
     }
-    final body = _mathTexFromSource(_input.text);
+    // A selected calculus operation is an expression in its own right. Keep
+    // its structure visible while the user is choosing the body to fill in.
+    final body =
+        _mode == _CalculatorMode.calculus &&
+            _calculusOperationSelected &&
+            _input.text.trim().isEmpty
+        ? r'\square'
+        : _mathTexFromSource(_input.text);
     if (_mode != _CalculatorMode.calculus || !_calculusOperationSelected) {
       return body;
     }
@@ -1660,6 +1667,8 @@ class _CalculatorPageState extends State<CalculatorPage> {
     if (_calculusFamily == 'Limits') {
       final target = _calculusOperation == 'Limit at infinity'
           ? (_limitAtPositiveInfinity ? r'\infty' : r'-\infty')
+          : _limitApproachInput.text.isEmpty
+          ? r'\square'
           : _limitApproachInput.text;
       final approach = switch (_calculusOperation) {
         'Left-hand limit' => r'^{-}',

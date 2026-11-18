@@ -534,6 +534,33 @@ void main() {
     await _capture(binding, '19-calculus-integral-result');
   });
 
+  testWidgets('limit function key immediately renders an editable template', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _selectMode(tester, 'Basic', 'Calculus');
+
+    await _tap(
+      tester,
+      find.byKey(const ValueKey('function-key-CALC_LIMIT_RIGHT')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(_expression(tester), 'right-hand limit of empty expression');
+    expect(
+      find.byKey(const Key('calculator-expression-display')),
+      findsOneWidget,
+    );
+    expect(find.byKey(const Key('expression-input')), findsOneWidget);
+    await _capture(binding, 'calculus-right-limit-template-visible');
+
+    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+    expect(_expression(tester), 'right-hand limit of x');
+    await _capture(binding, 'calculus-right-limit-function-entered');
+  });
+
   testWidgets(
     'finite limit expression is visible before and after evaluation',
     (tester) async {
