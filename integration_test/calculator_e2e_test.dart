@@ -72,8 +72,6 @@ void main() {
     await _enterExpression(tester, '123');
     await tester.tap(find.byKey(const ValueKey('calculator-keyboard-delete')));
     await _pumpForUi(tester);
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-    await _pumpForUi(tester);
     expect(
       (tester
           .widget<TextField>(find.byKey(const Key('expression-input')))
@@ -81,8 +79,6 @@ void main() {
           ?.text),
       '12',
     );
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-    await _pumpForUi(tester);
     await _tapVisible(tester, find.text('C').last);
     await _pumpForUi(tester);
 
@@ -243,10 +239,8 @@ void main() {
       await tester.ensureVisible(useAdjusted);
       await tester.tap(useAdjusted);
       await _pumpForUi(tester);
-      expect(find.byKey(const Key('expression-edit-toggle')), findsOneWidget);
+      expect(find.byKey(const Key('expression-input')), findsOneWidget);
       if (mode == 'Trigonometry') {
-        await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-        await _pumpForUi(tester);
         final adjustedExpression = tester
             .widget<TextField>(find.byKey(const Key('expression-input')))
             .controller!
@@ -256,8 +250,6 @@ void main() {
         final angle = double.parse(
           RegExp(r'^sin\(([^)]+)\)').firstMatch(adjustedExpression)!.group(1)!,
         );
-        await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-        await _pumpForUi(tester);
         await _pressEquals(tester);
         expect(
           double.parse(_answer(tester)),
@@ -272,7 +264,7 @@ void main() {
     expect(find.byTooltip('Clear'), findsOneWidget);
     await tester.tap(find.byTooltip('Back to calculator'));
     await _pumpForUi(tester);
-    expect(find.byKey(const Key('expression-edit-toggle')), findsOneWidget);
+    expect(find.byKey(const Key('expression-input')), findsOneWidget);
   });
 }
 
@@ -301,7 +293,6 @@ Future<void> _tapVisible(WidgetTester tester, Finder finder) async {
 }
 
 Future<void> _enterExpression(WidgetTester tester, String expression) async {
-  final editToggle = find.byKey(const Key('expression-edit-toggle'));
   if (find.byKey(const Key('calculation-result-panel')).evaluate().isNotEmpty) {
     await _tapVisible(
       tester,
@@ -310,18 +301,10 @@ Future<void> _enterExpression(WidgetTester tester, String expression) async {
     await _tapVisible(tester, find.byKey(const ValueKey('calculator-key-C')));
     await _pumpForUi(tester);
   }
-  if (find.byTooltip('Edit expression').evaluate().isNotEmpty) {
-    await tester.tap(editToggle);
-    await _pumpForUi(tester);
-  }
   final input = find.byKey(const Key('expression-input'));
   await tester.ensureVisible(input);
   await tester.enterText(input, expression);
   await _pumpForUi(tester);
-  if (find.byTooltip('Finish editing').evaluate().isNotEmpty) {
-    await tester.tap(editToggle);
-    await _pumpForUi(tester);
-  }
 }
 
 Future<void> _pressEquals(WidgetTester tester) async {

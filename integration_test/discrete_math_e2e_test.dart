@@ -114,16 +114,10 @@ Future<void> _tapCommand(
     }
     await tester.pump(const Duration(milliseconds: 80));
   }
-  final toggle = find.byKey(const Key('expression-edit-toggle'));
-  expect(toggle, findsOneWidget);
-  await tester.tap(toggle);
-  await tester.pump(const Duration(milliseconds: 100));
   final input = tester.widget<TextField>(
     find.byKey(const Key('expression-input')),
   );
   expect(input.controller?.text, expectedExpression);
-  await tester.tap(toggle);
-  await tester.pump(const Duration(milliseconds: 100));
 }
 
 Future<void> _tapFunction(WidgetTester tester, String key) async {

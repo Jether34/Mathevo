@@ -33,13 +33,8 @@ void main() {
     await tester.tap(graphMode);
     await tester.pumpAndSettle();
 
-    final editToggle = find.byKey(const Key('expression-edit-toggle'));
-    await tester.tap(editToggle);
-    await tester.pumpAndSettle();
     final expression = find.byKey(const Key('expression-input'));
     await tester.enterText(expression, '((3+0.01)^2-(3-0.01)^2)/(2*0.01)');
-    await tester.pumpAndSettle();
-    await tester.tap(editToggle);
     await tester.pumpAndSettle();
 
     final equals = find.text('=').last;

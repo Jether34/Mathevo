@@ -155,13 +155,12 @@ void main() {
     expect(scrollPosition.axisDirection, AxisDirection.right);
     await _capture(binding, '20-long-expression-scrollable');
 
-    await _tap(tester, find.byKey(const Key('expression-edit-toggle')));
     final input = find.byKey(const Key('expression-input'));
     final textField = tester.widget<TextField>(input);
     expect(textField.readOnly, isFalse);
     expect(textField.enableInteractiveSelection, isTrue);
     expect(textField.showCursor, isTrue);
-    expect(textField.style?.color, isNot(Colors.transparent));
+    expect(textField.style?.color, Colors.transparent);
 
     final inputRect = tester.getRect(input);
     await tester.tapAt(Offset(inputRect.left + 12, inputRect.top + 18));
@@ -170,6 +169,15 @@ void main() {
     expect(
       textField.controller!.selection.extentOffset,
       lessThan(textField.controller!.text.length),
+    );
+    final controller = textField.controller!;
+    final cursor = controller.selection.extentOffset;
+    final beforeEdit = controller.text;
+    await _tap(tester, find.byKey(const ValueKey('calculator-common-key-+')));
+    expect(
+      controller.text,
+      beforeEdit.replaceRange(cursor, cursor, '+'),
+      reason: 'A keypad tap must insert at the draggable expression caret.',
     );
     await _capture(binding, '21-expression-editor-cursor-placement');
     await tester.pump(const Duration(seconds: 2));
@@ -250,11 +258,8 @@ void main() {
     expect(_expression(tester), contains('binomial('));
     await _capture(binding, '12-probability-function-key-input');
 
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-    await tester.pumpAndSettle();
     final input = find.byKey(const Key('expression-input'));
     await tester.enterText(input, 'binomial(10,3,0.5)');
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
     await tester.pumpAndSettle();
     await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-enter')));
     final choice = find.byKey(const Key('answer-simplified-choice'));
@@ -276,11 +281,8 @@ void main() {
     expect(_expression(tester), contains('distance('));
     await _capture(binding, '13-physics-function-key-input');
 
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
-    await tester.pumpAndSettle();
     final input = find.byKey(const Key('expression-input'));
     await tester.enterText(input, 'distance(12,4)');
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
     await tester.pumpAndSettle();
     await _tap(tester, find.byKey(const ValueKey('calculator-keyboard-enter')));
     final choice = find.byKey(const Key('answer-simplified-choice'));
@@ -351,32 +353,33 @@ void main() {
     await _capture(binding, '19-calculus-integral-result');
   });
 
-  testWidgets('finite limit expression is visible before and after evaluation', (
-    tester,
-  ) async {
-    await _openCalculator(tester);
-    await binding.convertFlutterSurfaceToImage();
-    await tester.pumpAndSettle();
-    await _selectMode(tester, 'Basic', 'Calculus');
+  testWidgets(
+    'finite limit expression is visible before and after evaluation',
+    (tester) async {
+      await _openCalculator(tester);
+      await binding.convertFlutterSurfaceToImage();
+      await tester.pumpAndSettle();
+      await _selectMode(tester, 'Basic', 'Calculus');
 
-    await _tap(
-      tester,
-      find.byKey(const ValueKey('function-key-CALC_LIMIT_TWO')),
-    );
-    expect(find.byKey(const Key('calculus-bounds-dialog')), findsNothing);
-    await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    expect(_expression(tester), 'limit from both sides of x');
-    await _capture(binding, 'finite-limit-x-approaches-zero-expression');
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('function-key-CALC_LIMIT_TWO')),
+      );
+      expect(find.byKey(const Key('calculus-bounds-dialog')), findsNothing);
+      await _tap(tester, find.byKey(const ValueKey('function-key-x')));
+      expect(_expression(tester), 'limit from both sides of x');
+      await _capture(binding, 'finite-limit-x-approaches-zero-expression');
 
-    await _tap(
-      tester,
-      find.byKey(const ValueKey('calculator-keyboard-enter')),
-    );
-    await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
-    expect(_answer(tester), contains('0'));
-    expect(_expression(tester), 'limit from both sides of x');
-    await _capture(binding, 'finite-limit-x-approaches-zero-result');
-  });
+      await _tap(
+        tester,
+        find.byKey(const ValueKey('calculator-keyboard-enter')),
+      );
+      await _tap(tester, find.byKey(const Key('answer-simplified-choice')));
+      expect(_answer(tester), contains('0'));
+      expect(_expression(tester), 'limit from both sides of x');
+      await _capture(binding, 'finite-limit-x-approaches-zero-result');
+    },
+  );
 
   testWidgets('equation equals inserts a relation and graph views remain', (
     tester,
@@ -415,7 +418,7 @@ void main() {
     );
     await _capture(binding, '15-graphing-3d-view');
     await _tap(tester, find.text('Flip back to calculator'));
-    expect(find.byKey(const Key('expression-edit-toggle')), findsOneWidget);
+    expect(find.byKey(const Key('expression-input')), findsOneWidget);
   });
 }
 

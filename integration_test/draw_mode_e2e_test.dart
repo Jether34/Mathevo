@@ -147,7 +147,6 @@ void main() {
 
     await tester.tap(find.text('Use in calculator'));
     await _pumpForUi(tester);
-    await tester.tap(find.byKey(const Key('expression-edit-toggle')));
     await _pumpForUi(tester);
     expect(
       tester
