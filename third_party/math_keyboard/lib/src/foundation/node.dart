@@ -173,6 +173,33 @@ class TeXFunction extends TeX {
 
   @override
   String buildString({Color? cursorColor}) {
+    if (_isBoundedOperator && argNodes.length >= 3 && argNodes.length.isOdd) {
+      final dimensionCount = (argNodes.length - 1) ~/ 2;
+      String bound(bool upper) {
+        final lines = <String>[];
+        for (var dimension = 0; dimension < dimensionCount; dimension++) {
+          final index = dimension * 2 + (upper ? 1 : 0);
+          final value = argNodes[index].buildTeXString(
+            cursorColor: cursorColor,
+          );
+          lines.add(
+            dimensionCount == 1
+                ? value
+                : '${String.fromCharCode(120 + dimension)}=$value',
+          );
+        }
+        return dimensionCount == 1
+            ? lines.single
+            : r'\substack{' + lines.join(r'\\') + '}';
+      }
+
+      final lower = bound(false);
+      final upper = bound(true);
+      final body = argNodes.last.buildTeXString(cursorColor: cursorColor);
+      return '${expression}_{${lower}}^{${upper}}'
+          '${body.isEmpty ? '' : r'\, '}$body';
+    }
+
     final buffer = StringBuffer(expression);
     for (var i = 0; i < args.length; i++) {
       buffer.write(openingChar(args[i]));
@@ -181,6 +208,17 @@ class TeXFunction extends TeX {
     }
     return buffer.toString();
   }
+
+  /// Whether this node represents a math operator with editable lower, upper,
+  /// and expression slots (for example an integral, summation, or product).
+  bool get _isBoundedOperator => const {
+    r'\int',
+    r'\oint',
+    r'\iint',
+    r'\iiint',
+    r'\sum',
+    r'\prod',
+  }.contains(expression);
 }
 
 /// Class holding a single TeX expression.

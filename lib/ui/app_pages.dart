@@ -1346,23 +1346,50 @@ class _CalculatorPageState extends State<CalculatorPage> {
         _mathFieldController.clear();
       } else if (_mode == _CalculatorMode.calculus &&
           _calculusOperationSelected) {
-        final placeholder = source.indexOf('\u25a1');
-        final editorSource = placeholder >= 0
-            ? source.replaceRange(placeholder, placeholder + 1, '')
-            : source;
-        _mathFieldController.clear();
-        for (final rune in editorSource.runes) {
-          _mathFieldController.addLeaf(String.fromCharCode(rune));
-        }
-        final open = editorSource.indexOf('(');
-        final close = editorSource.lastIndexOf(')');
-        final target = placeholder >= 0
-            ? placeholder
-            : close > open
-            ? close
-            : editorSource.runes.length;
-        while (_mathFieldController.currentNode.courserPosition > target) {
-          _mathFieldController.goBack();
+        if (_calculusFamily == 'Integrals' &&
+            _calculusOperation != 'Indefinite integral') {
+          final dimensions = switch (_calculusOperation) {
+            'Double integral' => 2,
+            'Triple integral' => 3,
+            _ => 1,
+          };
+          final operator = switch (dimensions) {
+            2 => r'\iint',
+            3 => r'\iiint',
+            _ => r'\int',
+          };
+          final values = <String>[];
+          for (var dimension = 0; dimension < dimensions; dimension++) {
+            values
+              ..add(_calculusBoundControllers[dimension * 2].text)
+              ..add(_calculusBoundControllers[dimension * 2 + 1].text);
+          }
+          values.add(_input.text);
+          _mathFieldController.clear();
+          _mathFieldController.addBoundedOperator(
+            operator,
+            values: values,
+            activeArgument: values.length - 1,
+          );
+        } else {
+          final placeholder = source.indexOf('\u25a1');
+          final editorSource = placeholder >= 0
+              ? source.replaceRange(placeholder, placeholder + 1, '')
+              : source;
+          _mathFieldController.clear();
+          for (final rune in editorSource.runes) {
+            _mathFieldController.addLeaf(String.fromCharCode(rune));
+          }
+          final open = editorSource.indexOf('(');
+          final close = editorSource.lastIndexOf(')');
+          final target = placeholder >= 0
+              ? placeholder
+              : close > open
+              ? close
+              : editorSource.runes.length;
+          while (_mathFieldController.currentNode.courserPosition > target) {
+            _mathFieldController.goBack();
+          }
         }
       } else {
         _mathFieldController.updateValue(GrammarParser().parse(source));
@@ -1379,6 +1406,34 @@ class _CalculatorPageState extends State<CalculatorPage> {
 
   void _onMathFieldChanged(String tex) {
     if (_syncingMathField) return;
+    if (_mode == _CalculatorMode.calculus &&
+        _calculusFamily == 'Integrals' &&
+        _calculusOperation != 'Indefinite integral') {
+      final bounded = _mathFieldController.boundedOperator;
+      if (bounded != null) {
+        _syncingMathField = true;
+        final dimensions = (bounded.argNodes.length - 1) ~/ 2;
+        for (var dimension = 0; dimension < dimensions; dimension++) {
+          for (var bound = 0; bound < 2; bound++) {
+            final slot = dimension * 2 + bound;
+            _calculusBoundControllers[slot].text = _mathSourceFromTex(
+              _mathFieldController.boundedOperatorArgument(slot),
+            );
+          }
+        }
+        _input.text = _mathSourceFromTex(
+          _mathFieldController.boundedOperatorArgument(
+            bounded.argNodes.length - 1,
+          ),
+        );
+        _calculusFormulaController.text = _calculusFormulaSource(
+          body: _input.text,
+        );
+        _syncingMathField = false;
+        _updateResult();
+        return;
+      }
+    }
     final source = _mathSourceFromTex(tex);
     _syncingMathField = true;
     if (_mode == _CalculatorMode.calculus && _calculusOperationSelected) {
@@ -1410,6 +1465,13 @@ class _CalculatorPageState extends State<CalculatorPage> {
         .replaceAll(r'\tau', 'tau')
         .replaceAll(r'\varphi', 'phi')
         .replaceAll(r'\infty', 'infinity')
+        .replaceAll(r'\sum', 'sumSymbol')
+        .replaceAll(r'\prod', 'productSymbol')
+        .replaceAll(r'\oint', 'lineIntegral')
+        .replaceAll(r'\int', 'integralSymbol')
+        .replaceAll(r'\iint', 'doubleIntegralSymbol')
+        .replaceAll(r'\iiint', 'tripleIntegralSymbol')
+        .replaceAll(r'\,', '')
         .replaceAll(r'\sin', 'sin')
         .replaceAll(r'\cos', 'cos')
         .replaceAll(r'\tan', 'tan')
@@ -1440,6 +1502,16 @@ class _CalculatorPageState extends State<CalculatorPage> {
   }
 
   void _insertIntoMathField(String value) {
+    final boundedOperator = switch (value) {
+      'sumSymbol' => r'\sum',
+      'productSymbol' => r'\prod',
+      'lineIntegral' => r'\oint',
+      _ => null,
+    };
+    if (boundedOperator != null) {
+      _mathFieldController.addBoundedOperator(boundedOperator);
+      return;
+    }
     final function = RegExp(r'^([A-Za-z][A-Za-z0-9]*)\($').firstMatch(value);
     if (function != null) {
       final name = function[1]!;
@@ -2137,6 +2209,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
         .replaceAll('nabla', r'\nabla')
         .replaceAll('delta', r'\Delta')
         .replaceAll('lineIntegral', r'\oint')
+        .replaceAll('integralSymbol', r'\int')
+        .replaceAll('doubleIntegralSymbol', r'\iint')
+        .replaceAll('tripleIntegralSymbol', r'\iiint')
         .replaceAll('sumSymbol', r'\sum')
         .replaceAll('productSymbol', r'\prod')
         .replaceAll('partial', r'\partial');
@@ -6616,6 +6691,9 @@ class _CalculatorPageState extends State<CalculatorPage> {
             ('.', '.'),
             ('½', 'a/b'),
             ('∞', 'infinity'),
+            ('∮', 'lineIntegral'),
+            ('∑', 'sumSymbol'),
+            ('∏', 'productSymbol'),
             ('DEL', 'DEL'),
           ];
     final functions = _mode == _CalculatorMode.basic

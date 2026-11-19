@@ -1016,9 +1016,11 @@ class MathFieldEditingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  double _nodeWidth(TeXNode node) => node.children
-      .where((child) => child is! Cursor)
-      .fold<double>(0, (width, child) => width + _texWidth(child));
+  double _nodeWidth(TeXNode node) {
+    final children = node.children.where((child) => child is! Cursor).toList();
+    if (children.isEmpty) return .85;
+    return children.fold<double>(0, (width, child) => width + _texWidth(child));
+  }
 
   double _texWidth(TeX tex) {
     if (tex is TeXLeaf) {
@@ -1038,6 +1040,12 @@ class MathFieldEditingController extends ChangeNotifier {
     }
     if (tex.expression.startsWith(r'\sqrt')) {
       return .9 + (argumentWidths.firstOrNull ?? 0);
+    }
+    if (_isBoundedOperator(tex.expression) && argumentWidths.length >= 3) {
+      final scriptWidth = argumentWidths
+          .take(argumentWidths.length - 1)
+          .fold<double>(0, math.max);
+      return .9 + scriptWidth + .35 + argumentWidths.last;
     }
     final prefixWidth = switch (tex.expression) {
       r'\sin' || r'\cos' || r'\tan' => 1.35,
@@ -1103,6 +1111,25 @@ class MathFieldEditingController extends ChangeNotifier {
       final argument = function.argNodes.first;
       if (x <= .9) return (argument, 0);
       return _locateCaret(argument, (x - .9).clamp(0, _nodeWidth(argument)), y);
+    }
+
+    if (_isBoundedOperator(expression) && function.argNodes.length >= 3) {
+      final dimensionCount = (function.argNodes.length - 1) ~/ 2;
+      final body = function.argNodes.last;
+      final scriptWidth = function.argNodes
+          .take(function.argNodes.length - 1)
+          .map(_nodeWidth)
+          .fold<double>(0, math.max);
+      if (x <= .9 + scriptWidth) {
+        final boundIndex = _boundedArgumentIndex(y, dimensionCount);
+        final slot = function.argNodes[boundIndex];
+        return _locateCaret(slot, (x - .9).clamp(0, _nodeWidth(slot)), y);
+      }
+      return _locateCaret(
+        body,
+        (x - .9 - scriptWidth - .35).clamp(0, _nodeWidth(body)),
+        y,
+      );
     }
 
     final contentWidth = function.argNodes.fold<double>(
@@ -1381,6 +1408,115 @@ class MathFieldEditingController extends ChangeNotifier {
     }
     currentNode.setCursor();
     notifyListeners();
+  }
+
+  /// Inserts an operator whose lower bound, upper bound, and body are
+  /// separate editable math regions. The insertion point starts in the lower
+  /// bound; tapping the rendered upper/lower scripts or body selects each
+  /// region independently.
+  void addBoundedOperator(
+    String tex, {
+    List<String>? values,
+    int activeArgument = 0,
+  }) {
+    if (!_isBoundedOperator(tex)) {
+      throw ArgumentError.value(tex, 'tex', 'Unsupported bounded operator');
+    }
+    final slotValues = values ?? const ['', '', ''];
+    if (slotValues.length < 3 || slotValues.length.isEven) {
+      throw ArgumentError.value(
+        values,
+        'values',
+        'Expected lower/upper pairs followed by the body',
+      );
+    }
+    if (activeArgument < 0 || activeArgument >= slotValues.length) {
+      throw RangeError.range(
+        activeArgument,
+        0,
+        slotValues.length - 1,
+        'activeArgument',
+      );
+    }
+    currentNode.removeCursor();
+    final function = TeXFunction(
+      tex,
+      currentNode,
+      List<TeXArg>.filled(slotValues.length, TeXArg.braces),
+    );
+    currentNode.addTeX(function);
+    for (var slot = 0; slot < slotValues.length; slot++) {
+      for (final rune in slotValues[slot].runes) {
+        function.argNodes[slot].addTeX(TeXLeaf(String.fromCharCode(rune)));
+      }
+    }
+    currentNode = function.argNodes[activeArgument];
+    currentNode.courserPosition = currentNode.children.length;
+    currentNode.setCursor();
+    notifyListeners();
+  }
+
+  /// Returns the first bounded operator in the expression, if present.
+  TeXFunction? get boundedOperator {
+    for (final child in root.children) {
+      if (child is TeXFunction && _isBoundedOperator(child.expression)) {
+        return child;
+      }
+    }
+    return null;
+  }
+
+  /// Serializes an argument of the first bounded operator without exposing the
+  /// internal cursor marker to consumers that synchronize calculator values.
+  String boundedOperatorArgument(
+    int index, {
+    bool placeholderWhenEmpty = false,
+  }) {
+    final function = boundedOperator;
+    if (function == null) {
+      throw StateError('The expression has no bounded operator.');
+    }
+    if (index < 0 || index >= function.argNodes.length) {
+      throw RangeError.index(index, function.argNodes, 'index');
+    }
+    final node = function.argNodes[index];
+    final containsCursor = identical(node, currentNode);
+    if (containsCursor) node.removeCursor();
+    try {
+      return node.buildTeXString(
+        cursorColor: null,
+        placeholderWhenEmpty: placeholderWhenEmpty,
+      );
+    } finally {
+      if (containsCursor) node.setCursor();
+    }
+  }
+
+  bool _isBoundedOperator(String tex) => const {
+    r'\int',
+    r'\oint',
+    r'\iint',
+    r'\iiint',
+    r'\sum',
+    r'\prod',
+  }.contains(tex);
+
+  int _boundedArgumentIndex(double y, int dimensions) {
+    if (dimensions == 1) return y < -.2 ? 1 : 0;
+    final scriptLine = switch (dimensions) {
+      2 when y < -.65 => 3,
+      2 when y < -.05 => 1,
+      2 when y < .55 => 0,
+      2 => 2,
+      3 when y < -.95 => 5,
+      3 when y < -.55 => 3,
+      3 when y < -.1 => 1,
+      3 when y < .35 => 0,
+      3 when y < .75 => 2,
+      3 => 4,
+      _ => y < -.2 ? 1 : 0,
+    };
+    return scriptLine;
   }
 
   /// Adds a pow to the current node

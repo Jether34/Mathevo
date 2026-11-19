@@ -414,6 +414,41 @@ void main() {
     await _capture(binding, 'math-field-editable-fraction');
   });
 
+  testWidgets('summation key opens editable math bound and body slots', (
+    tester,
+  ) async {
+    await _openCalculator(tester);
+    await binding.convertFlutterSurfaceToImage();
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-symbols')));
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-symbols')));
+
+    final sumKey = find.byKey(const ValueKey('calculator-key-sumSymbol'));
+    expect(sumKey, findsOneWidget);
+    await _tap(tester, sumKey);
+    final fieldFinder = find.byKey(const Key('calculator-math-field-input'));
+    var fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 32, fieldRect.center.dy + 8));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
+
+    fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 32, fieldRect.center.dy - 8));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-5')));
+
+    fieldRect = tester.getRect(fieldFinder);
+    await tester.tapAt(Offset(fieldRect.left + 100, fieldRect.center.dy));
+    await tester.pumpAndSettle();
+    await _tap(tester, find.byKey(const ValueKey('calculator-key-2')));
+
+    final controller = tester.widget<MathField>(fieldFinder).controller!;
+    expect(controller.currentEditingValue(), contains(r'\sum_{1}^{5}'));
+    expect(controller.currentEditingValue(), contains('2'));
+    await _capture(binding, 'summation-math-field-editable-bounds');
+  });
+
   testWidgets('Basic Fx layer inserts its selected function into expression', (
     tester,
   ) async {
@@ -748,7 +783,7 @@ void main() {
     expect(formulaTex().length, lessThan(beforeDelete.length));
   });
 
-  testWidgets('drag edits integral bounds and evaluates the edited values', (
+  testWidgets('taps edit integral bounds and evaluates the edited values', (
     tester,
   ) async {
     await _openCalculator(tester);
@@ -766,27 +801,37 @@ void main() {
     String formulaTex() => mathController.currentEditingValue();
     expect(formulaTex(), isNotEmpty);
 
-    _moveMathCaretTo(mathController, formulaTex().indexOf('0') + 1);
+    var inputRect = tester.getRect(input);
+    await tester.tapAt(Offset(inputRect.left + 38, inputRect.center.dy + 8));
+    await tester.pumpAndSettle();
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-numbers')));
     await _tap(tester, find.byKey(const ValueKey('calculator-key-1')));
-    expect(formulaTex(), contains('1'), reason: 'lower bound after edit');
+    expect(
+      formulaTex(),
+      contains(r'\int_{1}'),
+      reason: 'lower bound after edit',
+    );
 
-    _moveMathCaretTo(mathController, formulaTex().indexOf('2') + 1);
+    inputRect = tester.getRect(input);
+    await tester.tapAt(Offset(inputRect.left + 38, inputRect.center.dy - 8));
+    await tester.pumpAndSettle();
     await _tap(
       tester,
       find.byKey(const ValueKey('calculator-keyboard-delete')),
     );
     await _tap(tester, find.byKey(const ValueKey('calculator-key-3')));
-    expect(formulaTex(), contains('3'), reason: 'upper bound after edit');
+    expect(formulaTex(), contains(r'^{3}'), reason: 'upper bound after edit');
 
-    _moveMathCaretTo(mathController, formulaTex().indexOf('(') + 1);
+    inputRect = tester.getRect(input);
+    await tester.tapAt(Offset(inputRect.left + 100, inputRect.center.dy));
+    await tester.pumpAndSettle();
     await _tap(tester, find.byKey(const ValueKey('keyboard-layer-functions')));
     await _tap(tester, find.byKey(const ValueKey('function-key-x')));
-    expect(formulaTex(), isNotEmpty);
+    expect(formulaTex(), contains(r'\, x'));
     expect(
       _expression(tester),
       'integral with bounds of x',
@@ -1080,18 +1125,6 @@ Future<void> _tap(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.tap(finder);
   await tester.pumpAndSettle();
-}
-
-void _moveMathCaretTo(MathFieldEditingController controller, int targetOffset) {
-  if (controller.currentNode.parent != null) {
-    fail('Formula templates must keep their caret in the root math block.');
-  }
-  while (controller.currentNode.courserPosition > targetOffset) {
-    controller.goBack();
-  }
-  while (controller.currentNode.courserPosition < targetOffset) {
-    controller.goNext();
-  }
 }
 
 Future<void> _tapQuick(WidgetTester tester, Finder finder) async {
